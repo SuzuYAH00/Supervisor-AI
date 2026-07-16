@@ -1,0 +1,146 @@
+	# Entidades do Sistema
+
+Este documento descreve os principais objetos que existirão dentro do Supervisor AI.
+
+---
+
+# Colaborador
+
+Representa um operador ou gestor.
+
+Principais informações:
+
+- Nome
+- Matrícula
+- Função
+- Equipe
+- Escala
+- Indicadores
+- Pagamentos
+
+---
+
+# Cliente
+
+Representa um cliente cadastrado no MK.
+
+Principais informações:
+
+- Código
+- Nome
+- Plano
+- Status
+- Histórico
+
+---
+
+# Atendimento
+
+Representa um atendimento realizado.
+
+Origem:
+
+- NPX
+- MKBot
+
+Informações:
+
+- Identificador
+- Cliente
+- Operador
+- Data
+- Abertura
+- Encerramento
+
+---
+
+# Ticket
+
+Representa um registro operacional existente no MK Workspace.
+
+Pode estar relacionado a:
+
+- Upgrade
+- Cancelamento
+- Atendimento
+- Visita Técnica
+
+---
+
+# Upgrade
+
+Representa uma alteração comercial realizada no cliente.
+
+Estados possíveis:
+
+- Registrado
+- Plano alterado
+- Cliente pagou
+- Pago ao colaborador
+
+---
+
+# Reincidência
+
+Relacionamento entre dois atendimentos técnicos realizados para o mesmo cliente dentro do período de 30 dias.
+
+---
+
+# RV
+
+Resultado financeiro gerado pelos indicadores.
+
+Componentes:
+
+- CSAT
+- Reincidência
+- Qualidade
+- Atrasos
+- Ausências
+
+---
+
+# Extra
+
+Representa uma jornada extraordinária realizada pelo colaborador.
+
+Possui:
+
+- Horário
+- Intervalo
+- Tipo
+- Validação
+- Pagamento
+
+---
+
+# Indicador
+
+Representa qualquer métrica operacional.
+
+Exemplos:
+
+- CSAT
+- Reincidência
+- Upgrade
+- Qualidade
+- Cancelamentos
+
+---
+
+# Alerta
+
+Mensagem gerada automaticamente pelo sistema para auxiliar a supervisão.
+
+Exemplos:
+
+- Queda de indicador
+- Meta próxima
+- Operador abaixo da média
+- Tendência negativa
+
+---
+
+# Dashboard
+
+Representa a interface apresentada ao supervisor contendo indicadores, gráficos e alertas.

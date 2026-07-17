@@ -1,4 +1,5 @@
 from supervisor_ai.import_engine.connector import Connector
+from supervisor_ai.import_engine.file_connector import FileConnector
 from supervisor_ai.import_engine.types import (
     RawRecord,
     RawValue,
@@ -9,6 +10,7 @@ from supervisor_ai.import_engine.types import (
 
 __all__ = [
     "Connector",
+    "FileConnector",
     "RawRecord",
     "RawValue",
     "ReadResult",

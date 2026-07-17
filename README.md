@@ -244,6 +244,38 @@ Enquanto não houver contrato técnico confirmado para o MK Solutions, o fluxo d
 
 A decisão completa está registrada em `docs/adr/ADR-003.md`.
 
+## Desenvolvimento local do backend
+
+Pré-requisitos:
+
+- uv;
+- Docker com Docker Compose.
+
+Prepare o ambiente e inicie o PostgreSQL:
+
+```bash
+cp .env.example .env
+uv --project backend sync --all-groups
+docker compose up -d postgres
+```
+
+Execute as migrações e inicie a API:
+
+```bash
+uv --project backend run alembic -c backend/alembic.ini upgrade head
+uv --project backend run uvicorn supervisor_ai.main:app --reload
+```
+
+A API ficará disponível em `http://localhost:8000` e o endpoint de saúde em
+`http://localhost:8000/health`.
+
+Para validar o projeto:
+
+```bash
+uv --project backend run ruff check backend
+uv --project backend run pytest backend/tests
+```
+
 ---
 
 # Documentação

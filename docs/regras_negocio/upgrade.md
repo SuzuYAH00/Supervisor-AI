@@ -1,5 +1,7 @@
 # Regra de Negócio — Upgrade
 
+> Especificação funcional consolidada: [Upgrades e remuneração](upgrades_e_remuneracao.md).
+
 ## Objetivo
 
 Definir as regras utilizadas pelo Supervisor AI para identificar, validar, calcular e acompanhar premiações provenientes de Upgrades realizados pelos colaboradores.

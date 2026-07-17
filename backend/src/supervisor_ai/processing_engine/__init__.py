@@ -1,5 +1,8 @@
 from supervisor_ai.processing_engine.adapters import build_processing_contexts
 from supervisor_ai.processing_engine.batch import process_batch
+from supervisor_ai.processing_engine.normalization import (
+    TechnicalNormalizationProcessor,
+)
 from supervisor_ai.processing_engine.processor import Processor
 from supervisor_ai.processing_engine.types import (
     BatchProcessingResult,
@@ -20,6 +23,7 @@ __all__ = [
     "ProcessingOutcome",
     "Processor",
     "RecordRejection",
+    "TechnicalNormalizationProcessor",
     "build_processing_contexts",
     "process_batch",
 ]

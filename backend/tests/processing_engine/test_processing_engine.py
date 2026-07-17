@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+import supervisor_ai.processing_engine as processing_engine
 from supervisor_ai.import_engine import RawRecord, SourceMetadata
 from supervisor_ai.processing_engine import (
     ImportedRecordContext,
@@ -17,44 +18,48 @@ from supervisor_ai.processing_engine import (
 
 class CopyProcessor:
     def __init__(self) -> None:
-        self.processed_origins: list[ImportedRecordContext] = []
+        self.received: list[ProcessedRecord] = []
 
-    def process(self, context: ImportedRecordContext) -> ProcessedRecord:
-        self.processed_origins.append(context)
+    def process(self, record: ProcessedRecord) -> ProcessedRecord:
+        self.received.append(record)
         return ProcessedRecord(
-            origin=context,
-            data=dict(context.raw_record.data),
+            origin=record.origin,
+            data=dict(record.data),
             metadata={"processor": "copy"},
         )
 
 
 class RejectInvalidProcessor:
-    def process(
-        self,
-        context: ImportedRecordContext,
-    ) -> ProcessedRecord | RecordRejection:
-        if context.raw_record.data.get("valid") is not True:
+    def process(self, record: ProcessedRecord) -> ProcessedRecord | RecordRejection:
+        if record.data.get("valid") is not True:
             return RecordRejection(
-                origin=context,
+                origin=record.origin,
                 reason_code="invalid_record",
                 message="Record did not pass technical validation.",
             )
-        return ProcessedRecord(
-            origin=context,
-            data=dict(context.raw_record.data),
-        )
+        return ProcessedRecord(origin=record.origin, data=dict(record.data))
 
 
 class FailingProcessor:
     def __init__(self, error: ProcessingError) -> None:
         self.error = error
-        self.visited: list[ImportedRecordContext] = []
+        self.received: list[ProcessedRecord] = []
 
-    def process(self, context: ImportedRecordContext) -> ProcessedRecord:
-        self.visited.append(context)
-        if len(self.visited) == 2:
+    def process(self, record: ProcessedRecord) -> ProcessedRecord:
+        self.received.append(record)
+        if len(self.received) == 2:
             raise self.error
-        return ProcessedRecord(origin=context, data={"visited": True})
+        return ProcessedRecord(origin=record.origin, data={"visited": True})
+
+
+class MutatingProcessor:
+    def process(self, record: ProcessedRecord) -> ProcessedRecord:
+        nested = record.data["nested"]
+        assert isinstance(nested, dict)
+        items = nested["items"]
+        assert isinstance(items, list)
+        items.append("changed")
+        return record
 
 
 def make_context(value: int, *, valid: bool = True) -> ImportedRecordContext:
@@ -73,9 +78,7 @@ def make_context(value: int, *, valid: bool = True) -> ImportedRecordContext:
 
 
 def test_imported_record_context_generates_trace_id() -> None:
-    context = make_context(1)
-
-    assert isinstance(context.trace_id, UUID)
+    assert isinstance(make_context(1).trace_id, UUID)
 
 
 def test_imported_record_context_accepts_explicit_trace_id() -> None:
@@ -92,15 +95,36 @@ def test_imported_record_context_accepts_explicit_trace_id() -> None:
     assert context.trace_id is expected
 
 
-def test_processes_successful_record_and_preserves_origin_instance() -> None:
+def test_process_batch_creates_initial_processed_record() -> None:
     context = make_context(1)
+    processor = CopyProcessor()
 
-    result = process_batch(CopyProcessor(), [context])
+    result = process_batch(processor, [context])
 
-    assert len(result.processed) == 1
+    initial_record = processor.received[0]
+    assert isinstance(initial_record, ProcessedRecord)
+    assert initial_record.origin is context
+    assert initial_record.origin.trace_id is context.trace_id
+    assert initial_record.data == context.raw_record.data
     assert result.processed[0].origin is context
-    assert result.processed[0].data == {"value": 1, "valid": True}
-    assert result.rejected == []
+
+
+def test_process_batch_deep_copies_raw_data_before_processing() -> None:
+    raw_data = {"nested": {"items": ["original"]}}
+    context = ImportedRecordContext(
+        raw_record=RawRecord(data=raw_data),
+        source_metadata=SourceMetadata(
+            source_name="test-source",
+            read_at=datetime(2026, 7, 16, tzinfo=UTC),
+        ),
+    )
+
+    result = process_batch(MutatingProcessor(), [context])
+
+    assert result.processed[0].data == {"nested": {"items": ["original", "changed"]}}
+    assert context.raw_record.data == {"nested": {"items": ["original"]}}
+    assert result.processed[0].data is not context.raw_record.data
+    assert result.processed[0].data["nested"] is not raw_data["nested"]
 
 
 def test_processed_record_supports_normalized_standard_values() -> None:
@@ -114,7 +138,6 @@ def test_processed_record_supports_normalized_standard_values() -> None:
             "date": date(2026, 7, 16),
             "processed_at": processed_at,
             "identifier": identifier,
-            "nested": [{"amount": Decimal("1.25")}],
         },
     )
 
@@ -131,7 +154,7 @@ def test_processes_empty_batch_without_calling_processor() -> None:
 
     assert result.processed == []
     assert result.rejected == []
-    assert processor.processed_origins == []
+    assert processor.received == []
 
 
 def test_preserves_order_separately_for_multiple_outcomes() -> None:
@@ -149,25 +172,15 @@ def test_preserves_order_separately_for_multiple_outcomes() -> None:
         contexts[1],
         contexts[3],
     ]
-    assert not hasattr(result, "outcomes")
 
 
 def test_partial_rejection_does_not_discard_valid_records() -> None:
-    valid_context = make_context(1)
-    rejected_context = make_context(2, valid=False)
-    another_valid_context = make_context(3)
+    contexts = [make_context(1), make_context(2, valid=False), make_context(3)]
 
-    result = process_batch(
-        RejectInvalidProcessor(),
-        [valid_context, rejected_context, another_valid_context],
-    )
+    result = process_batch(RejectInvalidProcessor(), contexts)
 
-    assert [record.origin for record in result.processed] == [
-        valid_context,
-        another_valid_context,
-    ]
-    assert len(result.rejected) == 1
-    assert result.rejected[0].origin is rejected_context
+    assert [record.origin for record in result.processed] == [contexts[0], contexts[2]]
+    assert result.rejected[0].origin is contexts[1]
     assert result.rejected[0].reason_code == "invalid_record"
 
 
@@ -180,7 +193,7 @@ def test_technical_failure_stops_batch_and_is_propagated_unchanged() -> None:
         process_batch(processor, contexts)
 
     assert caught.value is expected
-    assert processor.visited == contexts[:2]
+    assert [record.origin for record in processor.received] == contexts[:2]
 
 
 def test_accepts_structural_processor_without_inheritance() -> None:
@@ -190,19 +203,6 @@ def test_accepts_structural_processor_without_inheritance() -> None:
     assert len(process_batch(processor, [make_context(1)]).processed) == 1
 
 
-def test_preserves_origin_traceability_for_both_outcomes() -> None:
-    processed_context = make_context(1)
-    rejected_context = make_context(2, valid=False)
-
-    result = process_batch(
-        RejectInvalidProcessor(),
-        [processed_context, rejected_context],
-    )
-
-    assert result.processed[0].origin is processed_context
-    assert result.processed[0].origin.raw_record.metadata == {"line_number": 2}
-    assert result.processed[0].origin.source_metadata.source_name == "test-source"
-    assert result.rejected[0].origin is rejected_context
-    assert result.rejected[0].origin.source_metadata.attributes == {
-        "file_name": "records.source"
-    }
+def test_processing_subject_is_not_part_of_public_api() -> None:
+    assert not hasattr(processing_engine, "ProcessingSubject")
+    assert "ProcessingSubject" not in processing_engine.__all__

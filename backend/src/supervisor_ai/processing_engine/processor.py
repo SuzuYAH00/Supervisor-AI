@@ -1,17 +1,14 @@
 from typing import Protocol, runtime_checkable
 
-from supervisor_ai.processing_engine.types import (
-    ImportedRecordContext,
-    ProcessingOutcome,
-)
+from supervisor_ai.processing_engine.types import ProcessedRecord, ProcessingOutcome
 
 
 @runtime_checkable
 class Processor(Protocol):
-    """Contrato estrutural para preparação técnica de um registro bruto."""
+    """Contrato estrutural para uma etapa técnica de processamento."""
 
-    def process(self, context: ImportedRecordContext) -> ProcessingOutcome:
-        """Processa um registro ou devolve sua rejeição esperada.
+    def process(self, record: ProcessedRecord) -> ProcessingOutcome:
+        """Processa o registro em trânsito ou devolve sua rejeição esperada.
 
         Raises:
             ProcessingError: Quando uma falha técnica impedir o processamento.

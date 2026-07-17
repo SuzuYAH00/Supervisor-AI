@@ -1,8 +1,5 @@
 from supervisor_ai.processing_engine.normalizers import TechnicalValueNormalizer
-from supervisor_ai.processing_engine.types import (
-    ImportedRecordContext,
-    ProcessedRecord,
-)
+from supervisor_ai.processing_engine.types import ProcessedRecord
 
 
 class TechnicalNormalizationProcessor:
@@ -14,12 +11,12 @@ class TechnicalNormalizationProcessor:
 
     _normalizer = TechnicalValueNormalizer()
 
-    def process(self, context: ImportedRecordContext) -> ProcessedRecord:
+    def process(self, record: ProcessedRecord) -> ProcessedRecord:
         """Produz uma nova estrutura normalizada sem modificar o registro bruto."""
         return ProcessedRecord(
-            origin=context,
+            origin=record.origin,
             data={
                 key: self._normalizer.normalize(value)
-                for key, value in context.raw_record.data.items()
+                for key, value in record.data.items()
             },
         )

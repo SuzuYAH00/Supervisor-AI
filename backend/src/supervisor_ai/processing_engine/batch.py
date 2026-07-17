@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from copy import deepcopy
 
 from supervisor_ai.processing_engine.processor import Processor
 from supervisor_ai.processing_engine.types import (
@@ -24,7 +25,11 @@ def process_batch(
     result = BatchProcessingResult()
 
     for context in contexts:
-        outcome = processor.process(context)
+        initial_record = ProcessedRecord(
+            origin=context,
+            data=deepcopy(context.raw_record.data),
+        )
+        outcome = processor.process(initial_record)
         if isinstance(outcome, ProcessedRecord):
             result.processed.append(outcome)
         elif isinstance(outcome, RecordRejection):

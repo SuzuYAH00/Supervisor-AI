@@ -32,6 +32,14 @@ O MK Solutions é atualmente uma das principais fontes operacionais da empresa.
 
 Ele concentra informações relacionadas aos clientes, contratos, atendimentos e processos internos.
 
+## Estado da integração técnica
+
+Ainda não existem contrato técnico confirmado, credenciais ou amostras reais da API do MK Solutions disponíveis para implementação.
+
+Até que essas informações sejam obtidas, nenhuma implementação será denominada conector ou integração MK. O primeiro fluxo técnico de importação utilizará uma fonte simulada genérica baseada em arquivos CSV e JSON.
+
+Essa simulação servirá para validar o contrato dos conectores e o Motor de Importação, sem assumir que os arquivos representam o formato real do MK Solutions.
+
 ---
 
 ## Módulos utilizados

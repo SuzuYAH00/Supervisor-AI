@@ -429,8 +429,22 @@ Possíveis evoluções:
 
 ---
 
-# 11. Observação
+# 11. Stack técnica
 
-Este documento define responsabilidades do backend.
+O backend será implementado como um monólito modular utilizando:
 
-Decisões técnicas específicas como linguagem, framework, infraestrutura e hospedagem serão definidas posteriormente em documentos próprios.
+- Python 3.12;
+- FastAPI;
+- PostgreSQL;
+- SQLAlchemy 2.x;
+- psycopg 3;
+- Alembic;
+- pytest;
+- Ruff;
+- uv.
+
+As operações de banco de dados serão síncronas inicialmente.
+
+No ambiente local, o Docker Compose será utilizado somente para executar o PostgreSQL. A aplicação Python será executada diretamente no ambiente gerenciado pelo uv.
+
+A decisão e seus critérios de revisão estão registrados em `docs/adr/ADR-003.md`.

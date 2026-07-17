@@ -226,6 +226,26 @@ PROJECT_CONTEXT.md
 
 ---
 
+# Stack Técnica do Backend
+
+O backend será desenvolvido como um monólito modular utilizando:
+
+- Python 3.12;
+- FastAPI;
+- PostgreSQL;
+- SQLAlchemy 2.x e psycopg 3;
+- Alembic;
+- pytest e Ruff;
+- uv para dependências e ambiente.
+
+No desenvolvimento local, o Docker Compose executará somente o PostgreSQL. As operações de banco serão síncronas inicialmente.
+
+Enquanto não houver contrato técnico confirmado para o MK Solutions, o fluxo de importação será validado por uma fonte simulada genérica baseada em arquivos CSV e JSON.
+
+A decisão completa está registrada em `docs/adr/ADR-003.md`.
+
+---
+
 # Documentação
 
 A documentação está organizada em:

@@ -412,4 +412,4 @@ A API poderá evoluir para:
 
 Este documento define a arquitetura de comunicação do Supervisor AI.
 
-A definição técnica de endpoints, autenticação, protocolos e tecnologias será realizada durante a implementação.
+A stack técnica do backend está definida em `docs/adr/ADR-003.md`. Endpoints, autenticação e protocolos específicos serão detalhados incrementalmente durante a implementação.

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import cast
 
+from supervisor_ai.rules_engine.conclusion_names import ContractualFactName
 from supervisor_ai.rules_engine.contractual_evidence import (
     ContractualEvidenceName,
 )
@@ -167,11 +168,11 @@ class SpeedComparisonRule:
         return _comparison_conclusions(
             rule_id=self.rule_id,
             pair=pair,
-            increased_name="speed_increased",
-            decreased_name="speed_decreased",
-            unchanged_name="speed_unchanged",
-            not_evaluable_name="speed_not_evaluable",
-            inconsistent_name="speed_inconsistent",
+            increased_name=ContractualFactName.SPEED_INCREASED,
+            decreased_name=ContractualFactName.SPEED_DECREASED,
+            unchanged_name=ContractualFactName.SPEED_UNCHANGED,
+            not_evaluable_name=ContractualFactName.SPEED_NOT_EVALUABLE,
+            inconsistent_name=ContractualFactName.SPEED_INCONSISTENT,
         )
 
 
@@ -195,9 +196,9 @@ class PlanModalityComparisonRule:
         )
         if pair.status is not ConclusionStatus.TRUE:
             name = (
-                "plan_modality_not_evaluable"
+                ContractualFactName.PLAN_MODALITY_NOT_EVALUABLE
                 if pair.status is ConclusionStatus.NOT_EVALUABLE
-                else "plan_modality_inconsistent"
+                else ContractualFactName.PLAN_MODALITY_INCONSISTENT
             )
             return (
                 _build_conclusion(
@@ -213,9 +214,9 @@ class PlanModalityComparisonRule:
         return (
             _build_conclusion(
                 rule_id=self.rule_id,
-                name="plan_modality_changed"
+                name=ContractualFactName.PLAN_MODALITY_CHANGED
                 if changed
-                else "plan_modality_unchanged",
+                else ContractualFactName.PLAN_MODALITY_UNCHANGED,
                 status=ConclusionStatus.TRUE,
                 evidence_ids=pair.evidence_ids,
                 value=value,
@@ -243,9 +244,9 @@ class MeshComparisonRule:
         )
         if pair.status is not ConclusionStatus.TRUE:
             name = (
-                "mesh_not_evaluable"
+                ContractualFactName.MESH_NOT_EVALUABLE
                 if pair.status is ConclusionStatus.NOT_EVALUABLE
-                else "mesh_inconsistent"
+                else ContractualFactName.MESH_INCONSISTENT
             )
             return (
                 _build_conclusion(
@@ -260,11 +261,11 @@ class MeshComparisonRule:
         current = cast(bool, pair.current)
         value = (previous, current)
         if not previous and current:
-            name = "mesh_included"
+            name = ContractualFactName.MESH_INCLUDED
         elif previous and not current:
-            name = "mesh_removed"
+            name = ContractualFactName.MESH_REMOVED
         else:
-            name = "mesh_unchanged"
+            name = ContractualFactName.MESH_UNCHANGED
         return (
             _build_conclusion(
                 rule_id=self.rule_id,
@@ -310,9 +311,9 @@ class CommonAdditionalsComparisonRule:
         )
         if pair.status is not ConclusionStatus.TRUE:
             name = (
-                "common_additionals_not_evaluable"
+                ContractualFactName.COMMON_ADDITIONALS_NOT_EVALUABLE
                 if pair.status is ConclusionStatus.NOT_EVALUABLE
-                else "common_additionals_inconsistent"
+                else ContractualFactName.COMMON_ADDITIONALS_INCONSISTENT
             )
             return (
                 _build_conclusion(
@@ -332,7 +333,7 @@ class CommonAdditionalsComparisonRule:
             conclusions.append(
                 _build_conclusion(
                     rule_id=self.rule_id,
-                    name="common_additional_included",
+                    name=ContractualFactName.COMMON_ADDITIONAL_INCLUDED,
                     status=ConclusionStatus.TRUE,
                     evidence_ids=pair.evidence_ids,
                     value=included,
@@ -342,7 +343,7 @@ class CommonAdditionalsComparisonRule:
             conclusions.append(
                 _build_conclusion(
                     rule_id=self.rule_id,
-                    name="common_additional_removed",
+                    name=ContractualFactName.COMMON_ADDITIONAL_REMOVED,
                     status=ConclusionStatus.TRUE,
                     evidence_ids=pair.evidence_ids,
                     value=removed,
@@ -352,7 +353,7 @@ class CommonAdditionalsComparisonRule:
             conclusions.append(
                 _build_conclusion(
                     rule_id=self.rule_id,
-                    name="common_additionals_unchanged",
+                    name=ContractualFactName.COMMON_ADDITIONALS_UNCHANGED,
                     status=ConclusionStatus.TRUE,
                     evidence_ids=pair.evidence_ids,
                     value=tuple(sorted(current)),
@@ -382,9 +383,9 @@ class RecurringValueComparisonRule:
         return _comparison_conclusions(
             rule_id=self.rule_id,
             pair=pair,
-            increased_name="recurring_value_increased",
-            decreased_name="recurring_value_decreased",
-            unchanged_name="recurring_value_unchanged",
-            not_evaluable_name="recurring_value_not_evaluable",
-            inconsistent_name="recurring_value_inconsistent",
+            increased_name=ContractualFactName.RECURRING_VALUE_INCREASED,
+            decreased_name=ContractualFactName.RECURRING_VALUE_DECREASED,
+            unchanged_name=ContractualFactName.RECURRING_VALUE_UNCHANGED,
+            not_evaluable_name=ContractualFactName.RECURRING_VALUE_NOT_EVALUABLE,
+            inconsistent_name=ContractualFactName.RECURRING_VALUE_INCONSISTENT,
         )

@@ -147,14 +147,20 @@ def test_rule_supports_structural_typing_without_inheritance() -> None:
 def test_public_api_exports_only_the_contract_surface() -> None:
     assert set(rules_engine.__all__) == {
         "CandidateDomainEvent",
+        "CommonAdditionalsComparisonRule",
         "ConclusionKind",
         "ConclusionStatus",
+        "ContractualEvidenceName",
         "EvaluationConclusion",
         "EvaluationContext",
         "EvaluationResult",
         "Evidence",
         "EvidenceValue",
         "Justification",
+        "MeshComparisonRule",
+        "PlanModalityComparisonRule",
+        "RecurringValueComparisonRule",
         "Rule",
         "RulePhase",
+        "SpeedComparisonRule",
     }

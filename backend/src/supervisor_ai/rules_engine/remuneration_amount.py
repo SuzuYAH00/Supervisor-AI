@@ -63,9 +63,10 @@ class RemunerationCalculationMethod(StrEnum):
 
 
 class Currency(StrEnum):
-    """Moeda explícita do valor calculado."""
+    """Moedas representáveis; a Fase F1 produz atualmente apenas BRL."""
 
     BRL = "BRL"
+    USD = "USD"
 
 
 @dataclass(frozen=True, slots=True)

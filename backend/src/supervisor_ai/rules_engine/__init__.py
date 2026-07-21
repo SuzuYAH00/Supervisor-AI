@@ -51,6 +51,17 @@ from supervisor_ai.rules_engine.remuneration_eligibility import (
     RemunerationEligibilityResult,
     RemunerationEligibilityStatus,
 )
+from supervisor_ai.rules_engine.remuneration_ledger import (
+    ExistingLedgerEntryReference,
+    LedgerEntry,
+    LedgerEntryType,
+    LedgerPostingInput,
+    LedgerPostingReason,
+    LedgerPostingResult,
+    LedgerPostingStatus,
+    RemunerationLedgerPostingEvaluator,
+    build_credit_entry_id,
+)
 from supervisor_ai.rules_engine.rule import Rule
 from supervisor_ai.rules_engine.types import (
     CandidateDomainEvent,
@@ -80,9 +91,16 @@ __all__ = [
     "EvaluationConclusion",
     "EvaluationContext",
     "EvaluationResult",
+    "ExistingLedgerEntryReference",
     "Evidence",
     "EvidenceValue",
     "Justification",
+    "LedgerEntry",
+    "LedgerEntryType",
+    "LedgerPostingInput",
+    "LedgerPostingReason",
+    "LedgerPostingResult",
+    "LedgerPostingStatus",
     "InvoicePaymentStatus",
     "MeshComparisonRule",
     "NonLoyaltyAdditionalType",
@@ -111,9 +129,11 @@ __all__ = [
     "RemunerationEligibilityReason",
     "RemunerationEligibilityResult",
     "RemunerationEligibilityStatus",
+    "RemunerationLedgerPostingEvaluator",
     "Rule",
     "RulePhase",
     "SpeedComparisonRule",
     "TicketPresenceRule",
     "TicketSupportRule",
+    "build_credit_entry_id",
 ]

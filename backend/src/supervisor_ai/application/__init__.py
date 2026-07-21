@@ -7,8 +7,10 @@ from supervisor_ai.application.errors import (
 )
 from supervisor_ai.application.persistence import CommercialEvent, ProcessingRun
 from supervisor_ai.application.ports import (
+    Clock,
     EventRepository,
     LedgerRepository,
+    ProcessingRunIdGenerator,
     ProcessingRunRepository,
     UnitOfWork,
     UnitOfWorkFactory,
@@ -18,10 +20,12 @@ __all__ = [
     "ApplicationConflict",
     "CommercialEvent",
     "CommercialEventConflict",
+    "Clock",
     "EventRepository",
     "LedgerRepository",
     "LedgerConflict",
     "ProcessingRun",
+    "ProcessingRunIdGenerator",
     "ProcessingRunRepository",
     "UnitOfWork",
     "UnitOfWorkFactory",

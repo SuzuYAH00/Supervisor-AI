@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -9,7 +8,12 @@ from supervisor_ai.application.persistence import (
     JsonValue,
     ProcessingRun,
 )
-from supervisor_ai.application.ports import UnitOfWork, UnitOfWorkFactory
+from supervisor_ai.application.ports import (
+    Clock,
+    ProcessingRunIdGenerator,
+    UnitOfWork,
+    UnitOfWorkFactory,
+)
 from supervisor_ai.application.use_cases.process_commercial_event import (
     PhaseResult,
     ProcessCommercialEventCommand,
@@ -57,8 +61,8 @@ class ProcessAndPersistCommercialEventUseCase:
         *,
         processor: CommercialEventProcessor,
         unit_of_work_factory: UnitOfWorkFactory,
-        clock: Callable[[], datetime],
-        processing_run_id_generator: Callable[[], str],
+        clock: Clock,
+        processing_run_id_generator: ProcessingRunIdGenerator,
     ) -> None:
         self._processor = processor
         self._unit_of_work_factory = unit_of_work_factory

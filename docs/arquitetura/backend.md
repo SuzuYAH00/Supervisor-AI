@@ -494,3 +494,118 @@ Application: nome, status, continuidade, avisos e referências de auditoria. O
 campo `output` não é persistido nesta etapa, pois cada fase possui um contrato
 próprio e ainda não existe uma representação JSON pública comum. Essa omissão
 evita `repr`, pickle ou serialização implícita de objetos internos do motor.
+
+---
+
+# 13. Composition Root
+
+O módulo `supervisor_ai.bootstrap` é o Composition Root inicial do backend. Ele
+constrói explicitamente o grafo de objetos necessário para processar e persistir
+eventos comerciais:
+
+- engine e SessionFactory do SQLAlchemy;
+- fábrica de Unit of Work;
+- handlers das sete fases do fluxo comercial;
+- avaliadores puros do Rules Engine;
+- `ProcessCommercialEventUseCase`;
+- clock do sistema e gerador UUID para execuções;
+- `ProcessAndPersistCommercialEventUseCase`.
+
+As funções públicas `build_session_factory`, `build_unit_of_work_factory`,
+`build_rules_engine` e `build_transactional_processor` permitem montar o grafo
+completo ou suas partes principais sem Service Locator e sem singletons globais.
+Cada chamada produz dependências explícitas e independentes.
+
+## Limite arquitetural
+
+O bootstrap é a única camada autorizada a conhecer simultaneamente Application,
+Rules Engine e Infrastructure. Essa autorização existe somente para conectar
+objetos. O módulo não contém regras comerciais, não executa consultas por conta
+própria e não expõe modelos ORM à Application.
+
+As dependências continuam apontando para dentro:
+
+```text
+Composition Root
+    ├── Application
+    ├── Rules Engine
+    └── Infrastructure
+
+Application ──→ contratos públicos do Rules Engine
+Infrastructure ──→ portas da Application
+Rules Engine ──→ nenhuma infraestrutura
+```
+
+## Entradas financeiras ainda ausentes
+
+O contrato público atual fornece o contexto de avaliação contratual, mas ainda
+não fornece um snapshot financeiro completo para pagamento, cálculo e postagem.
+Os handlers compostos executam essas fases com ausência explícita de evidência;
+os avaliadores reais respondem `not_evaluable` e nenhum lançamento é inventado.
+Um futuro adapter poderá fornecer esses dados quando seu contrato for definido,
+sem alterar a Application, a transação ou as regras puras; o Composition Root
+passará apenas a conectar esse adapter.
+
+---
+
+# 14. Entrada JSON do Import Engine
+
+A primeira porta de entrada do Import Engine recebe um único documento JSON e o
+transforma no comando público `ProcessAndPersistCommercialEventCommand`. O
+adapter está em `infrastructure.importing`, pois JSON é uma preocupação de
+transporte e não pertence à Application nem ao Rules Engine.
+
+O fluxo é explícito:
+
+```text
+Texto JSON
+    ↓
+Parser estrito
+    ↓
+Validação do schema
+    ↓
+Mapeamento para CommercialEvent, EvaluationContext e Evidence
+    ↓
+ProcessAndPersistCommercialEventUseCase
+```
+
+## Schema inicial
+
+O objeto raiz aceita exatamente:
+
+- `event`: `id`, `external_reference`, `source`, `occurred_at`, `received_at` e
+  `raw_payload`;
+- `evaluation`: `evaluation_id`, `subject_id`, `observed_at` e `evidence`;
+- `rules_engine_version`.
+
+Cada item de `evaluation.evidence` aceita exatamente `id`, `name`, `value` e
+`observed_at`. Os nomes são validados diretamente pelo enum público
+`ContractualEvidenceName`. Os envelopes são fechados; somente `raw_payload` é
+um objeto JSON aberto, preservado sem descarte de campos.
+
+## Parsing e validação
+
+O parser usa `json.loads`, rejeita chaves duplicadas e números não finitos como
+`NaN` e `Infinity`. A validação rejeita campos ausentes ou desconhecidos, tipos
+incompatíveis, strings obrigatórias vazias, UUIDs inválidos, datas sem timezone,
+nomes de evidência desconhecidos e IDs de evidência repetidos. As mensagens
+incluem o caminho do campo que falhou.
+
+Datas ISO 8601 aceitam `Z` ou offset explícito e são normalizadas para UTC no
+mapeamento. Não há coerção de strings: `"500"` não se torna inteiro e `"true"`
+não se torna booleano. Arrays de adicionais tornam-se tuplas porque esse é o
+contrato imutável do Rules Engine. Valores numéricos das evidências recorrentes
+são convertidos explicitamente para `Decimal`; essa conversão é determinada
+pelo nome da evidência e não se aplica ao `raw_payload`.
+
+## Erros e composição
+
+Erros próprios do documento usam `ImportDocumentError`, `JsonSyntaxError` e
+`ImportValidationError`. Conflitos da Application, erros de integridade e falhas
+inesperadas do processador não são capturados nem convertidos pelo importer.
+
+`build_json_importer(database_url)` reutiliza
+`build_transactional_processor(database_url)` e não duplica a montagem do
+pipeline. Como o schema ainda não inclui o snapshot financeiro completo, a
+execução pode terminar em `not_evaluable` e nenhum lançamento financeiro é
+inferido ou fabricado.

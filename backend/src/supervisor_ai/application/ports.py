@@ -1,3 +1,4 @@
+from datetime import datetime
 from types import TracebackType
 from typing import Protocol, Self
 
@@ -52,3 +53,11 @@ class UnitOfWork(Protocol):
 
 class UnitOfWorkFactory(Protocol):
     def __call__(self) -> UnitOfWork: ...
+
+
+class Clock(Protocol):
+    def __call__(self) -> datetime: ...
+
+
+class ProcessingRunIdGenerator(Protocol):
+    def __call__(self) -> str: ...

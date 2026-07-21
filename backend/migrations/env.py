@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from supervisor_ai.core.config import get_settings
 from supervisor_ai.database.base import Base
+from supervisor_ai.infrastructure.persistence import models  # noqa: F401
 
 config = context.config
 

@@ -448,3 +448,49 @@ As operações de banco de dados serão síncronas inicialmente.
 No ambiente local, o Docker Compose será utilizado somente para executar o PostgreSQL. A aplicação Python será executada diretamente no ambiente gerenciado pelo uv.
 
 A decisão e seus critérios de revisão estão registrados em `docs/adr/ADR-003.md`.
+
+---
+
+# 12. Fluxo transacional de eventos comerciais
+
+O caso de uso `ProcessAndPersistCommercialEventUseCase`, na camada Application,
+coordena a primeira materialização transacional do fluxo de remuneração. Ele
+recebe um evento comercial e um contexto de avaliação, delega todas as decisões
+ao `ProcessCommercialEventUseCase` e persiste os fatos resultantes.
+
+Uma única Unit of Work abrange:
+
+1. localização ou inclusão do evento comercial;
+2. execução do fluxo puro do Rules Engine;
+3. registro de uma nova execução de processamento;
+4. inclusão idempotente do lançamento produzido;
+5. commit explícito após todas as gravações.
+
+O caso de uso não interpreta o conteúdo das decisões das fases e não conhece
+SQLAlchemy, banco de dados ou modelos ORM. Clock, gerador do identificador da
+execução e fábrica de Unit of Work são dependências injetadas. Uma exceção antes
+do commit encerra a Unit of Work com rollback, inclusive quando o evento tiver
+sido incluído na mesma tentativa.
+
+## Reprocessamento e idempotência
+
+A referência externa identifica de forma única um evento persistido. Um comando
+repetido é aceito quando mantém identificador interno, origem, instante de
+ocorrência e payload. Os instantes de recebimento e criação são metadados
+técnicos e não mudam a identidade comercial. Cada reprocessamento aceito gera um
+novo `ProcessingRun`, preservando o histórico das avaliações.
+
+Antes de inserir um crédito, a Application procura o crédito do evento. Um
+lançamento integralmente igual é tratado como já existente e não é duplicado.
+Um lançamento divergente gera `LedgerConflict`. A reutilização da referência
+externa com identidade ou payload divergente gera `CommercialEventConflict`.
+Constraints únicas no banco permanecem como proteção contra concorrência; erros
+técnicos de integridade não são convertidos silenciosamente em sucesso.
+
+## Auditoria das fases
+
+Cada execução armazena, por fase, somente o contrato estável conhecido pela
+Application: nome, status, continuidade, avisos e referências de auditoria. O
+campo `output` não é persistido nesta etapa, pois cada fase possui um contrato
+próprio e ainda não existe uma representação JSON pública comum. Essa omissão
+evita `repr`, pickle ou serialização implícita de objetos internos do motor.

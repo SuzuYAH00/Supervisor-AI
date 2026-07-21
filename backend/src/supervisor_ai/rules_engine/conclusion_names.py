@@ -123,3 +123,25 @@ class OperationalDecisionName(StrEnum):
     OPERATIONAL_CONTEXT_INELIGIBLE = "operational_context_ineligible"
     OPERATIONAL_CONTEXT_NOT_EVALUABLE = "operational_context_not_evaluable"
     OPERATIONAL_CONTEXT_INCONSISTENT = "operational_context_inconsistent"
+
+    PLAN_CHANGE_TICKET = "plan_change_ticket"
+    NON_PLAN_CHANGE_TICKET = "non_plan_change_ticket"
+    TICKET_PURPOSE_NOT_EVALUABLE = "ticket_purpose_not_evaluable"
+    TICKET_PURPOSE_INCONSISTENT = "ticket_purpose_inconsistent"
+
+    ADMINISTRATIVE_CHANGE = "administrative_change"
+    NON_ADMINISTRATIVE_CHANGE = "non_administrative_change"
+    ADMINISTRATIVE_NATURE_NOT_EVALUABLE = (
+        "administrative_nature_not_evaluable"
+    )
+    ADMINISTRATIVE_NATURE_INCONSISTENT = "administrative_nature_inconsistent"
+
+    CORRECTIVE_CHANGE = "corrective_change"
+    NON_CORRECTIVE_CHANGE = "non_corrective_change"
+    CORRECTIVE_NATURE_NOT_EVALUABLE = "corrective_nature_not_evaluable"
+    CORRECTIVE_NATURE_INCONSISTENT = "corrective_nature_inconsistent"
+
+    AUTHORSHIP_CONFLICT = "authorship_conflict"
+    NO_AUTHORSHIP_CONFLICT = "no_authorship_conflict"
+    AUTHORSHIP_CONFLICT_NOT_EVALUABLE = "authorship_conflict_not_evaluable"
+    AUTHORSHIP_CONFLICT_INCONSISTENT = "authorship_conflict_inconsistent"

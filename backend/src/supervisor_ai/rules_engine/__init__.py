@@ -26,6 +26,12 @@ from supervisor_ai.rules_engine.operational_context import (
     TicketPresenceRule,
     TicketSupportRule,
 )
+from supervisor_ai.rules_engine.remuneration_eligibility import (
+    RemunerationEligibilityEvaluator,
+    RemunerationEligibilityReason,
+    RemunerationEligibilityResult,
+    RemunerationEligibilityStatus,
+)
 from supervisor_ai.rules_engine.rule import Rule
 from supervisor_ai.rules_engine.types import (
     CandidateDomainEvent,
@@ -67,6 +73,10 @@ __all__ = [
     "PlanChangeClassificationRule",
     "RecurringRevenueClassificationRule",
     "RecurringValueComparisonRule",
+    "RemunerationEligibilityEvaluator",
+    "RemunerationEligibilityReason",
+    "RemunerationEligibilityResult",
+    "RemunerationEligibilityStatus",
     "Rule",
     "RulePhase",
     "SpeedComparisonRule",

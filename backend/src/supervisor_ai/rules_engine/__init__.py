@@ -7,6 +7,8 @@ from supervisor_ai.rules_engine.commercial_classification import (
 from supervisor_ai.rules_engine.conclusion_names import (
     CommercialClassificationName,
     ContractualFactName,
+    OperationalDecisionName,
+    OperationalFactName,
 )
 from supervisor_ai.rules_engine.contractual_evidence import ContractualEvidenceName
 from supervisor_ai.rules_engine.contractual_facts import (
@@ -15,6 +17,14 @@ from supervisor_ai.rules_engine.contractual_facts import (
     PlanModalityComparisonRule,
     RecurringValueComparisonRule,
     SpeedComparisonRule,
+)
+from supervisor_ai.rules_engine.operational_context import (
+    CommercialAuthorRule,
+    DuplicateAuthorRule,
+    ManualReviewRule,
+    OperationalContextEligibilityRule,
+    TicketPresenceRule,
+    TicketSupportRule,
 )
 from supervisor_ai.rules_engine.rule import Rule
 from supervisor_ai.rules_engine.types import (
@@ -33,6 +43,7 @@ from supervisor_ai.rules_engine.types import (
 __all__ = [
     "CandidateDomainEvent",
     "CommercialClassificationName",
+    "CommercialAuthorRule",
     "CommonAdditionalClassificationRule",
     "CommonAdditionalsComparisonRule",
     "ConclusionKind",
@@ -46,6 +57,11 @@ __all__ = [
     "EvidenceValue",
     "Justification",
     "MeshComparisonRule",
+    "DuplicateAuthorRule",
+    "ManualReviewRule",
+    "OperationalDecisionName",
+    "OperationalFactName",
+    "OperationalContextEligibilityRule",
     "OperationScopeClassificationRule",
     "PlanModalityComparisonRule",
     "PlanChangeClassificationRule",
@@ -54,4 +70,6 @@ __all__ = [
     "Rule",
     "RulePhase",
     "SpeedComparisonRule",
+    "TicketPresenceRule",
+    "TicketSupportRule",
 ]

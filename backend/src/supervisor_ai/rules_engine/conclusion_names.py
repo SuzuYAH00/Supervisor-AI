@@ -61,3 +61,65 @@ class CommercialClassificationName(StrEnum):
     MIXED_PLAN_AND_ADDITIONAL_OPERATION = "mixed_plan_and_additional_operation"
     OPERATION_SCOPE_NOT_EVALUABLE = "operation_scope_not_evaluable"
     OPERATION_SCOPE_INCONSISTENT = "operation_scope_inconsistent"
+
+
+class OperationalFactName(StrEnum):
+    """Identificadores dos fatos operacionais fornecidos à Fase C."""
+
+    TICKET_FOUND = "ticket_found"
+    TICKET_NOT_FOUND = "ticket_not_found"
+    TICKET_LOOKUP_NOT_EVALUABLE = "ticket_lookup_not_evaluable"
+    TICKET_LOOKUP_INCONSISTENT = "ticket_lookup_inconsistent"
+
+    TICKET_OPENED_BY_SUPPORT = "ticket_opened_by_support"
+    TICKET_OPENED_OUTSIDE_SUPPORT = "ticket_opened_outside_support"
+    TICKET_AREA_NOT_EVALUABLE = "ticket_area_not_evaluable"
+    TICKET_AREA_INCONSISTENT = "ticket_area_inconsistent"
+
+    TICKET_AUTHOR_IDENTIFIED = "ticket_author_identified"
+    TICKET_AUTHOR_MISSING = "ticket_author_missing"
+    TICKET_AUTHORSHIP_NOT_EVALUABLE = "ticket_authorship_not_evaluable"
+    TICKET_AUTHORSHIP_INCONSISTENT = "ticket_authorship_inconsistent"
+
+    EXECUTOR_IDENTIFIED = "executor_identified"
+    EXECUTOR_MISSING = "executor_missing"
+    EXECUTOR_NOT_EVALUABLE = "executor_not_evaluable"
+    EXECUTOR_INCONSISTENT = "executor_inconsistent"
+
+    DUPLICATE_AUTHOR_DETECTED = "duplicate_author_detected"
+    DUPLICATE_AUTHOR_NOT_DETECTED = "duplicate_author_not_detected"
+    DUPLICATE_AUTHOR_NOT_EVALUABLE = "duplicate_author_not_evaluable"
+    DUPLICATE_AUTHOR_INCONSISTENT = "duplicate_author_inconsistent"
+
+
+class OperationalDecisionName(StrEnum):
+    """Identificadores estáveis das decisões operacionais da Fase C."""
+
+    TICKET_PRESENT = "ticket_present"
+    TICKET_MISSING = "ticket_missing"
+    TICKET_PRESENCE_NOT_EVALUABLE = "ticket_presence_not_evaluable"
+    TICKET_PRESENCE_INCONSISTENT = "ticket_presence_inconsistent"
+
+    SUPPORT_TICKET = "support_ticket"
+    NON_SUPPORT_TICKET = "non_support_ticket"
+    TICKET_SUPPORT_NOT_EVALUABLE = "ticket_support_not_evaluable"
+    TICKET_SUPPORT_INCONSISTENT = "ticket_support_inconsistent"
+
+    COMMERCIAL_AUTHOR_IDENTIFIED = "commercial_author_identified"
+    COMMERCIAL_AUTHOR_MISSING = "commercial_author_missing"
+    COMMERCIAL_AUTHOR_NOT_EVALUABLE = "commercial_author_not_evaluable"
+    COMMERCIAL_AUTHOR_INCONSISTENT = "commercial_author_inconsistent"
+
+    DUPLICATE_AUTHOR = "duplicate_author"
+    NO_DUPLICATE_AUTHOR = "no_duplicate_author"
+    DUPLICATE_AUTHOR_NOT_EVALUABLE = "duplicate_author_not_evaluable"
+    DUPLICATE_AUTHOR_INCONSISTENT = "duplicate_author_inconsistent"
+
+    MANUAL_REVIEW_REQUIRED = "manual_review_required"
+    MANUAL_REVIEW_NOT_EVALUABLE = "manual_review_not_evaluable"
+    MANUAL_REVIEW_INCONSISTENT = "manual_review_inconsistent"
+
+    OPERATIONAL_CONTEXT_ELIGIBLE = "operational_context_eligible"
+    OPERATIONAL_CONTEXT_INELIGIBLE = "operational_context_ineligible"
+    OPERATIONAL_CONTEXT_NOT_EVALUABLE = "operational_context_not_evaluable"
+    OPERATIONAL_CONTEXT_INCONSISTENT = "operational_context_inconsistent"

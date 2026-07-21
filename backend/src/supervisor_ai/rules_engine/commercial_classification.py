@@ -1,5 +1,9 @@
-from dataclasses import dataclass
-
+from supervisor_ai.rules_engine._conclusion_resolution import (
+    ResolvedConclusionGroup,
+    has_duplicate_names,
+    relevant_conclusions,
+    resolve_exclusive_conclusion_group,
+)
 from supervisor_ai.rules_engine.conclusion_names import (
     CommercialClassificationName,
     ContractualFactName,
@@ -15,91 +19,9 @@ from supervisor_ai.rules_engine.types import (
 )
 
 
-@dataclass(frozen=True, slots=True)
-class _ResolvedGroup:
-    status: ConclusionStatus
-    selected: tuple[EvaluationConclusion, ...] = ()
-    supporting_ids: tuple[str, ...] = ()
-
-
-def _relevant_conclusions(
-    available: tuple[EvaluationConclusion, ...],
-    names: frozenset[str],
-) -> tuple[EvaluationConclusion, ...]:
-    return tuple(
-        sorted(
-            (item for item in available if item.name in names),
-            key=lambda item: (item.name, item.conclusion_id),
-        )
-    )
-
-
-def _has_duplicate_names(conclusions: tuple[EvaluationConclusion, ...]) -> bool:
-    names = tuple(item.name for item in conclusions)
-    return len(names) != len(set(names))
-
-
-def _resolve_exclusive_group(
-    available: tuple[EvaluationConclusion, ...],
-    *,
-    positive_names: frozenset[str],
-    not_evaluable_name: str,
-    inconsistent_name: str,
-) -> _ResolvedGroup:
-    all_names = positive_names | {not_evaluable_name, inconsistent_name}
-    relevant = _relevant_conclusions(available, all_names)
-    supporting_ids = tuple(item.conclusion_id for item in relevant)
-
-    if _has_duplicate_names(relevant):
-        return _ResolvedGroup(
-            ConclusionStatus.INCONSISTENT,
-            supporting_ids=supporting_ids,
-        )
-    if any(
-        item.name == inconsistent_name
-        or item.status is ConclusionStatus.INCONSISTENT
-        for item in relevant
-    ):
-        return _ResolvedGroup(
-            ConclusionStatus.INCONSISTENT,
-            supporting_ids=supporting_ids,
-        )
-    if any(
-        item.name == not_evaluable_name
-        or item.status is ConclusionStatus.NOT_EVALUABLE
-        for item in relevant
-    ):
-        return _ResolvedGroup(
-            ConclusionStatus.NOT_EVALUABLE,
-            supporting_ids=supporting_ids,
-        )
-    if any(item.status is not ConclusionStatus.TRUE for item in relevant):
-        return _ResolvedGroup(
-            ConclusionStatus.INCONSISTENT,
-            supporting_ids=supporting_ids,
-        )
-
-    selected = tuple(item for item in relevant if item.name in positive_names)
-    if not selected:
-        return _ResolvedGroup(
-            ConclusionStatus.NOT_EVALUABLE,
-            supporting_ids=supporting_ids,
-        )
-    if len(selected) > 1:
-        return _ResolvedGroup(
-            ConclusionStatus.INCONSISTENT,
-            supporting_ids=supporting_ids,
-        )
-    return _ResolvedGroup(
-        ConclusionStatus.TRUE,
-        selected=selected,
-        supporting_ids=supporting_ids,
-    )
-
-
 def _resolve_additionals(
     available: tuple[EvaluationConclusion, ...],
-) -> _ResolvedGroup:
+) -> ResolvedConclusionGroup:
     positive_names = frozenset(
         {
             ContractualFactName.COMMON_ADDITIONAL_INCLUDED,
@@ -111,11 +33,11 @@ def _resolve_additionals(
         ContractualFactName.COMMON_ADDITIONALS_NOT_EVALUABLE,
         ContractualFactName.COMMON_ADDITIONALS_INCONSISTENT,
     }
-    relevant = _relevant_conclusions(available, all_names)
+    relevant = relevant_conclusions(available, all_names)
     supporting_ids = tuple(item.conclusion_id for item in relevant)
 
-    if _has_duplicate_names(relevant):
-        return _ResolvedGroup(
+    if has_duplicate_names(relevant):
+        return ResolvedConclusionGroup(
             ConclusionStatus.INCONSISTENT,
             supporting_ids=supporting_ids,
         )
@@ -124,7 +46,7 @@ def _resolve_additionals(
         or item.status is ConclusionStatus.INCONSISTENT
         for item in relevant
     ):
-        return _ResolvedGroup(
+        return ResolvedConclusionGroup(
             ConclusionStatus.INCONSISTENT,
             supporting_ids=supporting_ids,
         )
@@ -133,19 +55,19 @@ def _resolve_additionals(
         or item.status is ConclusionStatus.NOT_EVALUABLE
         for item in relevant
     ):
-        return _ResolvedGroup(
+        return ResolvedConclusionGroup(
             ConclusionStatus.NOT_EVALUABLE,
             supporting_ids=supporting_ids,
         )
     if any(item.status is not ConclusionStatus.TRUE for item in relevant):
-        return _ResolvedGroup(
+        return ResolvedConclusionGroup(
             ConclusionStatus.INCONSISTENT,
             supporting_ids=supporting_ids,
         )
 
     selected = tuple(item for item in relevant if item.name in positive_names)
     if not selected:
-        return _ResolvedGroup(
+        return ResolvedConclusionGroup(
             ConclusionStatus.NOT_EVALUABLE,
             supporting_ids=supporting_ids,
         )
@@ -156,11 +78,11 @@ def _resolve_additionals(
         and len(selected_names) > 1
     )
     if unchanged_with_change:
-        return _ResolvedGroup(
+        return ResolvedConclusionGroup(
             ConclusionStatus.INCONSISTENT,
             supporting_ids=supporting_ids,
         )
-    return _ResolvedGroup(
+    return ResolvedConclusionGroup(
         ConclusionStatus.TRUE,
         selected=selected,
         supporting_ids=supporting_ids,
@@ -183,8 +105,7 @@ def _build_decision(
         justification=Justification(
             rule_id=rule_id,
             summary=(
-                f"Commercial classification '{name}' evaluated as "
-                f"'{status.value}'."
+                f"Commercial classification '{name}' evaluated as '{status.value}'."
             ),
             supporting_conclusion_ids=supporting_ids,
         ),
@@ -195,7 +116,7 @@ def _build_decision(
 def _error_decision(
     *,
     rule_id: str,
-    resolved: tuple[_ResolvedGroup, ...],
+    resolved: tuple[ResolvedConclusionGroup, ...],
     not_evaluable_name: CommercialClassificationName,
     inconsistent_name: CommercialClassificationName,
 ) -> tuple[EvaluationConclusion, ...] | None:
@@ -239,7 +160,7 @@ class PlanChangeClassificationRule:
         available_conclusions: tuple[EvaluationConclusion, ...],
     ) -> tuple[EvaluationConclusion, ...]:
         del context
-        speed = _resolve_exclusive_group(
+        speed = resolve_exclusive_conclusion_group(
             available_conclusions,
             positive_names=frozenset(
                 {
@@ -251,7 +172,7 @@ class PlanChangeClassificationRule:
             not_evaluable_name=ContractualFactName.SPEED_NOT_EVALUABLE,
             inconsistent_name=ContractualFactName.SPEED_INCONSISTENT,
         )
-        modality = _resolve_exclusive_group(
+        modality = resolve_exclusive_conclusion_group(
             available_conclusions,
             positive_names=frozenset(
                 {
@@ -262,7 +183,7 @@ class PlanChangeClassificationRule:
             not_evaluable_name=ContractualFactName.PLAN_MODALITY_NOT_EVALUABLE,
             inconsistent_name=ContractualFactName.PLAN_MODALITY_INCONSISTENT,
         )
-        mesh = _resolve_exclusive_group(
+        mesh = resolve_exclusive_conclusion_group(
             available_conclusions,
             positive_names=frozenset(
                 {
@@ -300,9 +221,7 @@ class PlanChangeClassificationRule:
                 if changed
                 else CommercialClassificationName.PLAN_UNCHANGED,
                 status=ConclusionStatus.TRUE,
-                supporting_ids=tuple(
-                    sorted(item.conclusion_id for item in selected)
-                ),
+                supporting_ids=tuple(sorted(item.conclusion_id for item in selected)),
                 value=tuple(item.name for item in selected),
             ),
         )
@@ -320,7 +239,7 @@ class RecurringRevenueClassificationRule:
         available_conclusions: tuple[EvaluationConclusion, ...],
     ) -> tuple[EvaluationConclusion, ...]:
         del context
-        revenue = _resolve_exclusive_group(
+        revenue = resolve_exclusive_conclusion_group(
             available_conclusions,
             positive_names=frozenset(
                 {
@@ -426,7 +345,7 @@ class OperationScopeClassificationRule:
         available_conclusions: tuple[EvaluationConclusion, ...],
     ) -> tuple[EvaluationConclusion, ...]:
         del context
-        plan = _resolve_exclusive_group(
+        plan = resolve_exclusive_conclusion_group(
             available_conclusions,
             positive_names=frozenset(
                 {
@@ -434,12 +353,8 @@ class OperationScopeClassificationRule:
                     CommercialClassificationName.PLAN_UNCHANGED,
                 }
             ),
-            not_evaluable_name=(
-                CommercialClassificationName.PLAN_CHANGE_NOT_EVALUABLE
-            ),
-            inconsistent_name=(
-                CommercialClassificationName.PLAN_CHANGE_INCONSISTENT
-            ),
+            not_evaluable_name=(CommercialClassificationName.PLAN_CHANGE_NOT_EVALUABLE),
+            inconsistent_name=(CommercialClassificationName.PLAN_CHANGE_INCONSISTENT),
         )
         additionals = _resolve_additionals(available_conclusions)
         groups = (plan, additionals)

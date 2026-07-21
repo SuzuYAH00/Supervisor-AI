@@ -148,6 +148,7 @@ def test_public_api_exports_only_the_contract_surface() -> None:
     assert set(rules_engine.__all__) == {
         "CandidateDomainEvent",
         "CommercialClassificationName",
+        "CommercialAuthorRule",
         "CommonAdditionalClassificationRule",
         "CommonAdditionalsComparisonRule",
         "ConclusionKind",
@@ -161,6 +162,11 @@ def test_public_api_exports_only_the_contract_surface() -> None:
         "EvidenceValue",
         "Justification",
         "MeshComparisonRule",
+        "DuplicateAuthorRule",
+        "ManualReviewRule",
+        "OperationalDecisionName",
+        "OperationalFactName",
+        "OperationalContextEligibilityRule",
         "OperationScopeClassificationRule",
         "PlanModalityComparisonRule",
         "PlanChangeClassificationRule",
@@ -169,4 +175,6 @@ def test_public_api_exports_only_the_contract_surface() -> None:
         "Rule",
         "RulePhase",
         "SpeedComparisonRule",
+        "TicketPresenceRule",
+        "TicketSupportRule",
     }

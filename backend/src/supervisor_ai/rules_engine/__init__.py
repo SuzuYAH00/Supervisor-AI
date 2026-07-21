@@ -26,6 +26,14 @@ from supervisor_ai.rules_engine.operational_context import (
     TicketPresenceRule,
     TicketSupportRule,
 )
+from supervisor_ai.rules_engine.payment_validation import (
+    InvoicePaymentStatus,
+    PaymentValidationEvaluator,
+    PaymentValidationInput,
+    PaymentValidationReason,
+    PaymentValidationResult,
+    PaymentValidationStatus,
+)
 from supervisor_ai.rules_engine.remuneration_eligibility import (
     RemunerationEligibilityEvaluator,
     RemunerationEligibilityReason,
@@ -62,6 +70,7 @@ __all__ = [
     "Evidence",
     "EvidenceValue",
     "Justification",
+    "InvoicePaymentStatus",
     "MeshComparisonRule",
     "DuplicateAuthorRule",
     "ManualReviewRule",
@@ -71,6 +80,11 @@ __all__ = [
     "OperationScopeClassificationRule",
     "PlanModalityComparisonRule",
     "PlanChangeClassificationRule",
+    "PaymentValidationEvaluator",
+    "PaymentValidationInput",
+    "PaymentValidationReason",
+    "PaymentValidationResult",
+    "PaymentValidationStatus",
     "RecurringRevenueClassificationRule",
     "RecurringValueComparisonRule",
     "RemunerationEligibilityEvaluator",

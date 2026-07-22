@@ -161,3 +161,16 @@ def test_multiple_row_errors_do_not_stop_later_valid_rows() -> None:
     assert parsed.statistics.error_rows == 2
     assert parsed.statistics.converted_rows == 1
     assert parsed.documents[0].identifier == "csv-row-3"
+
+
+def test_rejects_every_row_with_a_duplicated_document_identifier() -> None:
+    first = csv_row(1)
+    second = csv_row(2)
+    second["document_identifier"] = first["document_identifier"]
+    parsed = CsvImportAdapter().parse(csv_text([first, second]))
+
+    assert parsed.documents == ()
+    assert parsed.statistics.error_rows == 2
+    assert all(
+        row.errors[0].column == "document_identifier" for row in parsed.rows
+    )

@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
@@ -216,7 +217,7 @@ class CsvImportAdapter:
                 f"invalid CSV structure at line {reader.line_num}: {error}"
             ) from error
 
-        rows = tuple(results)
+        rows = _reject_duplicate_identifiers(tuple(results))
         return CsvParseResult(
             rows=rows,
             statistics=CsvParseStatistics(
@@ -673,4 +674,29 @@ def _failed_row(
                 message=message,
             ),
         ),
+    )
+
+
+def _reject_duplicate_identifiers(
+    rows: tuple[CsvRowResult, ...],
+) -> tuple[CsvRowResult, ...]:
+    counts = Counter(
+        row.document_identifier
+        for row in rows
+        if row.document is not None and row.document_identifier is not None
+    )
+    duplicates = {identifier for identifier, count in counts.items() if count > 1}
+    if not duplicates:
+        return rows
+    return tuple(
+        _failed_row(
+            row.line_number,
+            "document_identifier",
+            row.document_identifier or "",
+            "document identifier is duplicated in this CSV file",
+            document_identifier=row.document_identifier,
+        )
+        if row.document is not None and row.document_identifier in duplicates
+        else row
+        for row in rows
     )

@@ -276,6 +276,36 @@ uv --project backend run ruff check backend
 uv --project backend run pytest backend/tests
 ```
 
+## Importação CSV pela linha de comando
+
+Após aplicar as migrations no banco escolhido, importe um arquivo CSV com:
+
+```bash
+uv --project backend run supervisor-ai import-csv \
+  docs/exemplos/importacao_comercial.csv \
+  --database-url sqlite+pysqlite:///supervisor_ai.sqlite3
+```
+
+A URL também pode ser configurada por `SUPERVISOR_AI_DATABASE_URL`. O argumento
+`--database-url` possui precedência e não existe banco padrão silencioso.
+
+Use `--verbose` para resultados por linha e `--output-format json` para uma
+projeção estruturada. `--debug` habilita traceback apenas para falhas fatais
+inesperadas. A CLI não cria tabelas nem executa migrations automaticamente.
+
+Exit codes:
+
+- `0`: todas as linhas convertidas foram processadas com sucesso;
+- `1`: execução concluída com erro de linha, validação, conflito ou falha técnica;
+- `2`: argumentos inválidos;
+- `3`: arquivo inexistente, irregular, inacessível ou com encoding inválido;
+- `4`: estrutura global do CSV inválida;
+- `5`: configuração ausente ou falha de inicialização;
+- `6`: falha inesperada fora do processamento isolado por documento.
+
+Falhas parciais não revertem outras linhas. Reexecutar o mesmo arquivo cria
+novos históricos de processamento, reutiliza eventos e não duplica créditos.
+
 ---
 
 # Documentação

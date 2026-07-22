@@ -799,3 +799,61 @@ O MVP permanece síncrono, sequencial, baseado na biblioteca padrão `csv` e sem
 pandas, threads, `asyncio`, leitura de arquivos ou streaming incremental. Novos
 formatos podem produzir o mesmo `BatchDocument[T]` sem reutilizar detalhes do
 CSV.
+
+---
+
+# 18. CLI de importação CSV
+
+A CLI é a fronteira responsável por argumentos, configuração, leitura física e
+apresentação do relatório. O comando público é:
+
+```bash
+supervisor-ai import-csv arquivo.csv \
+  --database-url sqlite+pysqlite:///supervisor_ai.sqlite3
+```
+
+O entry point `supervisor-ai` chama `supervisor_ai.cli:main`. Também é possível
+usar `python -m supervisor_ai.cli`. A CLI usa somente
+`build_csv_import_service(database_url)`; não monta engine, sessão, Unit of Work,
+repositórios, regras ou documentos do batch.
+
+## Configuração e arquivo
+
+A URL do banco segue precedência explícita:
+
+1. `--database-url` não vazio;
+2. `SUPERVISOR_AI_DATABASE_URL` não vazia;
+3. erro de configuração.
+
+Não existe banco padrão. A CLI também não aplica migrations nem chama
+`create_all`. O arquivo informado deve existir, ser regular e legível. A leitura
+usa `utf-8-sig`, aceitando UTF-8 com ou sem BOM, sem alterar, mover ou remover o
+arquivo.
+
+## Relatórios e correlação
+
+`--output-format text` é o padrão e produz um resumo sem cores. `--verbose`
+adiciona uma linha por resultado. `--output-format json` produz uma projeção
+explícita e estável com arquivo, status geral, parsing, processamento, duração e
+resultados correlacionados; mensagens fatais continuam em `stderr` e deixam
+`stdout` vazio.
+
+A correlação usa `document_identifier`, nunca posição. Para impedir ambiguidade,
+o CSV Adapter transforma todas as ocorrências de um identificador duplicado em
+`CSV_ROW_ERROR`; nenhuma delas chega ao batch. Conteúdo de `raw_payload`, URL e
+credenciais do banco não aparecem nos relatórios.
+
+## Exit codes
+
+- `0`: execução integralmente bem-sucedida;
+- `1`: falha parcial de linha ou documento;
+- `2`: uso ou argumento inválido (`argparse`);
+- `3`: arquivo ou encoding inválido;
+- `4`: estrutura global do CSV inválida;
+- `5`: configuração ou inicialização inválida;
+- `6`: exceção fatal inesperada.
+
+Erros esperados não exibem traceback. `--debug` libera traceback somente para
+falhas fatais de inicialização ou execução; erros normais de linha permanecem no
+relatório. O processamento continua sequencial e cada documento preserva sua
+transação independente e a idempotência do pipeline existente.

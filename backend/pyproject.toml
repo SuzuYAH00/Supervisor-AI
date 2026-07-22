@@ -13,6 +13,9 @@ dependencies = [
     "uvicorn[standard]>=0.34,<1",
 ]
 
+[project.scripts]
+supervisor-ai = "supervisor_ai.cli:main"
+
 [dependency-groups]
 dev = [
     "httpx>=0.28,<1",

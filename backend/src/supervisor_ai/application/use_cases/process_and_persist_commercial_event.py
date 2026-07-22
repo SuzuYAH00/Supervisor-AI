@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Protocol
 
 from supervisor_ai.application.errors import CommercialEventConflict, LedgerConflict
+from supervisor_ai.application.financial_snapshot import FinancialSnapshot
 from supervisor_ai.application.persistence import (
     CommercialEvent,
     JsonValue,
@@ -33,6 +34,7 @@ class ProcessAndPersistCommercialEventCommand:
     event: CommercialEvent
     evaluation_context: EvaluationContext
     rules_engine_version: str
+    financial_snapshot: FinancialSnapshot | None = None
 
     def __post_init__(self) -> None:
         if not self.rules_engine_version:
@@ -79,6 +81,7 @@ class ProcessAndPersistCommercialEventUseCase:
                 ProcessCommercialEventCommand(
                     event_id=command.event.id,
                     evaluation_context=command.evaluation_context,
+                    financial_snapshot=command.financial_snapshot,
                 )
             )
             if processing_result.event_id != command.event.id:

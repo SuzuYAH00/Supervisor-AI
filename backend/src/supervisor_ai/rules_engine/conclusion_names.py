@@ -91,6 +91,34 @@ class OperationalFactName(StrEnum):
     DUPLICATE_AUTHOR_NOT_EVALUABLE = "duplicate_author_not_evaluable"
     DUPLICATE_AUTHOR_INCONSISTENT = "duplicate_author_inconsistent"
 
+    TICKET_LINKED_TO_PLAN_CHANGE = "ticket_linked_to_plan_change"
+    TICKET_NOT_LINKED_TO_PLAN_CHANGE = "ticket_not_linked_to_plan_change"
+    TICKET_PURPOSE_NOT_EVALUABLE = "ticket_purpose_fact_not_evaluable"
+    TICKET_PURPOSE_INCONSISTENT = "ticket_purpose_fact_inconsistent"
+
+    CHANGE_MARKED_ADMINISTRATIVE = "change_marked_administrative"
+    CHANGE_NOT_MARKED_ADMINISTRATIVE = "change_not_marked_administrative"
+    ADMINISTRATIVE_NATURE_NOT_EVALUABLE = (
+        "administrative_nature_fact_not_evaluable"
+    )
+    ADMINISTRATIVE_NATURE_INCONSISTENT = "administrative_nature_fact_inconsistent"
+
+    CHANGE_MARKED_CORRECTIVE = "change_marked_corrective"
+    CHANGE_NOT_MARKED_CORRECTIVE = "change_not_marked_corrective"
+    CORRECTIVE_NATURE_NOT_EVALUABLE = "corrective_nature_fact_not_evaluable"
+    CORRECTIVE_NATURE_INCONSISTENT = "corrective_nature_fact_inconsistent"
+
+    CONFLICTING_AUTHORSHIP_EVIDENCE_FOUND = (
+        "conflicting_authorship_evidence_found"
+    )
+    CONFLICTING_AUTHORSHIP_EVIDENCE_NOT_FOUND = (
+        "conflicting_authorship_evidence_not_found"
+    )
+    AUTHORSHIP_CONFLICT_NOT_EVALUABLE = (
+        "authorship_conflict_fact_not_evaluable"
+    )
+    AUTHORSHIP_CONFLICT_INCONSISTENT = "authorship_conflict_fact_inconsistent"
+
 
 class OperationalDecisionName(StrEnum):
     """Identificadores estáveis das decisões operacionais da Fase C."""

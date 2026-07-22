@@ -147,9 +147,12 @@ def test_rule_supports_structural_typing_without_inheritance() -> None:
 def test_public_api_exports_only_the_contract_surface() -> None:
     assert set(rules_engine.__all__) == {
         "CandidateDomainEvent",
+        "AdministrativeNatureRule",
+        "AuthorshipConflictRule",
         "CommercialClassificationName",
         "CommercialEventType",
         "CommercialAuthorRule",
+        "CorrectiveNatureRule",
         "CommonAdditionalClassificationRule",
         "CommonAdditionalsComparisonRule",
         "ConclusionKind",
@@ -203,6 +206,7 @@ def test_public_api_exports_only_the_contract_surface() -> None:
         "RulePhase",
         "SpeedComparisonRule",
         "TicketPresenceRule",
+        "TicketPurposeRule",
         "TicketSupportRule",
         "build_credit_entry_id",
     }

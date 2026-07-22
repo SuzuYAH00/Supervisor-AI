@@ -5,7 +5,12 @@ import pytest
 from supervisor_ai.infrastructure.importing import ImportValidationError
 from supervisor_ai.infrastructure.importing.parser import parse_json_text
 from supervisor_ai.infrastructure.importing.schema import JsonImportDocumentValidator
-from tests.importing.factories import document, evidence, json_text
+from tests.importing.factories import (
+    complete_document,
+    document,
+    evidence,
+    json_text,
+)
 
 
 def validate(value: dict[str, object] | None = None):
@@ -173,3 +178,87 @@ def test_input_document_is_not_mutated() -> None:
     original = deepcopy(value)
     validate(value)
     assert value == original
+
+
+def _financial_section(
+    value: dict[str, object], section: str
+) -> dict[str, object]:
+    snapshot = value["financial_snapshot"]
+    assert isinstance(snapshot, dict)
+    selected = snapshot[section]
+    assert isinstance(selected, dict)
+    return selected
+
+
+def test_accepts_complete_financial_snapshot() -> None:
+    result = validate(complete_document())
+    assert result.financial_snapshot is not None
+    assert result.financial_snapshot.payment.invoice_recurring_amount == "99.90"
+
+
+def test_rejects_commercial_event_type_as_unknown_financial_fact() -> None:
+    value = complete_document()
+    remuneration = _financial_section(value, "remuneration")
+    remuneration["commercial_event_type"] = "plan_upgrade"
+    with pytest.raises(
+        ImportValidationError,
+        match="financial_snapshot.remuneration.commercial_event_type: unknown field",
+    ):
+        validate(value)
+
+
+def test_rejects_operational_decision_as_evidence_name() -> None:
+    value = document()
+    evaluation = value["evaluation"]
+    assert isinstance(evaluation, dict)
+    evaluation["evidence"] = [evidence("decision", "plan_change_ticket", None)]
+    with pytest.raises(
+        ImportValidationError,
+        match=r"evaluation.evidence\[0\].name: unknown evidence name",
+    ):
+        validate(value)
+
+
+def test_rejects_json_number_for_money() -> None:
+    value = complete_document()
+    payment = _financial_section(value, "payment")
+    payment["invoice_recurring_amount"] = 99.90
+    with pytest.raises(
+        ImportValidationError,
+        match="financial_snapshot.payment.invoice_recurring_amount: expected canonical",
+    ):
+        validate(value)
+
+
+@pytest.mark.parametrize("invalid", ["", "-1.00", "01.00", "1e2", "NaN"])
+def test_rejects_invalid_money_string(invalid: str) -> None:
+    value = complete_document()
+    remuneration = _financial_section(value, "remuneration")
+    remuneration["full_new_plan_amount"] = invalid
+    with pytest.raises(
+        ImportValidationError,
+        match="financial_snapshot.remuneration.full_new_plan_amount",
+    ):
+        validate(value)
+
+
+def test_rejects_naive_financial_datetime() -> None:
+    value = complete_document()
+    posting = _financial_section(value, "posting")
+    posting["posted_at"] = "2026-07-21T13:05:00"
+    with pytest.raises(
+        ImportValidationError,
+        match="financial_snapshot.posting.posted_at: timezone offset is required",
+    ):
+        validate(value)
+
+
+def test_rejects_unknown_financial_field() -> None:
+    value = complete_document()
+    payment = _financial_section(value, "payment")
+    payment["unknown"] = True
+    with pytest.raises(
+        ImportValidationError,
+        match="financial_snapshot.payment.unknown: unknown field",
+    ):
+        validate(value)

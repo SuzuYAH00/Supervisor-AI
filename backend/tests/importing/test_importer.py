@@ -55,6 +55,7 @@ def test_calls_processor_once_and_returns_auditable_result() -> None:
     assert result.event_persisted is True
     assert result.ledger_entry_id is None
     assert result.ledger_persisted is False
+    assert result.ledger_already_existed is False
     assert result.warnings == ("warning-1",)
     assert result.audit_references == ("audit-1",)
 

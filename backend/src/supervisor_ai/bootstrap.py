@@ -21,6 +21,7 @@ from supervisor_ai.infrastructure.persistence.unit_of_work import (
 )
 from supervisor_ai.infrastructure.rules_engine_handlers import (
     LedgerPostingPhaseHandler,
+    OperationalRulesPhaseHandler,
     PaymentValidationPhaseHandler,
     RemunerationAmountPhaseHandler,
     RemunerationEligibilityPhaseHandler,
@@ -31,9 +32,12 @@ from supervisor_ai.infrastructure.runtime import (
     UuidProcessingRunIdGenerator,
 )
 from supervisor_ai.rules_engine import (
+    AdministrativeNatureRule,
+    AuthorshipConflictRule,
     CommercialAuthorRule,
     CommonAdditionalClassificationRule,
     CommonAdditionalsComparisonRule,
+    CorrectiveNatureRule,
     DuplicateAuthorRule,
     ManualReviewRule,
     MeshComparisonRule,
@@ -49,6 +53,7 @@ from supervisor_ai.rules_engine import (
     RemunerationLedgerPostingEvaluator,
     SpeedComparisonRule,
     TicketPresenceRule,
+    TicketPurposeRule,
     TicketSupportRule,
 )
 
@@ -87,13 +92,17 @@ def build_rules_engine() -> ProcessCommercialEventUseCase:
                 OperationScopeClassificationRule(),
             ),
         ),
-        operational_context=RulesPhaseHandler(
+        operational_context=OperationalRulesPhaseHandler(
             CommercialEventPhase.OPERATIONAL_CONTEXT,
             (
                 TicketPresenceRule(),
                 TicketSupportRule(),
                 CommercialAuthorRule(),
                 DuplicateAuthorRule(),
+                TicketPurposeRule(),
+                AdministrativeNatureRule(),
+                CorrectiveNatureRule(),
+                AuthorshipConflictRule(),
                 ManualReviewRule(),
                 OperationalContextEligibilityRule(),
             ),

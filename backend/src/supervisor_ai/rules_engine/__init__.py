@@ -19,11 +19,15 @@ from supervisor_ai.rules_engine.contractual_facts import (
     SpeedComparisonRule,
 )
 from supervisor_ai.rules_engine.operational_context import (
+    AdministrativeNatureRule,
+    AuthorshipConflictRule,
     CommercialAuthorRule,
+    CorrectiveNatureRule,
     DuplicateAuthorRule,
     ManualReviewRule,
     OperationalContextEligibilityRule,
     TicketPresenceRule,
+    TicketPurposeRule,
     TicketSupportRule,
 )
 from supervisor_ai.rules_engine.payment_validation import (
@@ -78,9 +82,12 @@ from supervisor_ai.rules_engine.types import (
 
 __all__ = [
     "CandidateDomainEvent",
+    "AdministrativeNatureRule",
+    "AuthorshipConflictRule",
     "CommercialClassificationName",
     "CommercialEventType",
     "CommercialAuthorRule",
+    "CorrectiveNatureRule",
     "CommonAdditionalClassificationRule",
     "CommonAdditionalsComparisonRule",
     "ConclusionKind",
@@ -134,6 +141,7 @@ __all__ = [
     "RulePhase",
     "SpeedComparisonRule",
     "TicketPresenceRule",
+    "TicketPurposeRule",
     "TicketSupportRule",
     "build_credit_entry_id",
 ]

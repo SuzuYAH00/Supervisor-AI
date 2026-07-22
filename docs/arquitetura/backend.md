@@ -536,15 +536,13 @@ Infrastructure ──→ portas da Application
 Rules Engine ──→ nenhuma infraestrutura
 ```
 
-## Entradas financeiras ainda ausentes
+## Entrada financeira opcional
 
-O contrato público atual fornece o contexto de avaliação contratual, mas ainda
-não fornece um snapshot financeiro completo para pagamento, cálculo e postagem.
-Os handlers compostos executam essas fases com ausência explícita de evidência;
-os avaliadores reais respondem `not_evaluable` e nenhum lançamento é inventado.
-Um futuro adapter poderá fornecer esses dados quando seu contrato for definido,
-sem alterar a Application, a transação ou as regras puras; o Composition Root
-passará apenas a conectar esse adapter.
+O contexto contratual pode ser processado sem snapshot financeiro. Nessa forma
+compatível, os handlers executam as fases financeiras com ausência explícita de
+evidência; os avaliadores respondem `not_evaluable` e nenhum lançamento é
+inventado. Quando `FinancialSnapshot` é fornecido, o mesmo pipeline pode validar
+pagamento, calcular remuneração e produzir um lançamento real.
 
 ---
 
@@ -579,9 +577,11 @@ O objeto raiz aceita exatamente:
 - `rules_engine_version`.
 
 Cada item de `evaluation.evidence` aceita exatamente `id`, `name`, `value` e
-`observed_at`. Os nomes são validados diretamente pelo enum público
-`ContractualEvidenceName`. Os envelopes são fechados; somente `raw_payload` é
-um objeto JSON aberto, preservado sem descarte de campos.
+`observed_at`. Os nomes são validados diretamente pelos enums públicos
+`ContractualEvidenceName` e `OperationalFactName`. Decisões derivadas não são
+aceitas como evidência de transporte.
+Os envelopes são fechados; somente `raw_payload` é um objeto JSON aberto,
+preservado sem descarte de campos.
 
 ## Parsing e validação
 
@@ -606,6 +606,73 @@ inesperadas do processador não são capturados nem convertidos pelo importer.
 
 `build_json_importer(database_url)` reutiliza
 `build_transactional_processor(database_url)` e não duplica a montagem do
-pipeline. Como o schema ainda não inclui o snapshot financeiro completo, a
-execução pode terminar em `not_evaluable` e nenhum lançamento financeiro é
-inferido ou fabricado.
+pipeline. A execução pode terminar em `not_evaluable` quando
+`financial_snapshot` não for enviado. O campo opcional permite completar as
+fases financeiras sem quebrar os documentos anteriores.
+
+---
+
+# 15. Snapshot financeiro público
+
+`FinancialSnapshot` é o contrato imutável da Application que transporta somente
+fatos financeiros já observados para validação de pagamento, cálculo da
+remuneração e postagem no ledger. Ele não contém classificações comerciais nem
+decide se há direito ao crédito.
+
+O contrato é dividido em:
+
+- `PaymentFacts`: avaliação, fatura, vencimento, pagamento, valores, vínculos,
+  candidatos, referências e flags de consistência;
+- `RemunerationFacts`: valores-base, adicional, fidelidade, referências e flags
+  de consistência;
+- `RemunerationPostingFacts`: beneficiário, instante, referências de postagem,
+  cálculo e fontes.
+
+Os handlers somente convertem essas dataclasses e as conclusões anteriores nos
+inputs públicos existentes. O tipo comercial consumido pelo cálculo é traduzido
+das decisões da fase de classificação, nunca do snapshot ou do JSON. Ausências
+e conflitos continuam sendo interpretados pelos evaluators. Nenhum handler
+consulta banco, completa informação faltante ou reexecuta regra comercial.
+
+## Snapshot ausente ou parcial
+
+`ProcessCommercialEventCommand` aceita `financial_snapshot=None`. Nesse caso,
+as fases financeiras retornam `not_evaluable` e não criam ledger.
+
+Quando o snapshot existe, campos de negócio opcionais podem ser nulos. Um
+snapshot parcial mantém esses valores como `None`; não usa relógio, UUID, zero,
+`False` ou string vazia como substitutos. O evaluator determina o status seguro.
+
+## Dinheiro no JSON
+
+Campos monetários de `financial_snapshot` usam strings decimais canônicas, como
+`"119.90"`. Números JSON, expoentes, negativos, `NaN`, `Infinity`, prefixo
+positivo e zeros à esquerda são rejeitados. O mapper converte a string
+diretamente para `Decimal`, sem passagem por `float`.
+
+Essa política não altera `raw_payload`, que permanece uma árvore JSON aberta.
+
+## Determinismo e identidade econômica
+
+O identificador do crédito é estável por evento:
+
+```text
+entry_id = "ledger.remuneration.credit:" + event_id
+```
+
+O handler não usa `uuid4` nem `datetime.now`. `posted_at`, referências,
+beneficiário e fatura vêm do snapshot. O mesmo evento com os mesmos fatos produz
+o mesmo `LedgerEntry`.
+
+No reprocessamento, um lançamento integralmente igual não é inserido novamente.
+Um lançamento divergente gera `LedgerConflict`; a constraint única por crédito e
+evento permanece como proteção concorrente.
+
+## Preparação das evidências operacionais
+
+O adapter reconhece somente `OperationalFactName` no conjunto operacional do
+array de evidências e os prepara como fatos rastreáveis antes das regras. As
+regras operacionais produzem `OperationalDecisionName`; não há conversão por
+semelhança textual. As decisões comerciais vêm exclusivamente da fase de
+classificação. Assim, o Import Engine transporta observações e nunca injeta
+conclusões de domínio.

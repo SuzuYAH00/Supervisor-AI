@@ -202,6 +202,138 @@ class DuplicateAuthorRule:
         )
 
 
+class TicketPurposeRule:
+    """Classifica a finalidade observada do ticket sem aceitá-la como decisão."""
+
+    rule_id = "operational.ticket_purpose"
+    phase = RulePhase.AUTHORSHIP_AND_ELIGIBILITY
+
+    def evaluate(
+        self,
+        context: EvaluationContext,
+        available_conclusions: tuple[EvaluationConclusion, ...],
+    ) -> tuple[EvaluationConclusion, ...]:
+        del context
+        return _classify_exclusive_fact(
+            rule_id=self.rule_id,
+            available=available_conclusions,
+            positive_mapping={
+                OperationalFactName.TICKET_LINKED_TO_PLAN_CHANGE: (
+                    OperationalDecisionName.PLAN_CHANGE_TICKET
+                ),
+                OperationalFactName.TICKET_NOT_LINKED_TO_PLAN_CHANGE: (
+                    OperationalDecisionName.NON_PLAN_CHANGE_TICKET
+                ),
+            },
+            source_not_evaluable=OperationalFactName.TICKET_PURPOSE_NOT_EVALUABLE,
+            source_inconsistent=OperationalFactName.TICKET_PURPOSE_INCONSISTENT,
+            target_not_evaluable=OperationalDecisionName.TICKET_PURPOSE_NOT_EVALUABLE,
+            target_inconsistent=OperationalDecisionName.TICKET_PURPOSE_INCONSISTENT,
+        )
+
+
+class AdministrativeNatureRule:
+    """Classifica a marcação administrativa observada na alteração."""
+
+    rule_id = "operational.administrative_nature"
+    phase = RulePhase.AUTHORSHIP_AND_ELIGIBILITY
+
+    def evaluate(
+        self,
+        context: EvaluationContext,
+        available_conclusions: tuple[EvaluationConclusion, ...],
+    ) -> tuple[EvaluationConclusion, ...]:
+        del context
+        return _classify_exclusive_fact(
+            rule_id=self.rule_id,
+            available=available_conclusions,
+            positive_mapping={
+                OperationalFactName.CHANGE_MARKED_ADMINISTRATIVE: (
+                    OperationalDecisionName.ADMINISTRATIVE_CHANGE
+                ),
+                OperationalFactName.CHANGE_NOT_MARKED_ADMINISTRATIVE: (
+                    OperationalDecisionName.NON_ADMINISTRATIVE_CHANGE
+                ),
+            },
+            source_not_evaluable=(
+                OperationalFactName.ADMINISTRATIVE_NATURE_NOT_EVALUABLE
+            ),
+            source_inconsistent=OperationalFactName.ADMINISTRATIVE_NATURE_INCONSISTENT,
+            target_not_evaluable=(
+                OperationalDecisionName.ADMINISTRATIVE_NATURE_NOT_EVALUABLE
+            ),
+            target_inconsistent=(
+                OperationalDecisionName.ADMINISTRATIVE_NATURE_INCONSISTENT
+            ),
+        )
+
+
+class CorrectiveNatureRule:
+    """Classifica a marcação corretiva observada na alteração."""
+
+    rule_id = "operational.corrective_nature"
+    phase = RulePhase.AUTHORSHIP_AND_ELIGIBILITY
+
+    def evaluate(
+        self,
+        context: EvaluationContext,
+        available_conclusions: tuple[EvaluationConclusion, ...],
+    ) -> tuple[EvaluationConclusion, ...]:
+        del context
+        return _classify_exclusive_fact(
+            rule_id=self.rule_id,
+            available=available_conclusions,
+            positive_mapping={
+                OperationalFactName.CHANGE_MARKED_CORRECTIVE: (
+                    OperationalDecisionName.CORRECTIVE_CHANGE
+                ),
+                OperationalFactName.CHANGE_NOT_MARKED_CORRECTIVE: (
+                    OperationalDecisionName.NON_CORRECTIVE_CHANGE
+                ),
+            },
+            source_not_evaluable=OperationalFactName.CORRECTIVE_NATURE_NOT_EVALUABLE,
+            source_inconsistent=OperationalFactName.CORRECTIVE_NATURE_INCONSISTENT,
+            target_not_evaluable=(
+                OperationalDecisionName.CORRECTIVE_NATURE_NOT_EVALUABLE
+            ),
+            target_inconsistent=OperationalDecisionName.CORRECTIVE_NATURE_INCONSISTENT,
+        )
+
+
+class AuthorshipConflictRule:
+    """Classifica conflito a partir da evidência de autoria observada."""
+
+    rule_id = "operational.authorship_conflict"
+    phase = RulePhase.AUTHORSHIP_AND_ELIGIBILITY
+
+    def evaluate(
+        self,
+        context: EvaluationContext,
+        available_conclusions: tuple[EvaluationConclusion, ...],
+    ) -> tuple[EvaluationConclusion, ...]:
+        del context
+        return _classify_exclusive_fact(
+            rule_id=self.rule_id,
+            available=available_conclusions,
+            positive_mapping={
+                OperationalFactName.CONFLICTING_AUTHORSHIP_EVIDENCE_FOUND: (
+                    OperationalDecisionName.AUTHORSHIP_CONFLICT
+                ),
+                OperationalFactName.CONFLICTING_AUTHORSHIP_EVIDENCE_NOT_FOUND: (
+                    OperationalDecisionName.NO_AUTHORSHIP_CONFLICT
+                ),
+            },
+            source_not_evaluable=(
+                OperationalFactName.AUTHORSHIP_CONFLICT_NOT_EVALUABLE
+            ),
+            source_inconsistent=OperationalFactName.AUTHORSHIP_CONFLICT_INCONSISTENT,
+            target_not_evaluable=(
+                OperationalDecisionName.AUTHORSHIP_CONFLICT_NOT_EVALUABLE
+            ),
+            target_inconsistent=OperationalDecisionName.AUTHORSHIP_CONFLICT_INCONSISTENT,
+        )
+
+
 class ManualReviewRule:
     """Solicita revisão humana somente quando há autoria duplicada."""
 

@@ -76,7 +76,7 @@ class RemunerationAmountInput:
     event_id: str
     payment_validation_result: PaymentValidationResult
     payment_validation_reference: str
-    commercial_event_type: CommercialEventType
+    commercial_event_type: CommercialEventType | None
     previous_recurring_amount: Decimal | None = None
     new_recurring_amount: Decimal | None = None
     full_new_plan_amount: Decimal | None = None

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+from supervisor_ai.application.financial_snapshot import FinancialSnapshot
 from supervisor_ai.rules_engine import EvaluationContext, LedgerEntry
 
 
@@ -23,6 +24,7 @@ class ProcessCommercialEventCommand:
 
     event_id: str
     evaluation_context: EvaluationContext
+    financial_snapshot: FinancialSnapshot | None = None
 
 
 @dataclass(frozen=True, slots=True)

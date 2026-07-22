@@ -6,7 +6,7 @@ from supervisor_ai.infrastructure.importing.mapper import JsonImportDocumentMapp
 from supervisor_ai.infrastructure.importing.parser import parse_json_text
 from supervisor_ai.infrastructure.importing.schema import JsonImportDocumentValidator
 from supervisor_ai.rules_engine import ContractualEvidenceName
-from tests.importing.factories import document, evidence, json_text
+from tests.importing.factories import complete_document, document, evidence, json_text
 
 
 def test_maps_public_contracts_without_silent_string_coercion() -> None:
@@ -44,3 +44,18 @@ def test_maps_public_contracts_without_silent_string_coercion() -> None:
     assert mapped[1].value == ("IP", "Watch")
     assert mapped[2].value == Decimal("99.9")
     assert isinstance(mapped[2].value, Decimal)
+
+
+def test_maps_financial_snapshot_with_precise_decimal_and_aware_dates() -> None:
+    validated = JsonImportDocumentValidator().validate(
+        parse_json_text(json_text(complete_document()))
+    )
+    command = JsonImportDocumentMapper().map(validated)
+    assert command.financial_snapshot is not None
+    payment = command.financial_snapshot.payment
+    assert payment.invoice_recurring_amount == Decimal("99.90")
+    assert isinstance(payment.invoice_recurring_amount, Decimal)
+    assert payment.invoice_paid_at == datetime(2026, 7, 11, 12, tzinfo=UTC)
+    assert command.financial_snapshot.posting.posted_at == datetime(
+        2026, 7, 21, 13, 5, tzinfo=UTC
+    )

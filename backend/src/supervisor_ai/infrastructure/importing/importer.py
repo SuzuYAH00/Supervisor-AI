@@ -24,6 +24,7 @@ class JsonImportResult:
     event_persisted: bool
     ledger_entry_id: str | None
     ledger_persisted: bool
+    ledger_already_existed: bool
     warnings: tuple[str, ...]
     audit_references: tuple[str, ...]
 
@@ -52,6 +53,7 @@ class JsonCommercialEventImporter:
             event_persisted=result.event_persisted,
             ledger_entry_id=result.ledger_entry_id,
             ledger_persisted=result.ledger_persisted,
+            ledger_already_existed=result.ledger_already_existed,
             warnings=result.warnings,
             audit_references=result.audit_references,
         )

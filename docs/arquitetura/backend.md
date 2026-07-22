@@ -676,3 +676,126 @@ regras operacionais produzem `OperationalDecisionName`; não há conversão por
 semelhança textual. As decisões comerciais vêm exclusivamente da fase de
 classificação. Assim, o Import Engine transporta observações e nunca injeta
 conclusões de domínio.
+
+---
+
+# 16. Processamento em lote
+
+O `BatchImportProcessor` coordena uma coleção ordenada de documentos já
+preparados para um importer. Seu núcleo é genérico: `BatchDocument[T]` associa
+um identificador auditável a um payload opaco e `DocumentImporter[T]` representa
+a única operação necessária. Por isso, o componente não conhece JSON, CSV,
+SQLAlchemy, API, arquivos ou sistemas externos.
+
+O Composition Root especializa inicialmente esse contrato com texto JSON por
+meio de `build_batch_processor(database_url)`. O builder reutiliza integralmente
+`build_json_importer()`; parsing, validação, mapeamento, regras e persistência não
+são duplicados no lote. Conectores futuros de CSV, API ou upload poderão produzir
+outro `T` e fornecer um importer compatível sem alterar os contratos do batch.
+
+## Atomicidade e falhas parciais
+
+Cada item chama o importer de forma independente. O importer transacional abre,
+confirma, reverte e fecha sua própria Unit of Work antes de o próximo documento
+começar. Não existe transação compartilhada nem rollback global do lote.
+
+Falhas são registradas no resultado individual e não interrompem os itens
+seguintes:
+
+- erros do documento, inclusive sintaxe e validação, são
+  `validation_error`;
+- `CommercialEventConflict` e `LedgerConflict` são `business_conflict`;
+- exceções inesperadas são `technical_error`, preservando tipo e mensagem.
+
+`BatchDocumentResult` registra identificadores, status final, criação ou
+reutilização de evento e ledger, avisos, referências de auditoria e duração.
+`BatchStatistics` consolida documentos, categorias de falha, execuções e novos
+lançamentos. `BatchImportResult` preserva a ordem, início, fim e duração total.
+Todos esses contratos são imutáveis.
+
+O processamento do MVP é deliberadamente sequencial e síncrono. A coordenação
+por item mantém um ponto natural para hooks futuros, mas callbacks, threads,
+`asyncio`, filas e logging externo não fazem parte desta etapa.
+
+## Idempotência do lote
+
+O batch não cria uma segunda política de idempotência. Reexecutar a coleção
+delega cada item ao fluxo transacional existente: eventos iguais são
+reutilizados, cada sucesso cria um novo `ProcessingRun` e créditos idênticos não
+são duplicados. As estatísticas distinguem novos lançamentos por meio de
+`ledger_persisted`.
+
+---
+
+# 17. Adapter de importação CSV
+
+O `CsvImportAdapter` recebe conteúdo CSV textual e termina sua responsabilidade
+ao produzir `BatchDocument[str]`. Cada documento contém JSON serializado por
+`json.dumps` e segue para o mesmo `BatchImportProcessor`,
+`JsonCommercialEventImporter` e fluxo transacional das demais entradas. O
+adapter não lê caminhos, não abre transações, não acessa repositórios e não
+executa regras.
+
+`build_csv_import_service(database_url)` compõe o adapter com
+`build_batch_processor(database_url)`. O resultado mantém separadamente
+`CsvParseResult`, para estrutura e linhas do CSV, e `BatchImportResult`, para
+validação do importer, conflitos e falhas técnicas.
+
+## Schema fechado
+
+Todas as colunas são obrigatórias no cabeçalho, embora valores anuláveis possam
+ficar vazios. A ordem do cabeçalho é livre. Colunas ausentes, duplicadas,
+desconhecidas ou que tentem fornecer classificações, decisões, elegibilidade,
+valor calculado ou ledger tornam o arquivo estruturalmente inválido.
+
+As colunas estão agrupadas assim:
+
+- evento e avaliação: `document_identifier`, `event_id`,
+  `external_reference`, `source`, timestamps, `raw_payload`, IDs da avaliação e
+  `rules_engine_version`;
+- fatos contratuais: velocidades, modalidades, mesh, adicionais e valores
+  recorrentes anteriores e atuais;
+- fatos operacionais: ticket, suporte, autoria e indicadores observados de
+  duplicidade, finalidade, natureza administrativa/corretiva e conflito de
+  autoria;
+- snapshot financeiro: `financial_snapshot_present` e os fatos de pagamento,
+  bases de remuneração e postagem já definidos pelo contrato público.
+
+Os nomes completos e sua ordem canônica estão em `CSV_COLUMNS`. A opção por
+colunas fixas mantém explícito o pequeno conjunto de fatos do fluxo atual e
+evita criar uma linguagem de evidências dentro de uma célula.
+
+## Representações
+
+- decimais usam ponto e string canônica, como `99.90`; não passam por `float`;
+- booleanos aceitam somente `true` e `false` em minúsculas;
+- timestamps usam ISO 8601 com `Z` ou offset explícito;
+- `raw_payload` contém um objeto JSON;
+- adicionais e coleções de referências contêm arrays JSON de strings;
+- vazio vira `None` somente nos campos explicitamente opcionais;
+- `financial_snapshot_present=false` exige todas as demais colunas financeiras
+  vazias.
+
+As evidências monetárias contratuais do documento JSON também aceitam string
+decimal canônica. Números JSON antigos continuam compatíveis, enquanto o CSV
+preserva precisão sem conversão intermediária para ponto flutuante.
+
+## Erros e rastreabilidade
+
+Ausência ou defeito global do cabeçalho gera `CsvStructureError` e impede o
+arquivo inteiro. Erros localizados geram `CsvRowError` com linha física, coluna,
+valor seguro, categoria e mensagem; outras linhas continuam. Linhas totalmente
+vazias são ignoradas sem renumerar as seguintes.
+
+O `document_identifier` obrigatório torna estável a correlação entre a linha,
+o `BatchDocument` e o `BatchDocumentResult`. Uma linha que não produziu
+documento permanece apenas no resultado de parsing e nunca aparece como se
+tivesse sido processada pelo batch.
+
+Um exemplo completo e sem dados sensíveis está em
+`docs/exemplos/importacao_comercial.csv`.
+
+O MVP permanece síncrono, sequencial, baseado na biblioteca padrão `csv` e sem
+pandas, threads, `asyncio`, leitura de arquivos ou streaming incremental. Novos
+formatos podem produzir o mesmo `BatchDocument[T]` sem reutilizar detalhes do
+CSV.

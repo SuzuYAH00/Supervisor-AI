@@ -11,7 +11,12 @@ from supervisor_ai.application.use_cases import (
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
 )
-from supervisor_ai.infrastructure.importing import JsonCommercialEventImporter
+from supervisor_ai.infrastructure.importing import (
+    BatchImportProcessor,
+    CsvImportAdapter,
+    CsvImportService,
+    JsonCommercialEventImporter,
+)
 from supervisor_ai.infrastructure.persistence.database import (
     create_database_engine,
     create_session_factory,
@@ -142,4 +147,26 @@ def build_transactional_processor(
 def build_json_importer(database_url: str) -> JsonCommercialEventImporter:
     return JsonCommercialEventImporter(
         processor=build_transactional_processor(database_url)
+    )
+
+
+def build_batch_processor(
+    database_url: str,
+    *,
+    clock: Clock | None = None,
+) -> BatchImportProcessor[str]:
+    return BatchImportProcessor(
+        importer=build_json_importer(database_url),
+        clock=clock or SystemClock(),
+    )
+
+
+def build_csv_import_service(
+    database_url: str,
+    *,
+    clock: Clock | None = None,
+) -> CsvImportService:
+    return CsvImportService(
+        adapter=CsvImportAdapter(),
+        batch_processor=build_batch_processor(database_url, clock=clock),
     )

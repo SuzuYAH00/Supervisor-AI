@@ -14,12 +14,14 @@ from supervisor_ai.application.use_cases import (
     ProcessCommercialEventUseCase,
 )
 from supervisor_ai.bootstrap import (
+    build_csv_import_service,
     build_rules_engine,
     build_session_factory,
     build_transactional_processor,
     build_unit_of_work_factory,
 )
 from supervisor_ai.database.base import Base
+from supervisor_ai.infrastructure.importing import CsvImportService
 from supervisor_ai.infrastructure.runtime import (
     SystemClock,
     UuidProcessingRunIdGenerator,
@@ -154,3 +156,13 @@ def test_build_transactional_processor_runs_with_temporary_sqlite(
 
 def test_bootstrap_is_outside_application_package() -> None:
     assert build_transactional_processor.__module__ == "supervisor_ai.bootstrap"
+
+
+def test_build_csv_import_service_reuses_complete_composition(tmp_path: Path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'csv-bootstrap.sqlite3'}"
+    service = build_csv_import_service(database_url)
+
+    assert isinstance(service, CsvImportService)
+    assert service.__class__.__module__.startswith(
+        "supervisor_ai.infrastructure.importing"
+    )

@@ -387,7 +387,9 @@ def _validate_evidence_value(
             and len(value) == len(set(value))
         )
     else:
-        valid = type(value) in {int, float}
+        valid = type(value) in {int, float} or (
+            type(value) is str and DECIMAL_PATTERN.fullmatch(value) is not None
+        )
     if not valid:
         raise ImportValidationError(f"{path}: incompatible evidence value")
 

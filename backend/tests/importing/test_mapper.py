@@ -59,3 +59,19 @@ def test_maps_financial_snapshot_with_precise_decimal_and_aware_dates() -> None:
     assert command.financial_snapshot.posting.posted_at == datetime(
         2026, 7, 21, 13, 5, tzinfo=UTC
     )
+
+
+def test_maps_canonical_contractual_money_without_float() -> None:
+    value = document()
+    evaluation = value["evaluation"]
+    assert isinstance(evaluation, dict)
+    evaluation["evidence"] = [
+        evidence("money", "current_recurring_value", "99.90")
+    ]
+    validated = JsonImportDocumentValidator().validate(
+        parse_json_text(json_text(value))
+    )
+    command = JsonImportDocumentMapper().map(validated)
+    mapped = command.evaluation_context.evidence[0].value
+    assert mapped == Decimal("99.90")
+    assert isinstance(mapped, Decimal)

@@ -135,7 +135,7 @@ def test_rejects_unknown_evidence_name() -> None:
         ("previous_speed", "500"),
         ("previous_mesh_enabled", "true"),
         ("previous_additionals", ["IP", 10]),
-        ("previous_recurring_value", "89.90"),
+        ("previous_recurring_value", "89,90"),
     ],
 )
 def test_rejects_incompatible_evidence_value(

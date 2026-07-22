@@ -189,8 +189,8 @@ def _map_evidence_value(
         ContractualEvidenceName.PREVIOUS_RECURRING_VALUE,
         ContractualEvidenceName.CURRENT_RECURRING_VALUE,
     }:
-        if type(value) not in {int, float}:
-            raise TypeError("validated monetary evidence must be numeric")
+        if type(value) not in {str, int, float}:
+            raise TypeError("validated monetary evidence must be decimal-compatible")
         return Decimal(str(value))
     if value is None:
         return None

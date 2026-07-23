@@ -1,4 +1,48 @@
+import type { FinancialSummary } from "../src/features/financial-summary/types/financial-summary";
 import type { ProcessingHealth } from "../src/features/processing-health/types/processing-health";
+
+export function financialSummary(
+  changes: Partial<FinancialSummary> = {},
+): FinancialSummary {
+  return {
+    filters: { collaborator_id: null, start_date: null, end_date: null },
+    collaborator_count: 2,
+    credit_count: 3,
+    totals_by_currency: [
+      { currency: "BRL", amount: "219.80" },
+      { currency: "USD", amount: "10.00" },
+    ],
+    collaborators: [
+      {
+        collaborator_id: "employee-2",
+        credit_count: 1,
+        totals_by_currency: [
+          {
+            currency: "USD",
+            amount: "10.00",
+            credit_count: 1,
+            rank: 9,
+            share_percentage: "12.50",
+          },
+        ],
+      },
+      {
+        collaborator_id: "employee-1",
+        credit_count: 2,
+        totals_by_currency: [
+          {
+            currency: "BRL",
+            amount: "219.80",
+            credit_count: 2,
+            rank: 4,
+            share_percentage: "37.25",
+          },
+        ],
+      },
+    ],
+    ...changes,
+  };
+}
 
 export function processingHealth(
   changes: Partial<ProcessingHealth> = {},

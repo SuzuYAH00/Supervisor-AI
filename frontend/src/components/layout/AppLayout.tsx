@@ -1,11 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 
-const futureNavigation = [
-  "Financeiro",
-  "Eventos comerciais",
-  "Execuções",
-  "Timeline",
-];
+const futureNavigation = ["Eventos comerciais", "Execuções", "Timeline"];
 
 export function AppLayout() {
   return (
@@ -35,6 +30,15 @@ export function AppLayout() {
             >
               <span>Visão geral</span>
               <small>Processamento</small>
+            </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                `navigation-link${isActive ? " active" : ""}`
+              }
+              to="/financial-summary"
+            >
+              <span>Resumo Financeiro</span>
+              <small>Ledger</small>
             </NavLink>
             {futureNavigation.map((label) => (
               <span className="navigation-link disabled" key={label}>

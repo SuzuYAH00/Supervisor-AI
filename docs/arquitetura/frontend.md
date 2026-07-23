@@ -330,15 +330,16 @@ A estrutura é orientada por feature:
 
 - `app/` monta layout e rotas;
 - `components/` contém layout e estados de feedback;
-- `features/processing-health/` concentra tipos, acesso à API, hook,
-  componentes e página;
+- `features/processing-health/` concentra a visão operacional;
+- `features/financial-summary/` concentra tipos, acesso à API, hook,
+  componentes e página do resumo financeiro;
 - `lib/http/` possui o cliente fetch independente de React;
 - `lib/config/` concentra ambiente;
 - `styles/` define a base visual responsiva.
 
 A raiz redireciona para `/processing-health`. Rotas desconhecidas exibem
-fallback visual. Financeiro, eventos, execuções e timeline aparecem somente
-como navegação futura desabilitada; páginas fictícias não foram criadas.
+fallback visual. O resumo financeiro está disponível em `/financial-summary`;
+eventos, execuções e timeline permanecem como navegação futura desabilitada.
 
 ## Integração HTTP
 
@@ -357,9 +358,11 @@ O cliente HTTP:
 - devolve somente mensagens seguras;
 - não conhece React, autenticação, retry ou cache.
 
-A feature valida em runtime o contrato de `GET /processing/health`, além de
-representá-lo com tipos explícitos. O hook local usa `AbortController`, trata
-loading, sucesso, erro e refetch e cancela a chamada ao desmontar.
+Cada feature valida em runtime seu contrato (`GET /processing/health` ou
+`GET /financial/summary`) e o representa com tipos explícitos. Validadores
+estruturais pequenos são compartilhados em `lib/http/`, sem transformar o
+cliente em uma camada de domínio. Os hooks locais usam `AbortController`, tratam
+loading, sucesso, erro e refetch e cancelam a chamada ao desmontar.
 
 ## Primeira tela
 
@@ -376,11 +379,26 @@ Não são calculados score, taxa de sucesso, tendência, duração ou diagnósti
 Banco vazio permanece um sucesso com métricas zeradas. Falhas apresentam
 mensagem segura e botão de nova tentativa.
 
+## Resumo financeiro
+
+A segunda tela projeta exclusivamente o contrato financeiro persistido:
+
+- quantidade de colaboradores;
+- quantidade de créditos;
+- totais separados por moeda;
+- colaboradores e seus valores por moeda;
+- filtros devolvidos pela API.
+
+Dinheiro permanece string decimal do transporte até a renderização. A tela não
+soma moedas, não converte valores e não calcula ranking, percentual,
+produtividade ou tendência. Campos adicionais do contrato são validados, mas
+somente os fatos necessários à tela são apresentados.
+
 HTML semântico, foco visível, navegação por teclado, regiões anunciáveis e
 contraste constituem a base mínima de acessibilidade.
 
 ## Limites
 
-Não há autenticação, upload, telas financeiras, listagens, gráficos avançados,
+Não há autenticação, upload, demais telas financeiras, listagens, gráficos avançados,
 estado global, polling ou deploy. Esses recursos devem evoluir como novas
 features sem acoplar componentes diretamente ao transporte HTTP.

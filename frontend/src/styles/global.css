@@ -242,6 +242,7 @@ a:focus-visible {
 
 .metric-card,
 .distribution-card,
+.financial-table-card,
 .feedback-state,
 .not-found {
   background: #fff;
@@ -286,6 +287,7 @@ a:focus-visible {
 }
 
 .distribution-card h2,
+.financial-table-card h2,
 .feedback-state h2 {
   margin: 0 0 5px;
   color: #20362e;
@@ -293,6 +295,7 @@ a:focus-visible {
 }
 
 .distribution-card header p,
+.financial-table-card header p,
 .empty-list {
   margin: 0;
   color: #6b7772;
@@ -320,6 +323,50 @@ a:focus-visible {
 .empty-list {
   margin-top: 20px;
   padding: 18px 0;
+}
+
+.financial-metrics {
+  grid-template-columns: repeat(2, minmax(180px, 280px));
+}
+
+.financial-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.75fr) minmax(0, 2fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.financial-table-card {
+  padding: 22px;
+}
+
+.table-scroll {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+.financial-table-card table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.financial-table-card th,
+.financial-table-card td {
+  padding: 13px 12px;
+  border-top: 1px solid #edf0ee;
+  vertical-align: top;
+}
+
+.financial-table-card thead th {
+  color: #5b6863;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.financial-table-card tbody th {
+  color: #20362e;
 }
 
 .feedback-state,
@@ -390,7 +437,8 @@ a:focus-visible {
   }
 
   .metrics-grid,
-  .distribution-grid {
+  .distribution-grid,
+  .financial-summary-grid {
     grid-template-columns: 1fr;
   }
 

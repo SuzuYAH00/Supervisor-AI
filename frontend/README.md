@@ -1,7 +1,8 @@
 # Frontend do Supervisor AI
 
-Fundação React do frontend operacional interno. A primeira tela disponível é
-`/processing-health`, que consome `GET /processing/health` da API MVP v1.
+Fundação React do frontend operacional interno. As telas disponíveis são
+`/processing-health`, que consome `GET /processing/health`, e
+`/financial-summary`, que consome `GET /financial/summary` da API MVP v1.
 
 ## Stack
 
@@ -70,19 +71,31 @@ npm run build
 - `src/app`: roteamento e composição da aplicação;
 - `src/components`: layout e feedback reutilizável;
 - `src/features/processing-health`: API, tipos, hook, componentes e página;
+- `src/features/financial-summary`: resumo financeiro com a mesma separação;
 - `src/lib`: configuração e cliente HTTP sem dependência de React;
 - `src/styles`: estilos globais e responsivos;
 - `tests`: contratos HTTP, feature e roteamento.
 
 O cliente HTTP valida o envelope de erro da API, suporta cancelamento e não
 expõe respostas técnicas. O contrato de Processing Health é validado em runtime
-antes de chegar à tela.
+antes de chegar à tela. A mesma validação explícita protege o resumo financeiro;
+valores monetários permanecem strings decimais e não são convertidos em
+`number`.
+
+## Rotas
+
+- `/processing-health`: métricas factuais da saúde do processamento;
+- `/financial-summary`: créditos consolidados por moeda e colaborador.
+
+A tela financeira projeta somente os totais e agrupamentos entregues pela API.
+Ela não calcula ranking, percentual, produtividade, tendência ou conversão entre
+moedas.
 
 ## Limitações atuais
 
 - sem autenticação ou autorização;
-- apenas a tela de Processing Health está ativa;
-- navegação financeira, eventos, execuções e timeline está marcada como
+- Processing Health e Resumo Financeiro estão ativos;
+- navegação de eventos, execuções e timeline está marcada como
   “Em breve”;
 - sem upload CSV, filtros editáveis, gráficos avançados ou estado global;
 - sem deploy, telemetria ou atualização automática.

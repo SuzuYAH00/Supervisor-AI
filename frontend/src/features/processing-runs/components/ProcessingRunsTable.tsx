@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import type { ProcessingRunListItem } from "../types/processing-runs";
 
 interface ProcessingRunsTableProps {
@@ -23,7 +25,13 @@ export function ProcessingRunsTable({ items }: ProcessingRunsTableProps) {
         <tbody>
           {items.map((item) => (
             <tr key={item.processing_run_id}>
-              <td className="identifier-cell">{item.processing_run_id}</td>
+              <td className="identifier-cell">
+                <Link
+                  to={`/processing-runs/${encodeURIComponent(item.processing_run_id)}`}
+                >
+                  {item.processing_run_id}
+                </Link>
+              </td>
               <td className="identifier-cell">{item.event_id}</td>
               <td>{item.source}</td>
               <td className="identifier-cell">{item.external_reference}</td>

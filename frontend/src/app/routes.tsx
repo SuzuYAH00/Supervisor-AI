@@ -6,6 +6,7 @@ import { CommercialEventsPage } from "../features/commercial-events/pages/Commer
 import { FinancialSummaryPage } from "../features/financial-summary/pages/FinancialSummaryPage";
 import { FinancialTimelinePage } from "../features/financial-timeline/pages/FinancialTimelinePage";
 import { ProcessingHealthPage } from "../features/processing-health/pages/ProcessingHealthPage";
+import { ProcessingRunDetailPage } from "../features/processing-runs/pages/ProcessingRunDetailPage";
 import { ProcessingRunsPage } from "../features/processing-runs/pages/ProcessingRunsPage";
 import { NotFoundPage } from "./NotFoundPage";
 
@@ -20,6 +21,10 @@ export const appRoutes: RouteObject[] = [
       { path: "commercial-events", element: <CommercialEventsPage /> },
       { path: "financial-timeline", element: <FinancialTimelinePage /> },
       { path: "processing-runs", element: <ProcessingRunsPage /> },
+      {
+        path: "processing-runs/:processingRunId",
+        element: <ProcessingRunDetailPage />,
+      },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

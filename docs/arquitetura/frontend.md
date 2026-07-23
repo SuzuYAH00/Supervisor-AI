@@ -357,6 +357,33 @@ O cliente tipado conhece os filtros públicos para evolução posterior, mas est
 primeira tela não oferece controles de filtro. Os componentes de paginação
 permanecem locais, pois as features atuais possuem contratos e textos distintos;
 uma extração compartilhada não trouxe benefício suficiente neste marco.
+
+## Detalhe auditável da Processing Run
+
+A rota `/processing-runs/:processingRunId` é alcançada por um `Link` no
+identificador da listagem e consome diretamente
+`GET /processing-runs/{processing_run_id}`. Não há prefetch nem requisição de
+detalhe enquanto o usuário permanece na coleção.
+
+O contrato é dividido em execução, evento comercial relacionado e fases. Os
+tipos são puros e readonly em `types/processing-run-detail.ts`; a validação
+profunda fica na fronteira HTTP, em `api/get-processing-run-detail.ts`. Isso
+mantém `unknown` restrito ao parser e impede que respostas 200 incompatíveis
+cheguem aos componentes.
+
+A projeção preserva identificadores, timestamps, status, versão e ordem das
+fases. O frontend não recebe nem tenta reconstruir warnings, resultados
+internos, raw payload, Ledger ou regras. A lista de fases vazia é sucesso; os
+demais campos são obrigatórios no contrato público atual.
+
+HTTP 404 acompanhado de `processing_run_not_found` possui semântica pública e
+gera um estado específico. Qualquer outra falha usa o `ErrorState` compartilhado.
+Retry mantém o identificador da rota. `AbortController` e marcador de ciclo
+evitam atualização após desmontagem ou substituição de uma consulta por outra.
+
+O detalhe é somente leitura: não calcula duração, saúde, percentuais ou
+diagnóstico e não disponibiliza retry operacional, reprocessamento, edição ou
+exclusão.
 # Fundação frontend do MVP
 
 O frontend inicial do Supervisor AI usa React, TypeScript strict, Vite e React

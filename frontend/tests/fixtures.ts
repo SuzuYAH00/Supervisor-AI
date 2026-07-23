@@ -3,6 +3,42 @@ import type { FinancialSummary } from "../src/features/financial-summary/types/f
 import type { FinancialTimeline } from "../src/features/financial-timeline/types/financial-timeline";
 import type { ProcessingHealth } from "../src/features/processing-health/types/processing-health";
 import type { ProcessingRunsResponse } from "../src/features/processing-runs/types/processing-runs";
+import type { ProcessingRunDetailResponse } from "../src/features/processing-runs/types/processing-run-detail";
+
+export function processingRunDetail(
+  changes: Partial<ProcessingRunDetailResponse> = {},
+): ProcessingRunDetailResponse {
+  return {
+    processing_run: {
+      processing_run_id: "run-1",
+      event_id: "event-1",
+      final_status: "posted",
+      started_at: "2026-07-23T14:00:00Z",
+      completed_at: "2026-07-23T14:00:01Z",
+      rules_engine_version: "rules-1",
+      created_at: "2026-07-23T14:00:01Z",
+    },
+    commercial_event: {
+      event_id: "event-1",
+      external_reference: "external-1",
+      source: "csv-example",
+      occurred_at: "2026-07-23T13:59:00Z",
+    },
+    phases: [
+      {
+        phase: "contract_facts",
+        status: "completed",
+        can_continue: true,
+      },
+      {
+        phase: "payment_validation",
+        status: "validated",
+        can_continue: false,
+      },
+    ],
+    ...changes,
+  };
+}
 
 export function processingRuns(
   changes: Partial<ProcessingRunsResponse> = {},

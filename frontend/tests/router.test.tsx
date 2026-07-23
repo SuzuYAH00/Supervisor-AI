@@ -8,11 +8,13 @@ import { getFinancialSummary } from "../src/features/financial-summary/api/get-f
 import { getFinancialTimeline } from "../src/features/financial-timeline/api/get-financial-timeline";
 import { getProcessingHealth } from "../src/features/processing-health/api/get-processing-health";
 import { getProcessingRuns } from "../src/features/processing-runs/api/get-processing-runs";
+import { getProcessingRunDetail } from "../src/features/processing-runs/api/get-processing-run-detail";
 import {
   commercialEvents,
   financialSummary,
   processingHealth,
   processingRuns,
+  processingRunDetail,
 } from "./fixtures";
 
 vi.mock(
@@ -22,6 +24,10 @@ vi.mock(
 vi.mock(
   "../src/features/processing-runs/api/get-processing-runs",
   () => ({ getProcessingRuns: vi.fn() }),
+);
+vi.mock(
+  "../src/features/processing-runs/api/get-processing-run-detail",
+  () => ({ getProcessingRunDetail: vi.fn() }),
 );
 vi.mock(
   "../src/features/financial-timeline/api/get-financial-timeline",
@@ -41,6 +47,7 @@ const getFinancialSummaryMock = vi.mocked(getFinancialSummary);
 const getCommercialEventsMock = vi.mocked(getCommercialEvents);
 const getFinancialTimelineMock = vi.mocked(getFinancialTimeline);
 const getProcessingRunsMock = vi.mocked(getProcessingRuns);
+const getProcessingRunDetailMock = vi.mocked(getProcessingRunDetail);
 
 function renderRoute(path: string) {
   return render(
@@ -158,6 +165,39 @@ test("processing runs route renders directly", async () => {
     await screen.findByRole("heading", { name: "Execuções de processamento" }),
   ).toBeInTheDocument();
   expect(screen.getByText("MVP interno")).toBeInTheDocument();
+});
+
+test("processing run link opens the detail through React Router", async () => {
+  const user = userEvent.setup();
+  getProcessingRunsMock.mockResolvedValue(processingRuns());
+  getProcessingRunDetailMock.mockResolvedValue(processingRunDetail());
+  renderRoute("/processing-runs");
+
+  await user.click(await screen.findByRole("link", { name: "run-2" }));
+  expect(
+    await screen.findByRole("heading", { name: "Detalhes da execução" }),
+  ).toBeInTheDocument();
+  expect(getProcessingRunDetailMock).toHaveBeenCalledWith(
+    "run-2",
+    expect.any(AbortSignal),
+  );
+});
+
+test("processing run detail renders directly and returns to the list", async () => {
+  const user = userEvent.setup();
+  getProcessingRunDetailMock.mockResolvedValue(processingRunDetail());
+  getProcessingRunsMock.mockResolvedValue(processingRuns());
+  renderRoute("/processing-runs/run-1");
+
+  expect(
+    await screen.findByRole("heading", { name: "Detalhes da execução" }),
+  ).toBeInTheDocument();
+  await user.click(
+    screen.getByRole("link", { name: "Voltar para execuções" }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: "Execuções de processamento" }),
+  ).toBeInTheDocument();
 });
 
 test("unknown route returns to processing health through client navigation", async () => {

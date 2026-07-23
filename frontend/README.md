@@ -95,6 +95,7 @@ valores monetários permanecem strings decimais e não são convertidos em
 - `/commercial-events`: eventos persistidos, em ordem e páginas da API.
 - `/financial-timeline`: lançamentos financeiros de um colaborador informado.
 - `/processing-runs`: execuções persistidas do pipeline.
+- `/processing-runs/:processingRunId`: detalhe auditável de uma execução.
 
 A tela financeira projeta somente os totais e agrupamentos entregues pela API.
 Ela não calcula ranking, percentual, produtividade, tendência ou conversão
@@ -151,6 +152,29 @@ Os componentes de paginação continuam locais às três features. Apesar da
 semelhança visual, seus contratos diferem (`has_more`, consulta por colaborador
 e textos de contexto); generalizá-los agora aumentaria a superfície das telas
 já aprovadas.
+
+## Detalhe de uma execução
+
+O identificador exibido na listagem é um link interno para
+`/processing-runs/:processingRunId`. A tela consulta
+`GET /processing-runs/{processing_run_id}` e apresenta somente a allowlist
+pública: metadados da execução, evento comercial relacionado e fases
+persistidas (`phase`, `status` e `can_continue`) na ordem recebida.
+
+Os tipos do detalhe ficam em `types/processing-run-detail.ts`; o parser runtime
+permanece junto ao cliente em `api/get-processing-run-detail.ts`. Todos os
+campos dos objetos são obrigatórios no contrato atual; `phases` pode ser uma
+lista vazia. Não são expostos payload bruto, warnings, referências internas,
+Ledger ou JSON persistido livre.
+
+O backend possui semântica pública de ausência: HTTP 404 com código
+`processing_run_not_found`. Somente essa combinação apresenta o estado
+“Execução não encontrada”; outros erros usam o feedback genérico. Retry repete
+o mesmo identificador. Mudanças de rota limpam dados anteriores, cancelam a
+requisição ativa e usam proteção por ciclo para ignorar respostas obsoletas.
+
+A tela não recalcula duração, percentuais, diagnóstico ou resultado
+operacional e não oferece reprocessamento, edição ou exclusão.
 
 ## Limitações atuais
 

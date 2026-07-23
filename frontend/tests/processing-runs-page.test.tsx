@@ -1,5 +1,6 @@
 import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 
 import { getProcessingRuns } from "../src/features/processing-runs/api/get-processing-runs";
 import { useProcessingRuns } from "../src/features/processing-runs/hooks/use-processing-runs";
@@ -14,6 +15,14 @@ vi.mock(
 
 const getProcessingRunsMock = vi.mocked(getProcessingRuns);
 
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <ProcessingRunsPage />
+    </MemoryRouter>,
+  );
+}
+
 test("announces loading and projects every factual field", async () => {
   let resolveRequest: (value: ReturnType<typeof processingRuns>) => void =
     () => undefined;
@@ -22,7 +31,7 @@ test("announces loading and projects every factual field", async () => {
       resolveRequest = resolve;
     }),
   );
-  render(<ProcessingRunsPage />);
+  renderPage();
   expect(screen.getByText("Carregando execuções")).toBeInTheDocument();
 
   resolveRequest(processingRuns());
@@ -31,6 +40,10 @@ test("announces loading and projects every factual field", async () => {
   });
   expect(within(row).getByText("posted")).toBeInTheDocument();
   expect(within(row).getByText("rules-1")).toBeInTheDocument();
+  expect(within(row).getByRole("link", { name: "run-2" })).toHaveAttribute(
+    "href",
+    "/processing-runs/run-2",
+  );
   expect(within(row).getByText("2026-07-23T14:00:00Z")).toHaveAttribute(
     "datetime",
     "2026-07-23T14:00:00Z",
@@ -42,7 +55,7 @@ test("announces loading and projects every factual field", async () => {
 
 test("renders an empty response as success", async () => {
   getProcessingRunsMock.mockResolvedValue(processingRuns({ items: [] }));
-  render(<ProcessingRunsPage />);
+  renderPage();
 
   expect(
     await screen.findByText("Nenhuma execução de processamento foi encontrada."),
@@ -63,7 +76,7 @@ test("retries an initial error", async () => {
       }),
     )
     .mockResolvedValueOnce(processingRuns());
-  render(<ProcessingRunsPage />);
+  renderPage();
 
   expect(await screen.findByText("O backend está indisponível")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Tentar novamente" }));
@@ -87,7 +100,7 @@ test("navigates through opaque cursors and returns with local history", async ()
         }),
     )
     .mockResolvedValueOnce(processingRuns({ next_cursor: "opaque-page-2" }));
-  render(<ProcessingRunsPage />);
+  renderPage();
 
   await user.click(
     await screen.findByRole("button", { name: "Próxima página" }),
@@ -133,7 +146,7 @@ test("retry on a later page repeats its cursor and back remains available", asyn
       }),
     )
     .mockResolvedValueOnce(processingRuns());
-  render(<ProcessingRunsPage />);
+  renderPage();
 
   await user.click(
     await screen.findByRole("button", { name: "Próxima página" }),
@@ -197,7 +210,7 @@ test("aborts the active request when unmounted", () => {
     receivedSignal = signal;
     return new Promise(() => undefined);
   });
-  const view = render(<ProcessingRunsPage />);
+  const view = renderPage();
   expect(receivedSignal?.aborted).toBe(false);
   view.unmount();
   expect(receivedSignal?.aborted).toBe(true);

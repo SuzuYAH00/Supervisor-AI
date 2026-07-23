@@ -120,6 +120,26 @@ versão, além de eventos com ou sem execução, reprocessamento e Ledger. As da
 são inclusivas sobre `ProcessingRun.started_at`; não há score, diagnóstico ou
 período implícito.
 
+Para localizar as execuções que compõem essas métricas:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/processing-runs?final_status=posted&limit=20"
+```
+
+A listagem ordena por `started_at` e ID decrescentes e retorna `next_cursor`
+quando houver outra página. O cursor é opaco e deve ser enviado com os mesmos
+filtros:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/processing-runs?limit=2&cursor=CURSOR"
+```
+
+O fluxo investigativo parte de `/processing/health`, filtra
+`/processing-runs`, abre `/processing-runs/{id}` e, quando necessário, navega
+para `/commercial-events/{event_id}`.
+
 ## Qualidade e testes
 
 ```bash

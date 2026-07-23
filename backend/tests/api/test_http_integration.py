@@ -791,3 +791,195 @@ def test_processing_health_aggregates_persisted_data_without_side_effects(
     assert "raw_payload" not in complete.text
     assert "phase_results" not in complete.text
     engine.dispose()
+
+
+def test_processing_run_listing_filters_pages_and_remains_read_only(
+    tmp_path: Path,
+) -> None:
+    application, database_url, engine = prepared_application(
+        tmp_path, "http-processing-run-list.sqlite3"
+    )
+    unit_of_work_factory = build_unit_of_work_factory(
+        build_session_factory(database_url)
+    )
+    definitions = (
+        (
+            "list-run-1",
+            "list-event-1",
+            datetime(2026, 6, 30, 12, tzinfo=UTC),
+            "posted",
+            "v1",
+        ),
+        (
+            "list-run-2",
+            "list-event-2",
+            datetime(2026, 7, 10, 12, tzinfo=UTC),
+            "failed",
+            "v1",
+        ),
+        (
+            "list-run-3a",
+            "list-event-3",
+            datetime(2026, 7, 20, 12, tzinfo=UTC),
+            "posted",
+            "v1",
+        ),
+        (
+            "list-run-3b",
+            "list-event-3",
+            datetime(2026, 7, 20, 12, tzinfo=UTC),
+            "posted",
+            "v2",
+        ),
+        (
+            "list-run-4",
+            "list-event-4",
+            datetime(2026, 8, 1, 12, tzinfo=UTC),
+            "failed",
+            "v2",
+        ),
+        (
+            "list-run-5",
+            "list-event-1",
+            datetime(2026, 8, 2, 12, tzinfo=UTC),
+            "posted",
+            "v2",
+        ),
+    )
+    with unit_of_work_factory() as unit_of_work:
+        for index in range(1, 5):
+            unit_of_work.events.add(
+                replace(
+                    commercial_event(
+                        f"list-event-{index}",
+                        external_reference=f"list-external-{index}",
+                    ),
+                    source="list-source-b" if index == 4 else "list-source-a",
+                )
+            )
+        for run_id, event_id, started_at, status, version in definitions:
+            unit_of_work.processing_runs.add(
+                replace(
+                    processing_run(run_id, event_id),
+                    started_at=started_at,
+                    completed_at=started_at,
+                    final_status=status,
+                    rules_engine_version=version,
+                    phase_results=[
+                        {
+                            "phase": "classification",
+                            "status": "completed",
+                            "can_continue": True,
+                        }
+                    ],
+                )
+            )
+        unit_of_work.ledger.add(
+            ledger_entry("list-ledger-3", "list-event-3")
+        )
+        unit_of_work.ledger.add(
+            replace(
+                ledger_entry("list-adjustment-3", "list-event-3"),
+                entry_type=LedgerEntryType.ADJUSTMENT,
+            )
+        )
+        unit_of_work.commit()
+
+    identifiers: list[str] = []
+    cursor: str | None = None
+    for _ in range(3):
+        suffix = "" if cursor is None else f"&cursor={cursor}"
+        response = request(
+            application,
+            "GET",
+            f"/processing-runs?limit=2{suffix}",
+        )
+        assert response.status_code == 200
+        identifiers.extend(
+            item["processing_run_id"] for item in response.json()["items"]
+        )
+        cursor = response.json()["next_cursor"]
+
+    source = request(
+        application,
+        "GET",
+        "/processing-runs?source=list-source-b",
+    )
+    external = request(
+        application,
+        "GET",
+        "/processing-runs?external_reference=list-external-3",
+    )
+    status = request(
+        application,
+        "GET",
+        "/processing-runs?final_status=failed",
+    )
+    version = request(
+        application,
+        "GET",
+        "/processing-runs?rules_engine_version=v1",
+    )
+    period = request(
+        application,
+        "GET",
+        "/processing-runs?start_date=2026-07-10&end_date=2026-07-20",
+    )
+    combined = request(
+        application,
+        "GET",
+        "/processing-runs?source=list-source-a&final_status=posted"
+        "&rules_engine_version=v2",
+    )
+    empty = request(
+        application,
+        "GET",
+        "/processing-runs?start_date=2025-01-01&end_date=2025-01-31",
+    )
+    detail = request(application, "GET", "/processing-runs/list-run-3b")
+    health = request(application, "GET", "/processing/health")
+    invalid = request(application, "GET", "/processing-runs?cursor=invalid***")
+
+    assert identifiers == [
+        "list-run-5",
+        "list-run-4",
+        "list-run-3b",
+        "list-run-3a",
+        "list-run-2",
+        "list-run-1",
+    ]
+    assert len(identifiers) == len(set(identifiers)) == 6
+    assert [item["processing_run_id"] for item in source.json()["items"]] == [
+        "list-run-4"
+    ]
+    assert [item["processing_run_id"] for item in external.json()["items"]] == [
+        "list-run-3b",
+        "list-run-3a",
+    ]
+    assert [item["processing_run_id"] for item in status.json()["items"]] == [
+        "list-run-4",
+        "list-run-2",
+    ]
+    assert len(version.json()["items"]) == 3
+    assert len(period.json()["items"]) == 3
+    assert [item["processing_run_id"] for item in combined.json()["items"]] == [
+        "list-run-5",
+        "list-run-3b",
+    ]
+    assert empty.json() == {"items": [], "next_cursor": None}
+    assert detail.status_code == 200
+    assert detail.json()["processing_run"]["processing_run_id"] == "list-run-3b"
+    assert health.json()["processing_runs"]["total"] == 6
+    assert invalid.status_code == 422
+    assert "raw_payload" not in response.text
+    assert "phase_results" not in response.text
+
+    after = request(application, "GET", "/processing-runs")
+    assert len(after.json()["items"]) == 6
+    with unit_of_work_factory() as unit_of_work:
+        assert sum(
+            len(unit_of_work.processing_runs.find_by_event_id(f"list-event-{index}"))
+            for index in range(1, 5)
+        ) == 6
+        assert len(unit_of_work.ledger.find_by_event_id("list-event-3")) == 2
+    engine.dispose()

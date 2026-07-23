@@ -1331,3 +1331,62 @@ expõem SQL, ORM, credenciais, caminhos ou exceções. A primeira versão não
 fornece percentuais, duração, tendências, séries temporais, thresholds nem
 listas de itens. O drill-down permanece nos endpoints de CommercialEvent e
 ProcessingRun.
+
+---
+
+# 27. Listagem investigativa de ProcessingRuns
+
+`GET /processing-runs` localiza as execuções que sustentam as métricas de
+`GET /processing/health`. O endpoint de coleção expõe apenas fatos mínimos para
+busca; `GET /processing-runs/{id}` continua responsável pelo drill-down das
+fases.
+
+`ListProcessingRunsUseCase` recebe filtros e uma
+`ProcessingRunCursorPosition` tipada. A porta existente
+`ProcessingRunRepository` ganhou uma consulta coesa de listagem que devolve
+`ProcessingRunListRecord`, uma projeção imutável independente do ORM. O caso de
+uso solicita `limit + 1`, remove o excedente e constrói a próxima posição a
+partir do último item realmente retornado. Não chama `commit`.
+
+## Consulta e projeção
+
+SQLAlchemy seleciona diretamente:
+
+- ID da execução e do evento;
+- origem e referência externa do evento;
+- início, conclusão, status final e versão da execução.
+
+A consulta faz um único join entre ProcessingRun e CommercialEvent, somente
+para origem e referência externa. Não materializa entidades completas, não
+acessa Ledger e não seleciona raw payload, fases, warnings ou referências de
+auditoria. Não existe consulta por item nem N+1. Múltiplos lançamentos do mesmo
+evento não podem multiplicar execuções porque o Ledger não participa do SQL.
+
+Filtros textuais usam igualdade exata. Datas são inclusivas em UTC e aplicadas
+exclusivamente sobre `ProcessingRun.started_at`; nenhum período é implícito.
+`final_status` permanece string aberta, conforme o modelo persistido atual.
+
+## Keyset e transporte
+
+A ordem fixa é:
+
+1. `ProcessingRun.started_at` decrescente;
+2. `ProcessingRun.id` decrescente.
+
+A próxima página usa a condição `started_at < posição` ou, no empate,
+`started_at == posição AND id < posição`. Não há OFFSET nem total global.
+
+O cursor HTTP próprio contém somente versão, `started_at` e
+`processing_run_id`, serializados como JSON e Base64 URL-safe. A Application
+trabalha apenas com o objeto tipado; Base64 permanece em `api/pagination.py`.
+Estrutura, versão, tipos, timezone e limites do ID são validados. O consumidor
+deve repetir os mesmos filtros nas páginas seguintes.
+
+`api/processing_runs.py` mantém as rotas de coleção e detalhe. Schemas distintos
+impedem que campos do drill-down vazem para a listagem. O serviço é dependência
+obrigatória de `HttpApplicationServices` e é montado pelo Composition Root.
+
+Falhas de filtro ou cursor retornam `422` seguro; falhas inesperadas retornam
+mensagem fixa. A consulta não executa regras, importação, reprocessamento ou
+gravação. Evoluções como busca parcial, ordenação configurável, duração,
+total_count e filtros associados ao cursor permanecem fora deste MVP.

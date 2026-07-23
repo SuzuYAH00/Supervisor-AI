@@ -12,6 +12,8 @@ from supervisor_ai.application.persistence import (
     ProcessingHealthCount,
     ProcessingHealthRecord,
     ProcessingRun,
+    ProcessingRunCursorPosition,
+    ProcessingRunListRecord,
 )
 from supervisor_ai.infrastructure.persistence.mappings import (
     event_to_record,
@@ -125,6 +127,77 @@ class SqlAlchemyProcessingRunRepository:
             .order_by(ProcessingRunRecord.started_at, ProcessingRunRecord.id)
         )
         return tuple(record_to_processing_run(record) for record in records)
+
+    def search(
+        self,
+        *,
+        source: str | None,
+        external_reference: str | None,
+        final_status: str | None,
+        rules_engine_version: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        after: ProcessingRunCursorPosition | None,
+        limit: int,
+    ) -> tuple[ProcessingRunListRecord, ...]:
+        statement = select(
+            ProcessingRunRecord.id,
+            ProcessingRunRecord.event_id,
+            CommercialEventRecord.source,
+            CommercialEventRecord.external_reference,
+            ProcessingRunRecord.started_at,
+            ProcessingRunRecord.completed_at,
+            ProcessingRunRecord.final_status,
+            ProcessingRunRecord.rules_engine_version,
+        ).join(
+            CommercialEventRecord,
+            CommercialEventRecord.id == ProcessingRunRecord.event_id,
+        )
+        statement = statement.where(
+            *_processing_run_filters(
+                start_date=start_date,
+                end_date=end_date,
+                source=source,
+                rules_engine_version=rules_engine_version,
+            )
+        )
+        if external_reference is not None:
+            statement = statement.where(
+                CommercialEventRecord.external_reference == external_reference
+            )
+        if final_status is not None:
+            statement = statement.where(
+                ProcessingRunRecord.final_status == final_status
+            )
+        if after is not None:
+            statement = statement.where(
+                or_(
+                    ProcessingRunRecord.started_at < after.started_at,
+                    and_(
+                        ProcessingRunRecord.started_at == after.started_at,
+                        ProcessingRunRecord.id < after.processing_run_id,
+                    ),
+                )
+            )
+        rows = self.session.execute(
+            statement.order_by(
+                ProcessingRunRecord.started_at.desc(),
+                ProcessingRunRecord.id.desc(),
+            ).limit(limit)
+        )
+        return tuple(
+            ProcessingRunListRecord(
+                processing_run_id=row.id,
+                event_id=row.event_id,
+                source=row.source,
+                external_reference=row.external_reference,
+                started_at=row.started_at,
+                completed_at=row.completed_at,
+                final_status=row.final_status,
+                rules_engine_version=row.rules_engine_version,
+            )
+            for row in rows
+        )
 
 
 class SqlAlchemyProcessingHealthRepository:

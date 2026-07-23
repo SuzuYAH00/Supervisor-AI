@@ -225,6 +225,22 @@ class ProcessingRunDetailsResponse(BaseModel):
     phases: list[ProcessingRunPhaseResponse]
 
 
+class ProcessingRunListItemResponse(BaseModel):
+    processing_run_id: str
+    event_id: str
+    source: str
+    external_reference: str
+    started_at: datetime
+    completed_at: datetime
+    final_status: str
+    rules_engine_version: str
+
+
+class ProcessingRunListResponse(BaseModel):
+    items: list[ProcessingRunListItemResponse]
+    next_cursor: str | None
+
+
 class ProcessingHealthFiltersResponse(BaseModel):
     start_date: date | None
     end_date: date | None

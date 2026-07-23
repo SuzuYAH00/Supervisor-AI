@@ -97,6 +97,31 @@ class ProcessingHealthRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class ProcessingRunCursorPosition:
+    started_at: datetime
+    processing_run_id: str
+
+    def __post_init__(self) -> None:
+        _require_aware(self.started_at, "started_at")
+        if not self.processing_run_id.strip():
+            raise ValueError("processing_run_id must not be blank")
+        if len(self.processing_run_id) > 128:
+            raise ValueError("processing_run_id must not exceed 128 characters")
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessingRunListRecord:
+    processing_run_id: str
+    event_id: str
+    source: str
+    external_reference: str
+    started_at: datetime
+    completed_at: datetime
+    final_status: str
+    rules_engine_version: str
+
+
+@dataclass(frozen=True, slots=True)
 class ProcessingRun:
     id: str
     event_id: str

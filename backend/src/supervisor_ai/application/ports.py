@@ -9,6 +9,8 @@ from supervisor_ai.application.persistence import (
     CommercialEventCursorPosition,
     ProcessingHealthRecord,
     ProcessingRun,
+    ProcessingRunCursorPosition,
+    ProcessingRunListRecord,
 )
 from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
 
@@ -40,6 +42,19 @@ class ProcessingRunRepository(Protocol):
     def get_by_id(self, run_id: str) -> ProcessingRun | None: ...
 
     def find_by_event_id(self, event_id: str) -> tuple[ProcessingRun, ...]: ...
+
+    def search(
+        self,
+        *,
+        source: str | None,
+        external_reference: str | None,
+        final_status: str | None,
+        rules_engine_version: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        after: ProcessingRunCursorPosition | None,
+        limit: int,
+    ) -> tuple[ProcessingRunListRecord, ...]: ...
 
 
 class ProcessingHealthRepository(Protocol):

@@ -15,6 +15,7 @@ from supervisor_ai.application.use_cases import (
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
     ListCommercialEventsUseCase,
+    ListProcessingRunsUseCase,
     ProcessAndPersistCommercialEventCommand,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventCommand,
@@ -29,6 +30,7 @@ from supervisor_ai.bootstrap import (
     build_financial_summary_service,
     build_processing_health_service,
     build_processing_run_details_service,
+    build_processing_run_listing_service,
     build_rules_engine,
     build_session_factory,
     build_transactional_processor,
@@ -228,6 +230,14 @@ def test_build_processing_run_details_service_uses_application_query(
     database_url = f"sqlite+pysqlite:///{tmp_path / 'run-details.sqlite3'}"
     service = build_processing_run_details_service(database_url)
     assert isinstance(service, GetProcessingRunDetailsUseCase)
+
+
+def test_build_processing_run_listing_service_uses_application_query(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'run-list.sqlite3'}"
+    service = build_processing_run_listing_service(database_url)
+    assert isinstance(service, ListProcessingRunsUseCase)
 
 
 def test_build_processing_health_service_uses_application_query(

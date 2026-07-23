@@ -42,6 +42,12 @@ from supervisor_ai.application.use_cases.list_commercial_events import (
     ListCommercialEventsResult,
     ListCommercialEventsUseCase,
 )
+from supervisor_ai.application.use_cases.list_processing_runs import (
+    ListProcessingRunsQuery,
+    ListProcessingRunsResult,
+    ListProcessingRunsUseCase,
+    ProcessingRunListItem,
+)
 from supervisor_ai.application.use_cases.process_and_persist_commercial_event import (
     ProcessAndPersistCommercialEventCommand,
     ProcessAndPersistCommercialEventResult,
@@ -91,6 +97,9 @@ __all__ = [
     "ListCommercialEventsQuery",
     "ListCommercialEventsResult",
     "ListCommercialEventsUseCase",
+    "ListProcessingRunsQuery",
+    "ListProcessingRunsResult",
+    "ListProcessingRunsUseCase",
     "PhaseResult",
     "ProcessAndPersistCommercialEventCommand",
     "ProcessAndPersistCommercialEventResult",
@@ -102,6 +111,7 @@ __all__ = [
     "ProcessingRunDetails",
     "ProcessingRunPhaseDetails",
     "ProcessingRunHealth",
+    "ProcessingRunListItem",
     "TimelineCommercialEvent",
 ]
 from supervisor_ai.application.use_cases.get_financial_snapshot import (

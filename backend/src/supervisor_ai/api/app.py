@@ -23,6 +23,7 @@ from supervisor_ai.api.processing import (
 )
 from supervisor_ai.api.processing_runs import (
     ProcessingRunDetailsServiceContract,
+    ProcessingRunListServiceContract,
     processing_runs_router,
 )
 from supervisor_ai.api.projections import decimal_string
@@ -78,6 +79,7 @@ class HttpApplicationServices:
     commercial_event_list: CommercialEventListServiceContract
     collaborator_financial_timeline: CollaboratorFinancialTimelineServiceContract
     processing_run_details: ProcessingRunDetailsServiceContract
+    processing_run_listing: ProcessingRunListServiceContract
     processing_health: ProcessingHealthServiceContract
 
 
@@ -247,7 +249,12 @@ def create_http_application(
     app.include_router(
         collaborators_router(services.collaborator_financial_timeline)
     )
-    app.include_router(processing_runs_router(services.processing_run_details))
+    app.include_router(
+        processing_runs_router(
+            services.processing_run_details,
+            services.processing_run_listing,
+        )
+    )
     app.include_router(processing_router(services.processing_health))
     return app
 

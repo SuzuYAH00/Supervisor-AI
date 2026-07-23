@@ -6,11 +6,13 @@ from datetime import UTC, datetime
 from supervisor_ai.application import (
     CollaboratorFinancialTimelineCursorPosition,
     CommercialEventCursorPosition,
+    ProcessingRunCursorPosition,
 )
 
 _CURSOR_VERSION = 1
 _CURSOR_FIELDS = {"v", "occurred_at", "event_id"}
 _TIMELINE_CURSOR_FIELDS = {"v", "posted_at", "ledger_entry_id"}
+_PROCESSING_RUN_CURSOR_FIELDS = {"v", "started_at", "processing_run_id"}
 
 
 class InvalidPaginationCursor(ValueError):
@@ -82,6 +84,37 @@ def decode_timeline_cursor(
     return CollaboratorFinancialTimelineCursorPosition(
         posted_at=parsed_at.astimezone(UTC),
         ledger_entry_id=position.ledger_entry_id,
+    )
+
+
+def encode_processing_run_cursor(position: ProcessingRunCursorPosition) -> str:
+    return _encode_payload(
+        {
+            "v": _CURSOR_VERSION,
+            "started_at": position.started_at.astimezone(UTC).isoformat().replace(
+                "+00:00", "Z"
+            ),
+            "processing_run_id": position.processing_run_id,
+        }
+    )
+
+
+def decode_processing_run_cursor(value: str) -> ProcessingRunCursorPosition:
+    payload = _decode_payload(value, _PROCESSING_RUN_CURSOR_FIELDS)
+    started_at = payload["started_at"]
+    processing_run_id = payload["processing_run_id"]
+    if not isinstance(started_at, str) or not isinstance(processing_run_id, str):
+        raise InvalidPaginationCursor("cursor field types are invalid")
+    try:
+        parsed_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        position = ProcessingRunCursorPosition(parsed_at, processing_run_id)
+    except ValueError as error:
+        raise InvalidPaginationCursor("cursor values are invalid") from error
+    if parsed_at.tzinfo is None or parsed_at.utcoffset() is None:
+        raise InvalidPaginationCursor("cursor timestamp must be timezone-aware")
+    return ProcessingRunCursorPosition(
+        started_at=parsed_at.astimezone(UTC),
+        processing_run_id=position.processing_run_id,
     )
 
 

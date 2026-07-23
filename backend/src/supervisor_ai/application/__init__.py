@@ -21,6 +21,8 @@ from supervisor_ai.application.persistence import (
     ProcessingHealthCount,
     ProcessingHealthRecord,
     ProcessingRun,
+    ProcessingRunCursorPosition,
+    ProcessingRunListRecord,
 )
 from supervisor_ai.application.ports import (
     Clock,
@@ -49,6 +51,8 @@ __all__ = [
     "ProcessingRun",
     "ProcessingHealthCount",
     "ProcessingHealthRecord",
+    "ProcessingRunCursorPosition",
+    "ProcessingRunListRecord",
     "ProcessingRunNotFound",
     "ProcessingRunIdGenerator",
     "ProcessingRunRepository",

@@ -21,6 +21,7 @@ from supervisor_ai.application import (
     CommercialEventCursorPosition,
     CommercialEventNotFound,
     ProcessingHealthCount,
+    ProcessingRunCursorPosition,
     ProcessingRunNotFound,
 )
 from supervisor_ai.application.use_cases import (
@@ -49,9 +50,12 @@ from supervisor_ai.application.use_cases import (
     GetProcessingRunDetailsResult,
     ListCommercialEventsQuery,
     ListCommercialEventsResult,
+    ListProcessingRunsQuery,
+    ListProcessingRunsResult,
     ProcessingRunCommercialEvent,
     ProcessingRunDetails,
     ProcessingRunHealth,
+    ProcessingRunListItem,
     ProcessingRunPhaseDetails,
     TimelineCommercialEvent,
 )
@@ -197,6 +201,23 @@ class StubProcessingRunDetailsService:
         return self.result
 
 
+class StubProcessingRunListService:
+    def __init__(
+        self,
+        result: ListProcessingRunsResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.queries: list[ListProcessingRunsQuery] = []
+
+    def execute(self, query: ListProcessingRunsQuery) -> ListProcessingRunsResult:
+        self.queries.append(query)
+        if self.error is not None:
+            raise self.error
+        return self.result or ListProcessingRunsResult((), None)
+
+
 class StubProcessingHealthService:
     def __init__(
         self,
@@ -226,6 +247,7 @@ def _application(
     list_service: StubCommercialEventListService | None = None,
     timeline_service: StubCollaboratorTimelineService | None = None,
     run_service: StubProcessingRunDetailsService | None = None,
+    run_list_service: StubProcessingRunListService | None = None,
     processing_health_service: StubProcessingHealthService | None = None,
 ) -> FastAPI:
     return create_http_application(
@@ -241,6 +263,9 @@ def _application(
                 timeline_service or StubCollaboratorTimelineService()
             ),
             processing_run_details=run_service or StubProcessingRunDetailsService(),
+            processing_run_listing=(
+                run_list_service or StubProcessingRunListService()
+            ),
             processing_health=(
                 processing_health_service or StubProcessingHealthService()
             ),
@@ -1359,6 +1384,135 @@ def test_processing_health_failure_is_safe() -> None:
         "error": {
             "code": "internal_error",
             "message": "Processing health could not be retrieved",
+        }
+    }
+    for sensitive in ("SELECT", "raw_payload", "password", "Traceback"):
+        assert sensitive not in response.text
+
+
+def test_processing_run_listing_projects_minimal_contract_and_cursor() -> None:
+    position = ProcessingRunCursorPosition(NOW, "run-1")
+    service = StubProcessingRunListService(
+        ListProcessingRunsResult(
+            (
+                ProcessingRunListItem(
+                    processing_run_id="run-2",
+                    event_id="event-2",
+                    source="csv-example",
+                    external_reference="external-2",
+                    started_at=NOW + timedelta(seconds=1),
+                    completed_at=NOW + timedelta(seconds=2),
+                    final_status="posted",
+                    rules_engine_version="rules-1",
+                ),
+            ),
+            position,
+        )
+    )
+    response = request(
+        _application(StubService(), run_list_service=service),
+        "GET",
+        "/processing-runs?source=csv-example&external_reference=external-2"
+        "&final_status=posted&rules_engine_version=rules-1"
+        "&start_date=2026-07-01&end_date=2026-07-31&limit=1",
+    )
+    assert response.status_code == 200
+    assert service.queries == [
+        ListProcessingRunsQuery(
+            source="csv-example",
+            external_reference="external-2",
+            final_status="posted",
+            rules_engine_version="rules-1",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            limit=1,
+        )
+    ]
+    body = response.json()
+    assert body["items"] == [
+        {
+            "processing_run_id": "run-2",
+            "event_id": "event-2",
+            "source": "csv-example",
+            "external_reference": "external-2",
+            "started_at": "2026-07-22T15:00:01Z",
+            "completed_at": "2026-07-22T15:00:02Z",
+            "final_status": "posted",
+            "rules_engine_version": "rules-1",
+        }
+    ]
+    assert isinstance(body["next_cursor"], str)
+    for absent in (
+        "raw_payload",
+        "phase_results",
+        "warnings",
+        "audit_references",
+        "amount",
+    ):
+        assert absent not in response.text
+
+
+def test_processing_run_listing_empty_and_cursor_round_trip() -> None:
+    first_service = StubProcessingRunListService(
+        ListProcessingRunsResult((), ProcessingRunCursorPosition(NOW, "run-1"))
+    )
+    first = request(
+        _application(StubService(), run_list_service=first_service),
+        "GET",
+        "/processing-runs",
+    )
+    cursor = first.json()["next_cursor"]
+    second_service = StubProcessingRunListService()
+    second = request(
+        _application(StubService(), run_list_service=second_service),
+        "GET",
+        f"/processing-runs?cursor={cursor}",
+    )
+    assert first.status_code == second.status_code == 200
+    assert second.json() == {"items": [], "next_cursor": None}
+    assert second_service.queries[0].after == ProcessingRunCursorPosition(NOW, "run-1")
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        "start_date=invalid",
+        "end_date=invalid",
+        "start_date=2026-08-01&end_date=2026-07-01",
+        "source=%20",
+        "external_reference=%20",
+        "final_status=%20",
+        "rules_engine_version=%20",
+        "limit=0",
+        "limit=101",
+        "cursor=invalid***",
+    ],
+)
+def test_processing_run_listing_invalid_filters_are_422(parameters: str) -> None:
+    response = request(
+        _application(StubService()),
+        "GET",
+        f"/processing-runs?{parameters}",
+    )
+    assert response.status_code == 422
+
+
+def test_processing_run_listing_failure_is_safe() -> None:
+    response = request(
+        _application(
+            StubService(),
+            run_list_service=StubProcessingRunListService(
+                error=RuntimeError("SELECT raw_payload password Traceback")
+            ),
+        ),
+        "GET",
+        "/processing-runs",
+    )
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "internal_error",
+            "message": "Processing runs could not be retrieved",
         }
     }
     for sensitive in ("SELECT", "raw_payload", "password", "Traceback"):

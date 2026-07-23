@@ -7,13 +7,16 @@ import pytest
 from supervisor_ai.api.pagination import (
     InvalidPaginationCursor,
     decode_cursor,
+    decode_processing_run_cursor,
     decode_timeline_cursor,
     encode_cursor,
+    encode_processing_run_cursor,
     encode_timeline_cursor,
 )
 from supervisor_ai.application import (
     CollaboratorFinancialTimelineCursorPosition,
     CommercialEventCursorPosition,
+    ProcessingRunCursorPosition,
 )
 
 POSITION = CommercialEventCursorPosition(
@@ -141,3 +144,67 @@ def test_timeline_cursor_round_trip_is_url_safe_and_normalizes_utc() -> None:
 def test_invalid_timeline_cursor_is_rejected(value: str) -> None:
     with pytest.raises(InvalidPaginationCursor):
         decode_timeline_cursor(value)
+
+
+def test_processing_run_cursor_round_trip_is_url_safe_and_normalizes_utc() -> None:
+    position = ProcessingRunCursorPosition(
+        datetime(2026, 7, 22, 9, tzinfo=timezone(-timedelta(hours=3))),
+        "run-1",
+    )
+    value = encode_processing_run_cursor(position)
+    assert "=" not in value
+    assert decode_processing_run_cursor(value) == ProcessingRunCursorPosition(
+        datetime(2026, 7, 22, 12, tzinfo=UTC),
+        "run-1",
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "***",
+        encoded(
+            {
+                "v": 2,
+                "started_at": "2026-07-22T12:00:00Z",
+                "processing_run_id": "x",
+            }
+        ),
+        encoded({"v": 1, "started_at": "invalid", "processing_run_id": "x"}),
+        encoded(
+            {
+                "v": 1,
+                "started_at": "2026-07-22T12:00:00",
+                "processing_run_id": "x",
+            }
+        ),
+        encoded({"v": 1, "started_at": "2026-07-22T12:00:00Z"}),
+        encoded(
+            {
+                "v": 1,
+                "started_at": "2026-07-22T12:00:00Z",
+                "processing_run_id": "",
+            }
+        ),
+        encoded(
+            {
+                "v": 1,
+                "started_at": "2026-07-22T12:00:00Z",
+                "processing_run_id": "x" * 129,
+            }
+        ),
+        encoded(
+            {
+                "v": 1,
+                "started_at": "2026-07-22T12:00:00Z",
+                "processing_run_id": "x",
+                "extra": True,
+            }
+        ),
+        encoded({"v": 1, "started_at": 1, "processing_run_id": "x"}),
+    ],
+)
+def test_invalid_processing_run_cursor_is_rejected(value: str) -> None:
+    with pytest.raises(InvalidPaginationCursor):
+        decode_processing_run_cursor(value)

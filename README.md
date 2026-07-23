@@ -296,6 +296,17 @@ Os filtros são opcionais e não existe intervalo implícito. As datas usam
 Dinheiro é retornado como string decimal. Um resultado sem créditos retorna
 HTTP `200`, contagem zero, totais e itens vazios.
 
+Consulte o resumo gerencial agregado por colaborador:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/financial/summary?start_date=2026-07-01&end_date=2026-07-31"
+```
+
+O resumo usa os mesmos filtros inclusivos em UTC, separa valores por moeda e
+informa quantidade, ranking e participação de cada colaborador. Dinheiro e
+percentuais são strings decimais; um resultado vazio também retorna HTTP 200.
+
 Para validar o projeto:
 
 ```bash

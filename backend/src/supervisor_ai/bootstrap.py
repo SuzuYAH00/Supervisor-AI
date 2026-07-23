@@ -11,6 +11,7 @@ from supervisor_ai.application import (
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
     GetFinancialSnapshotUseCase,
+    GetFinancialSummaryUseCase,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
 )
@@ -181,6 +182,7 @@ def build_http_application(database_url: str) -> FastAPI:
     return create_http_application(
         build_csv_import_service(database_url),
         build_financial_snapshot_service(database_url),
+        build_financial_summary_service(database_url),
     )
 
 
@@ -189,3 +191,8 @@ def build_financial_snapshot_service(
 ) -> GetFinancialSnapshotUseCase:
     session_factory = build_session_factory(database_url)
     return GetFinancialSnapshotUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_financial_summary_service(database_url: str) -> GetFinancialSummaryUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetFinancialSummaryUseCase(build_unit_of_work_factory(session_factory))

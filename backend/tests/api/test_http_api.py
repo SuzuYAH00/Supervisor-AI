@@ -11,10 +11,15 @@ from supervisor_ai.api.app import (
     create_http_application,
 )
 from supervisor_ai.application.use_cases import (
+    CollaboratorCurrencySummary,
+    CollaboratorFinancialSummary,
     FinancialSnapshotCurrencyTotal,
     FinancialSnapshotItem,
+    FinancialSummaryCurrencyTotal,
     GetFinancialSnapshotQuery,
     GetFinancialSnapshotResult,
+    GetFinancialSummaryQuery,
+    GetFinancialSummaryResult,
 )
 from supervisor_ai.infrastructure.importing import (
     BatchDocumentResult,
@@ -69,12 +74,32 @@ class StubFinancialService:
         return self.result or GetFinancialSnapshotResult(query, 0, (), ())
 
 
+class StubFinancialSummaryService:
+    def __init__(
+        self,
+        result: GetFinancialSummaryResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.queries: list[GetFinancialSummaryQuery] = []
+
+    def execute(self, query: GetFinancialSummaryQuery) -> GetFinancialSummaryResult:
+        self.queries.append(query)
+        if self.error is not None:
+            raise self.error
+        return self.result or GetFinancialSummaryResult(query, 0, 0, (), ())
+
+
 def _application(
     service: StubService,
     financial_service: StubFinancialService | None = None,
+    summary_service: StubFinancialSummaryService | None = None,
 ) -> FastAPI:
     return create_http_application(
-        service, financial_service or StubFinancialService()
+        service,
+        financial_service or StubFinancialService(),
+        summary_service or StubFinancialSummaryService(),
     )
 
 
@@ -394,4 +419,151 @@ def test_financial_failure_returns_safe_500() -> None:
         "SQLAlchemy",
         "postgresql",
     ):
+        assert sensitive not in response.text
+
+
+def summary_result(query: GetFinancialSummaryQuery) -> GetFinancialSummaryResult:
+    return GetFinancialSummaryResult(
+        filters=query,
+        collaborator_count=2,
+        credit_count=3,
+        totals_by_currency=(
+            FinancialSummaryCurrencyTotal(Currency.BRL, Decimal("300.000000")),
+            FinancialSummaryCurrencyTotal(Currency.USD, Decimal("25.500000")),
+        ),
+        collaborators=(
+            CollaboratorFinancialSummary(
+                collaborator_id="alice",
+                credit_count=2,
+                totals_by_currency=(
+                    CollaboratorCurrencySummary(
+                        Currency.BRL,
+                        Decimal("200.000000"),
+                        2,
+                        1,
+                        Decimal("66.67"),
+                    ),
+                ),
+            ),
+            CollaboratorFinancialSummary(
+                collaborator_id="bob",
+                credit_count=1,
+                totals_by_currency=(
+                    CollaboratorCurrencySummary(
+                        Currency.BRL,
+                        Decimal("100.000000"),
+                        1,
+                        2,
+                        Decimal("33.33"),
+                    ),
+                    CollaboratorCurrencySummary(
+                        Currency.USD,
+                        Decimal("25.500000"),
+                        1,
+                        1,
+                        Decimal("100.00"),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def test_financial_summary_returns_stable_decimal_projection_and_empty_view() -> None:
+    query = GetFinancialSummaryQuery()
+    populated = request(
+        _application(
+            StubService(),
+            summary_service=StubFinancialSummaryService(summary_result(query)),
+        ),
+        "GET",
+        "/financial/summary",
+    )
+    empty = request(_application(StubService()), "GET", "/financial/summary")
+    assert populated.status_code == empty.status_code == 200
+    body = populated.json()
+    assert body["collaborator_count"] == 2
+    assert body["credit_count"] == 3
+    assert body["totals_by_currency"] == [
+        {"currency": "BRL", "amount": "300.00"},
+        {"currency": "USD", "amount": "25.50"},
+    ]
+    assert body["collaborators"][0]["totals_by_currency"][0] == {
+        "currency": "BRL",
+        "amount": "200.00",
+        "credit_count": 2,
+        "rank": 1,
+        "share_percentage": "66.67",
+    }
+    assert type(body["totals_by_currency"][0]["amount"]) is str
+    assert type(
+        body["collaborators"][0]["totals_by_currency"][0]["share_percentage"]
+    ) is str
+    assert empty.json() == {
+        "filters": {"collaborator_id": None, "start_date": None, "end_date": None},
+        "collaborator_count": 0,
+        "credit_count": 0,
+        "totals_by_currency": [],
+        "collaborators": [],
+    }
+    for sensitive in ("raw_payload", "database_url", "Traceback"):
+        assert sensitive not in populated.text
+
+
+@pytest.mark.parametrize(
+    "query_string",
+    [
+        "collaborator_id=alice",
+        "start_date=2026-07-01&end_date=2026-07-31",
+        "collaborator_id=alice&start_date=2026-07-01&end_date=2026-07-31",
+    ],
+)
+def test_financial_summary_forwards_supported_filters(query_string: str) -> None:
+    service = StubFinancialSummaryService()
+    response = request(
+        _application(StubService(), summary_service=service),
+        "GET",
+        f"/financial/summary?{query_string}",
+    )
+    assert response.status_code == 200
+    assert len(service.queries) == 1
+    assert response.json()["filters"]["collaborator_id"] == (
+        service.queries[0].collaborator_id
+    )
+
+
+def test_financial_summary_rejects_invalid_dates_and_inverted_interval() -> None:
+    invalid = request(
+        _application(StubService()),
+        "GET",
+        "/financial/summary?start_date=invalid",
+    )
+    inverted = request(
+        _application(StubService()),
+        "GET",
+        "/financial/summary?start_date=2026-08-01&end_date=2026-07-31",
+    )
+    assert invalid.status_code == inverted.status_code == 422
+    assert invalid.json()["error"]["code"] == "invalid_query_parameters"
+    assert "CSV file" not in invalid.text
+    assert inverted.json()["error"]["code"] == "invalid_date_range"
+
+
+def test_financial_summary_failure_returns_safe_500() -> None:
+    service = StubFinancialSummaryService(
+        error=RuntimeError("postgresql password raw_payload Traceback SQLAlchemy")
+    )
+    response = request(
+        _application(StubService(), summary_service=service),
+        "GET",
+        "/financial/summary",
+    )
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "internal_error",
+            "message": "Financial summary could not be generated",
+        }
+    }
+    for sensitive in ("raw_payload", "password", "Traceback", "SQLAlchemy"):
         assert sensitive not in response.text

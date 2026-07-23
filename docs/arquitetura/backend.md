@@ -1002,3 +1002,55 @@ O handler global de validação diferencia a rota: ausência do upload continua
 usando `upload_validation_error`, enquanto datas e query parameters inválidos
 usam `invalid_query_parameters`. O intervalo invertido possui o código estável
 `invalid_date_range`.
+
+---
+
+# 21. Resumo financeiro gerencial
+
+`GetFinancialSummaryUseCase` projeta exclusivamente créditos persistidos no
+Ledger. Ele não recebe fatos financeiros de entrada, não recalcula remuneração
+e não persiste o resultado. A consulta abre uma única Unit of Work somente para
+leitura e reutiliza `LedgerRepository.find_credits()`, que aplica no banco os
+filtros opcionais de colaborador e datas.
+
+Para o MVP, os créditos filtrados são agregados em memória na Application
+Layer. A consulta carrega somente `LedgerEntry`, não busca eventos ou execuções,
+não produz N+1 e mantém a infraestrutura simples. Views materializadas, tabelas
+de resumo e cache permanecem fora do escopo.
+
+## Agregação, ranking e percentuais
+
+Cada par colaborador/moeda possui total e quantidade próprios. Moedas nunca são
+somadas entre si. O ranking é sequencial e independente por moeda, aplicando:
+
+1. maior valor agregado;
+2. maior quantidade de créditos naquela moeda;
+3. `collaborator_id` crescente.
+
+Assim, até empates de valor têm posição estável. A lista externa de
+colaboradores usa `collaborator_id` crescente e as moedas usam seu valor textual
+crescente.
+
+A participação é `valor do colaborador / total da moeda * 100`, calculada com
+`Decimal` e arredondada para duas casas por `ROUND_HALF_UP`. Um total monetário
+zero, embora impedido pelas restrições atuais dos créditos, possui projeção
+segura de `0.00`. Dinheiro e percentuais são transportados como strings
+decimais, sem `float`.
+
+## Endpoint
+
+```text
+GET /financial/summary
+GET /financial/summary?collaborator_id=collaborator-1
+GET /financial/summary?start_date=2026-07-01&end_date=2026-07-31
+```
+
+Os filtros reutilizam `GetFinancialSnapshotQuery`: datas `YYYY-MM-DD`,
+inclusivas sobre `posted_at` em UTC, sem janela temporal implícita. O endpoint
+retorna `200` inclusive sem créditos, `422` para parâmetros inválidos e `500`
+seguro para falhas inesperadas. A camada HTTP apenas constrói a query, executa o
+serviço injetado pelo Composition Root e projeta DTOs explícitos.
+
+O resumo atual não representa equipes, metas, folha de pagamento ou RV mensal.
+Ele é somente uma visão gerencial dos créditos imutáveis já consolidados e
+preserva a idempotência do Ledger em reimportações.

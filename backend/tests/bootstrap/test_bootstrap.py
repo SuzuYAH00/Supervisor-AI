@@ -9,6 +9,7 @@ from supervisor_ai.application import CommercialEvent
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
     GetFinancialSnapshotUseCase,
+    GetFinancialSummaryUseCase,
     ProcessAndPersistCommercialEventCommand,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventCommand,
@@ -17,6 +18,7 @@ from supervisor_ai.application.use_cases import (
 from supervisor_ai.bootstrap import (
     build_csv_import_service,
     build_financial_snapshot_service,
+    build_financial_summary_service,
     build_rules_engine,
     build_session_factory,
     build_transactional_processor,
@@ -176,3 +178,11 @@ def test_build_financial_snapshot_service_uses_application_query(
     database_url = f"sqlite+pysqlite:///{tmp_path / 'snapshot-bootstrap.sqlite3'}"
     service = build_financial_snapshot_service(database_url)
     assert isinstance(service, GetFinancialSnapshotUseCase)
+
+
+def test_build_financial_summary_service_uses_application_query(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'summary-bootstrap.sqlite3'}"
+    service = build_financial_summary_service(database_url)
+    assert isinstance(service, GetFinancialSummaryUseCase)

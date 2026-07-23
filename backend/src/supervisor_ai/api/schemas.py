@@ -82,6 +82,28 @@ class FinancialSnapshotResponse(BaseModel):
     items: list[FinancialSnapshotItemResponse]
 
 
+class CollaboratorCurrencySummaryResponse(BaseModel):
+    currency: str
+    amount: str
+    credit_count: int
+    rank: int
+    share_percentage: str
+
+
+class CollaboratorFinancialSummaryResponse(BaseModel):
+    collaborator_id: str
+    credit_count: int
+    totals_by_currency: list[CollaboratorCurrencySummaryResponse]
+
+
+class FinancialSummaryResponse(BaseModel):
+    filters: FinancialSnapshotFiltersResponse
+    collaborator_count: int
+    credit_count: int
+    totals_by_currency: list[FinancialSnapshotTotalResponse]
+    collaborators: list[CollaboratorFinancialSummaryResponse]
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

@@ -1,4 +1,6 @@
 import asyncio
+from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -11,7 +13,9 @@ from supervisor_ai.bootstrap import (
     build_unit_of_work_factory,
 )
 from supervisor_ai.database.base import Base
+from supervisor_ai.rules_engine import Currency
 from tests.importing.csv_factories import csv_row, csv_text
+from tests.persistence.factories import commercial_event, ledger_entry
 
 
 def prepared_application(tmp_path: Path, name: str) -> tuple[FastAPI, str, Engine]:
@@ -180,4 +184,122 @@ def test_imported_credits_are_queryable_with_filters_and_remain_idempotent(
         for index in range(1, 4):
             event_id = f"event-csv-{index}"
             assert len(unit_of_work.processing_runs.find_by_event_id(event_id)) == 2
+    engine.dispose()
+
+
+def test_financial_summary_aggregates_ranks_filters_and_remains_idempotent(
+    tmp_path: Path,
+) -> None:
+    application, _, engine = prepared_application(
+        tmp_path, "http-financial-summary.sqlite3"
+    )
+    rows = [csv_row(index) for index in range(1, 5)]
+    collaborators = ("alice", "alice", "bob", "charlie")
+    amounts = ("120.00", "120.00", "150.00", "50.00")
+    dates = ("2026-07-05", "2026-07-20", "2026-07-25", "2026-08-05")
+    for row, collaborator, amount, posted_date in zip(
+        rows, collaborators, amounts, dates, strict=True
+    ):
+        row["beneficiary_id"] = collaborator
+        row["posted_at"] = f"{posted_date}T12:05:00Z"
+        row["invoice_recurring_amount"] = amount
+        row["expected_recurring_amount"] = amount
+        row["previous_recurring_value"] = "10.00"
+        row["current_recurring_value"] = amount
+        row["previous_remuneration_recurring_amount"] = "10.00"
+        row["new_remuneration_recurring_amount"] = amount
+        row["full_new_plan_amount"] = amount
+    content = csv_text(rows)
+
+    first = post_csv(application, content)
+    complete = request(application, "GET", "/financial/summary")
+    july = request(
+        application,
+        "GET",
+        "/financial/summary?start_date=2026-07-01&end_date=2026-07-31",
+    )
+    alice = request(
+        application,
+        "GET",
+        "/financial/summary?collaborator_id=alice",
+    )
+    second = post_csv(application, content)
+    after_reimport = request(application, "GET", "/financial/summary")
+
+    assert first.status_code == second.status_code == complete.status_code == 200
+    body = complete.json()
+    assert body["collaborator_count"] == 3
+    assert body["credit_count"] == 4
+    assert body["totals_by_currency"] == [
+        {"currency": "BRL", "amount": "440.00"}
+    ]
+    brl = {
+        item["collaborator_id"]: item["totals_by_currency"][0]
+        for item in body["collaborators"]
+    }
+    assert brl["alice"] == {
+        "currency": "BRL",
+        "amount": "240.00",
+        "credit_count": 2,
+        "rank": 1,
+        "share_percentage": "54.55",
+    }
+    assert brl["bob"]["rank"] == 2
+    assert brl["bob"]["share_percentage"] == "34.09"
+    assert brl["charlie"]["rank"] == 3
+    assert brl["charlie"]["share_percentage"] == "11.36"
+    assert july.json()["credit_count"] == 3
+    assert july.json()["collaborator_count"] == 2
+    assert alice.json()["credit_count"] == 2
+    assert alice.json()["totals_by_currency"] == [
+        {"currency": "BRL", "amount": "240.00"}
+    ]
+    assert alice.json()["collaborators"][0]["totals_by_currency"][0][
+        "share_percentage"
+    ] == "100.00"
+    assert second.json()["processing"]["ledger_entries_created"] == 0
+    assert after_reimport.json() == body
+    engine.dispose()
+
+
+def test_financial_summary_keeps_currencies_independent(tmp_path: Path) -> None:
+    application, database_url, engine = prepared_application(
+        tmp_path, "http-financial-summary-currencies.sqlite3"
+    )
+    unit_of_work_factory = build_unit_of_work_factory(
+        build_session_factory(database_url)
+    )
+    with unit_of_work_factory() as unit_of_work:
+        unit_of_work.events.add(commercial_event("event-brl", external_reference="brl"))
+        unit_of_work.events.add(commercial_event("event-usd", external_reference="usd"))
+        unit_of_work.ledger.add(
+            replace(
+                ledger_entry("ledger-brl", "event-brl", amount=Decimal("100.00")),
+                beneficiary_id="alice",
+            )
+        )
+        unit_of_work.ledger.add(
+            replace(
+                ledger_entry("ledger-usd", "event-usd", amount=Decimal("40.00")),
+                beneficiary_id="bob",
+                currency=Currency.USD,
+            )
+        )
+        unit_of_work.commit()
+
+    response = request(application, "GET", "/financial/summary")
+    assert response.status_code == 200
+    assert response.json()["totals_by_currency"] == [
+        {"currency": "BRL", "amount": "100.00"},
+        {"currency": "USD", "amount": "40.00"},
+    ]
+    collaborators = {
+        item["collaborator_id"]: item for item in response.json()["collaborators"]
+    }
+    assert collaborators["alice"]["totals_by_currency"][0]["rank"] == 1
+    assert collaborators["bob"]["totals_by_currency"][0]["rank"] == 1
+    assert all(
+        item["totals_by_currency"][0]["share_percentage"] == "100.00"
+        for item in collaborators.values()
+    )
     engine.dispose()

@@ -56,6 +56,16 @@ curl \
 Todos os filtros são opcionais. Datas são inclusivas sobre `posted_at` em UTC e
 valores monetários são strings decimais. Ausência de créditos retorna HTTP 200.
 
+O resumo gerencial dos créditos está disponível em:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/financial/summary?start_date=2026-07-01&end_date=2026-07-31"
+```
+
+Ele agrupa colaboradores e moedas, calcula ranking e participação com
+`Decimal`, e preserva a mesma política de filtros e resposta vazia do snapshot.
+
 ## Qualidade e testes
 
 ```bash

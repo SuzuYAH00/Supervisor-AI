@@ -8,17 +8,22 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from supervisor_ai.api.schemas import (
+    CollaboratorCurrencySummaryResponse,
+    CollaboratorFinancialSummaryResponse,
     CsvImportResponse,
     ErrorResponse,
     FinancialSnapshotFiltersResponse,
     FinancialSnapshotItemResponse,
     FinancialSnapshotResponse,
     FinancialSnapshotTotalResponse,
+    FinancialSummaryResponse,
     HealthResponse,
 )
 from supervisor_ai.application.use_cases import (
     GetFinancialSnapshotQuery,
     GetFinancialSnapshotResult,
+    GetFinancialSummaryQuery,
+    GetFinancialSummaryResult,
 )
 from supervisor_ai.infrastructure.importing import (
     CsvBatchImportResult,
@@ -41,9 +46,14 @@ class FinancialSnapshotServiceContract(Protocol):
     ) -> GetFinancialSnapshotResult: ...
 
 
+class FinancialSummaryServiceContract(Protocol):
+    def execute(self, query: GetFinancialSummaryQuery) -> GetFinancialSummaryResult: ...
+
+
 def create_http_application(
     csv_import_service: CsvImportServiceContract,
     financial_snapshot_service: FinancialSnapshotServiceContract,
+    financial_summary_service: FinancialSummaryServiceContract,
 ) -> FastAPI:
     app = FastAPI(
         title="Supervisor AI",
@@ -65,7 +75,7 @@ def create_http_application(
         return _error_response(
             422,
             "invalid_query_parameters",
-            "Financial snapshot query parameters are invalid",
+            "Financial query parameters are invalid",
         )
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
@@ -162,6 +172,44 @@ def create_http_application(
             )
         return _financial_snapshot_response(result)
 
+    @app.get(
+        "/financial/summary",
+        response_model=FinancialSummaryResponse,
+        responses={422: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+        tags=["financial"],
+        summary="Resume créditos financeiros por colaborador",
+        description=(
+            "Agrupa créditos por colaborador e moeda, com ranking e participação "
+            "percentual. As datas UTC de postagem são inclusivas."
+        ),
+    )
+    async def financial_summary(
+        collaborator_id: Annotated[str | None, Query(min_length=1)] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> FinancialSummaryResponse | JSONResponse:
+        try:
+            query = GetFinancialSummaryQuery(
+                collaborator_id=collaborator_id,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        except ValueError:
+            return _error_response(
+                422,
+                "invalid_date_range",
+                "start_date must not be after end_date",
+            )
+        try:
+            result = financial_summary_service.execute(query)
+        except Exception:
+            return _error_response(
+                500,
+                "internal_error",
+                "Financial summary could not be generated",
+            )
+        return _financial_summary_response(result)
+
     return app
 
 
@@ -224,3 +272,41 @@ def _decimal_string(value: Decimal) -> str:
         return f"{whole}.00"
     significant = fraction.rstrip("0")
     return f"{whole}.{significant.ljust(2, '0')}"
+
+
+def _financial_summary_response(
+    result: GetFinancialSummaryResult,
+) -> FinancialSummaryResponse:
+    return FinancialSummaryResponse(
+        filters=FinancialSnapshotFiltersResponse(
+            collaborator_id=result.filters.collaborator_id,
+            start_date=result.filters.start_date,
+            end_date=result.filters.end_date,
+        ),
+        collaborator_count=result.collaborator_count,
+        credit_count=result.credit_count,
+        totals_by_currency=[
+            FinancialSnapshotTotalResponse(
+                currency=total.currency.value,
+                amount=_decimal_string(total.amount),
+            )
+            for total in result.totals_by_currency
+        ],
+        collaborators=[
+            CollaboratorFinancialSummaryResponse(
+                collaborator_id=collaborator.collaborator_id,
+                credit_count=collaborator.credit_count,
+                totals_by_currency=[
+                    CollaboratorCurrencySummaryResponse(
+                        currency=total.currency.value,
+                        amount=_decimal_string(total.amount),
+                        credit_count=total.credit_count,
+                        rank=total.rank,
+                        share_percentage=_decimal_string(total.share_percentage),
+                    )
+                    for total in collaborator.totals_by_currency
+                ],
+            )
+            for collaborator in result.collaborators
+        ],
+    )

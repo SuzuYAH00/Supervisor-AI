@@ -1,6 +1,29 @@
 import type { CommercialEventList } from "../src/features/commercial-events/types/commercial-events";
 import type { FinancialSummary } from "../src/features/financial-summary/types/financial-summary";
+import type { FinancialTimeline } from "../src/features/financial-timeline/types/financial-timeline";
 import type { ProcessingHealth } from "../src/features/processing-health/types/processing-health";
+import type { ProcessingRunsResponse } from "../src/features/processing-runs/types/processing-runs";
+
+export function processingRuns(
+  changes: Partial<ProcessingRunsResponse> = {},
+): ProcessingRunsResponse {
+  return {
+    items: [
+      {
+        processing_run_id: "run-2",
+        event_id: "event-2",
+        source: "csv-example",
+        external_reference: "external-2",
+        started_at: "2026-07-23T14:00:00Z",
+        completed_at: "2026-07-23T14:00:01Z",
+        final_status: "posted",
+        rules_engine_version: "rules-1",
+      },
+    ],
+    next_cursor: null,
+    ...changes,
+  };
+}
 
 export function commercialEvents(
   changes: Partial<CommercialEventList> = {},
@@ -68,6 +91,41 @@ export function financialSummary(
             share_percentage: "37.25",
           },
         ],
+      },
+    ],
+    ...changes,
+  };
+}
+
+export function financialTimeline(
+  changes: Partial<FinancialTimeline> = {},
+): FinancialTimeline {
+  return {
+    collaborator_id: "Employee-A",
+    filters: {
+      start_date: null,
+      end_date: null,
+      entry_type: null,
+      currency: null,
+    },
+    page: { limit: 50, next_cursor: null, has_more: false },
+    items: [
+      {
+        ledger_entry_id: "ledger-1",
+        posted_at: "2026-07-22T12:05:00Z",
+        entry_type: "credit",
+        amount: "99.90",
+        currency: "BRL",
+        invoice_id: null,
+        posting_reference: "posting:event-1",
+        remuneration_calculation_reference: "calculation:event-1",
+        source_reference_ids: ["invoice-1", "ticket-1"],
+        commercial_event: {
+          event_id: "event-1",
+          external_reference: "external-1",
+          source: "csv-example",
+          occurred_at: "2026-07-22T12:00:00Z",
+        },
       },
     ],
     ...changes,

@@ -5,16 +5,27 @@ import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { appRoutes } from "../src/app/routes";
 import { getCommercialEvents } from "../src/features/commercial-events/api/get-commercial-events";
 import { getFinancialSummary } from "../src/features/financial-summary/api/get-financial-summary";
+import { getFinancialTimeline } from "../src/features/financial-timeline/api/get-financial-timeline";
 import { getProcessingHealth } from "../src/features/processing-health/api/get-processing-health";
+import { getProcessingRuns } from "../src/features/processing-runs/api/get-processing-runs";
 import {
   commercialEvents,
   financialSummary,
   processingHealth,
+  processingRuns,
 } from "./fixtures";
 
 vi.mock(
   "../src/features/processing-health/api/get-processing-health",
   () => ({ getProcessingHealth: vi.fn() }),
+);
+vi.mock(
+  "../src/features/processing-runs/api/get-processing-runs",
+  () => ({ getProcessingRuns: vi.fn() }),
+);
+vi.mock(
+  "../src/features/financial-timeline/api/get-financial-timeline",
+  () => ({ getFinancialTimeline: vi.fn() }),
 );
 vi.mock(
   "../src/features/commercial-events/api/get-commercial-events",
@@ -28,6 +39,8 @@ vi.mock(
 const getProcessingHealthMock = vi.mocked(getProcessingHealth);
 const getFinancialSummaryMock = vi.mocked(getFinancialSummary);
 const getCommercialEventsMock = vi.mocked(getCommercialEvents);
+const getFinancialTimelineMock = vi.mocked(getFinancialTimeline);
+const getProcessingRunsMock = vi.mocked(getProcessingRuns);
 
 function renderRoute(path: string) {
   return render(
@@ -95,6 +108,55 @@ test("commercial events route renders directly", async () => {
   getCommercialEventsMock.mockResolvedValue(commercialEvents());
   renderRoute("/commercial-events");
   expect(await screen.findByText("Eventos persistidos")).toBeInTheDocument();
+  expect(screen.getByText("MVP interno")).toBeInTheDocument();
+});
+
+test("financial timeline navigation uses React Router and starts idle", async () => {
+  const user = userEvent.setup();
+  getProcessingHealthMock.mockResolvedValue(processingHealth());
+  renderRoute("/processing-health");
+  await user.click(
+    await screen.findByRole("link", { name: /Timeline financeira/ }),
+  );
+
+  expect(
+    screen.getByText("Informe um colaborador para iniciar a consulta."),
+  ).toBeInTheDocument();
+  expect(getFinancialTimelineMock).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("link", { name: /Timeline financeira/ }),
+  ).toHaveAttribute("href", "/financial-timeline");
+});
+
+test("financial timeline route renders directly without querying", () => {
+  renderRoute("/financial-timeline");
+  expect(screen.getByRole("heading", { name: "Timeline financeira" })).toBeInTheDocument();
+  expect(getFinancialTimelineMock).not.toHaveBeenCalled();
+});
+
+test("processing runs navigation opens the list through React Router", async () => {
+  const user = userEvent.setup();
+  getProcessingHealthMock.mockResolvedValue(processingHealth());
+  getProcessingRunsMock.mockResolvedValue(processingRuns());
+  renderRoute("/processing-health");
+
+  await user.click(
+    await screen.findByRole("link", { name: /Execuções de processamento/ }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: "Execuções de processamento" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: /Execuções de processamento/ }),
+  ).toHaveAttribute("href", "/processing-runs");
+});
+
+test("processing runs route renders directly", async () => {
+  getProcessingRunsMock.mockResolvedValue(processingRuns());
+  renderRoute("/processing-runs");
+  expect(
+    await screen.findByRole("heading", { name: "Execuções de processamento" }),
+  ).toBeInTheDocument();
   expect(screen.getByText("MVP interno")).toBeInTheDocument();
 });
 

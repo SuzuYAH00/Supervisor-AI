@@ -318,6 +318,45 @@ Possíveis evoluções:
 A primeira versão do frontend deve priorizar simplicidade.
 
 O objetivo inicial não é criar uma ferramenta complexa, mas entregar uma visão operacional rápida e confiável para o supervisor.
+
+---
+
+# 15. Implementação do MVP
+
+O frontend utiliza React, TypeScript strict, Vite e React Router. A organização
+por feature separa transporte HTTP, validação runtime, hook, componentes e
+página. Toda comunicação ocorre pela API do Supervisor AI, por meio do cliente
+`fetch` centralizado.
+
+As telas funcionais atuais são:
+
+- Saúde do processamento;
+- Resumo financeiro;
+- Eventos comerciais;
+- Timeline financeira por colaborador;
+- Execuções de processamento.
+
+## Listagem de execuções
+
+`/processing-runs` consome `GET /processing-runs` automaticamente ao abrir. O
+contrato público contém uma coleção mínima de execuções e `next_cursor`.
+Campos internos, fases, warnings, Ledger e valores financeiros não atravessam
+essa projeção.
+
+A ordem dos itens é preservada exatamente como entregue pela API. O frontend
+não calcula duração, indicadores, percentuais, totalizadores ou diagnóstico a
+partir dos timestamps e status.
+
+A paginação é keyset: o cursor recebido é opaco, enviado sem interpretação e
+guardado somente no histórico local da tela para permitir retorno. Não existe
+offset, total de páginas ou persistência em `localStorage`. Retry repete o
+cursor solicitado; a transição limpa os dados anteriores; `AbortController` e
+um ciclo ativo impedem atualizações após cancelamento ou resposta obsoleta.
+
+O cliente tipado conhece os filtros públicos para evolução posterior, mas esta
+primeira tela não oferece controles de filtro. Os componentes de paginação
+permanecem locais, pois as features atuais possuem contratos e textos distintos;
+uma extração compartilhada não trouxe benefício suficiente neste marco.
 # Fundação frontend do MVP
 
 O frontend inicial do Supervisor AI usa React, TypeScript strict, Vite e React
@@ -335,6 +374,8 @@ A estrutura é orientada por feature:
   componentes e página do resumo financeiro;
 - `features/commercial-events/` concentra o contrato, consulta, paginação e
   tabela dos eventos persistidos;
+- `features/financial-timeline/` concentra busca por colaborador, consulta do
+  Ledger e paginação;
 - `lib/http/` possui o cliente fetch independente de React;
 - `lib/config/` concentra ambiente;
 - `styles/` define a base visual responsiva.
@@ -342,7 +383,8 @@ A estrutura é orientada por feature:
 A raiz redireciona para `/processing-health`. Rotas desconhecidas exibem
 fallback visual. O resumo financeiro está disponível em `/financial-summary`;
 eventos comerciais estão disponíveis em `/commercial-events`; execuções e
-timeline permanecem como navegação futura desabilitada.
+timeline financeira está disponível em `/financial-timeline`; execuções
+permanecem como navegação futura desabilitada.
 
 ## Integração HTTP
 
@@ -363,7 +405,9 @@ O cliente HTTP:
 
 Cada feature valida em runtime seu contrato (`GET /processing/health`,
 `GET /financial/summary` ou `GET /commercial-events`) e o representa com tipos
-explícitos. Validadores
+explícitos. A timeline valida
+`GET /collaborators/{collaborator_id}/financial-timeline` da mesma forma.
+Validadores
 estruturais pequenos são compartilhados em `lib/http/`, sem transformar o
 cliente em uma camada de domínio. Os hooks locais usam `AbortController`, tratam
 loading, sucesso, erro e refetch e cancelam a chamada ao desmontar.
@@ -414,12 +458,36 @@ A API ordena os itens por `occurred_at` e `event_id` decrescentes. O frontend
 preserva essa ordem e mostra “Página N desta sessão”, sem sugerir quantidade
 total ou página absoluta.
 
+## Timeline financeira
+
+A rota `/financial-timeline` não consulta automaticamente. O formulário mantém
+separados o texto editável e o identificador submetido; aplica apenas `trim`
+externo e preserva caixa.
+
+O hook controla estados não consultado, loading, sucesso, vazio e erro. A API
+atual não distingue existência cadastral: um identificador válido sem
+lançamentos retorna HTTP 200 e `items=[]`; portanto, ausência de registros é
+sucesso e o frontend não infere que o colaborador existe ou não. Enquanto não
+houver código público específico, qualquer erro HTTP, inclusive 404, usa o
+tratamento genérico.
+
+Ao trocar de colaborador, dados e histórico são descartados e a nova consulta
+começa na página 1. Cada efeito possui `AbortController` e marcador de ciclo
+ativo. Mesmo que o transporte ignore aborto, uma resposta antiga não atualiza o
+estado de uma consulta mais recente.
+
+A paginação guarda cursores opacos em uma pilha local. Retry conserva
+colaborador e cursor solicitados; uma falha ao avançar permite retry ou retorno
+à página anterior. A tabela preserva a ordem da API, strings decimais e
+timestamps, sem saldo, totalizadores, agrupamentos ou regras.
+
 HTML semântico, foco visível, navegação por teclado, regiões anunciáveis e
 contraste constituem a base mínima de acessibilidade.
 
 ## Limites
 
-Não há autenticação, upload, detalhes dos eventos, filtros editáveis, demais
+Não há autenticação, upload, detalhes dos eventos, seleção de colaboradores,
+filtros editáveis, demais
 telas financeiras, gráficos avançados, estado global, polling ou deploy. Esses
 recursos devem evoluir como novas features sem acoplar componentes diretamente
 ao transporte HTTP.

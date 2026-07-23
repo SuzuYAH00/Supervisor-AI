@@ -284,6 +284,18 @@ parciais, diferenciadas pelo campo `status`. Estrutura CSV inválida retorna
 `400`; upload ausente, vazio ou fora de UTF-8 retorna `422`; falhas fatais
 retornam `500` com mensagem segura.
 
+Consulte os créditos financeiros consolidados:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/financial/snapshot?collaborator_id=collaborator-1&start_date=2026-07-01&end_date=2026-07-31"
+```
+
+Os filtros são opcionais e não existe intervalo implícito. As datas usam
+`YYYY-MM-DD`, são inclusivas e se referem à data UTC de postagem do crédito.
+Dinheiro é retornado como string decimal. Um resultado sem créditos retorna
+HTTP `200`, contagem zero, totais e itens vazios.
+
 Para validar o projeto:
 
 ```bash

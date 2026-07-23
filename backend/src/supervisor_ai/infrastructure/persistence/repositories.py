@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import UTC, date, datetime, time, timedelta
+
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from supervisor_ai.application.persistence import CommercialEvent, ProcessingRun
@@ -82,3 +84,52 @@ class SqlAlchemyLedgerRepository:
             )
         )
         return None if record is None else record_to_ledger_entry(record)
+
+    def find_credits(
+        self,
+        *,
+        beneficiary_id: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> tuple[LedgerEntry, ...]:
+        statement = select(LedgerEntryRecord).where(
+            LedgerEntryRecord.entry_type == LedgerEntryType.CREDIT.value
+        )
+        statement = _apply_credit_filters(
+            statement,
+            beneficiary_id=beneficiary_id,
+            start_date=start_date,
+            end_date=end_date,
+        ).order_by(LedgerEntryRecord.posted_at, LedgerEntryRecord.entry_id)
+        records = self.session.scalars(statement)
+        return tuple(record_to_ledger_entry(record) for record in records)
+
+
+def _apply_credit_filters(
+    statement: Select[tuple[LedgerEntryRecord]],
+    *,
+    beneficiary_id: str | None,
+    start_date: date | None,
+    end_date: date | None,
+) -> Select[tuple[LedgerEntryRecord]]:
+    if beneficiary_id is not None:
+        statement = statement.where(
+            LedgerEntryRecord.beneficiary_id == beneficiary_id
+        )
+    if start_date is not None:
+        statement = statement.where(
+            LedgerEntryRecord.posted_at
+            >= datetime.combine(start_date, time.min, tzinfo=UTC)
+        )
+    if end_date is not None:
+        if end_date == date.max:
+            statement = statement.where(
+                LedgerEntryRecord.posted_at
+                <= datetime.combine(end_date, time.max, tzinfo=UTC)
+            )
+        else:
+            statement = statement.where(
+                LedgerEntryRecord.posted_at
+                < datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
+            )
+    return statement

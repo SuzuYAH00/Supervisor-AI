@@ -927,3 +927,78 @@ requisição idêntica cria novos `ProcessingRun` e zero créditos duplicados.
 
 O escopo atual não inclui autenticação, CORS customizado, upload persistente,
 background tasks, filas, consultas, versionamento ou processamento paralelo.
+
+---
+
+# 20. Consulta do snapshot financeiro consolidado
+
+O `FinancialSnapshot` original permanece o contrato de fatos financeiros de
+entrada de um evento. Ele alimenta validação de pagamento, cálculo e postagem,
+mas não é persistido como documento recuperável. A consulta HTTP não tenta
+reconstruir esses fatos nem cria um snapshot paralelo.
+
+`GetFinancialSnapshotUseCase` é uma visão somente leitura dos créditos que o
+pipeline já materializou no Ledger. Ele recebe `GetFinancialSnapshotQuery`, usa
+a mesma `UnitOfWorkFactory`, solicita créditos ao `LedgerRepository` e retorna
+DTOs imutáveis. Não executa regra, não recalcula remuneração e nunca chama
+`commit`.
+
+Como o ledger aceita mais de uma moeda, somar moedas diferentes produziria um
+valor semanticamente inválido. Por isso, o resultado expõe
+`totals_by_currency`, além de `credit_count` e itens. A agregação é apenas uma
+projeção aritmética dos lançamentos existentes.
+
+## Endpoint e filtros
+
+```text
+GET /financial/snapshot
+GET /financial/snapshot?collaborator_id=collaborator-1
+GET /financial/snapshot?start_date=2026-07-01&end_date=2026-07-31
+```
+
+`collaborator_id`, `start_date` e `end_date` são opcionais. Ausência de filtros
+consulta todos os créditos disponíveis, sem mês, colaborador ou janela padrão.
+Datas usam `YYYY-MM-DD` e filtram de forma inclusiva a data UTC de `posted_at`,
+coerente com a normalização UTC da persistência. Intervalo invertido ou data
+inválida retorna `422`.
+
+Os filtros são aplicados pelo repositório SQLAlchemy. A consulta considera
+somente `entry_type=credit` e ordena por `posted_at`, depois `entry_id`. Essa
+ordem é estável em SQLite e PostgreSQL.
+
+## Resposta e segurança
+
+Valores `Decimal` são projetados explicitamente como strings, sem passagem por
+`float`. Zeros não significativos introduzidos pela escala `Numeric` são
+removidos apenas na apresentação, mantendo no mínimo duas casas:
+
+```json
+{
+  "filters": {
+    "collaborator_id": null,
+    "start_date": null,
+    "end_date": null
+  },
+  "credit_count": 1,
+  "totals_by_currency": [{"currency": "BRL", "amount": "119.90"}],
+  "items": [
+    {
+      "ledger_entry_id": "ledger.remuneration.credit:event-1",
+      "commercial_event_id": "event-1",
+      "collaborator_id": "collaborator-1",
+      "amount": "119.90",
+      "currency": "BRL",
+      "entry_type": "credit"
+    }
+  ]
+}
+```
+
+Snapshot vazio retorna `200`, `credit_count=0`, `totals_by_currency=[]` e
+`items=[]`. Falhas inesperadas retornam `500` com mensagem fixa. DTOs HTTP não
+expõem ORM, `raw_payload`, configuração, SQL ou traceback.
+
+O handler global de validação diferencia a rota: ausência do upload continua
+usando `upload_validation_error`, enquanto datas e query parameters inválidos
+usam `invalid_query_parameters`. O intervalo invertido possui o código estável
+`invalid_date_range`.

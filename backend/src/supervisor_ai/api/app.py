@@ -1,15 +1,24 @@
 import os
+from datetime import date
+from decimal import Decimal
 from typing import Annotated, Protocol
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from starlette.requests import Request
 
 from supervisor_ai.api.schemas import (
     CsvImportResponse,
     ErrorResponse,
+    FinancialSnapshotFiltersResponse,
+    FinancialSnapshotItemResponse,
+    FinancialSnapshotResponse,
+    FinancialSnapshotTotalResponse,
     HealthResponse,
+)
+from supervisor_ai.application.use_cases import (
+    GetFinancialSnapshotQuery,
+    GetFinancialSnapshotResult,
 )
 from supervisor_ai.infrastructure.importing import (
     CsvBatchImportResult,
@@ -26,7 +35,16 @@ class CsvImportServiceContract(Protocol):
     def import_csv(self, content: str) -> CsvBatchImportResult: ...
 
 
-def create_http_application(service: CsvImportServiceContract) -> FastAPI:
+class FinancialSnapshotServiceContract(Protocol):
+    def execute(
+        self, query: GetFinancialSnapshotQuery
+    ) -> GetFinancialSnapshotResult: ...
+
+
+def create_http_application(
+    csv_import_service: CsvImportServiceContract,
+    financial_snapshot_service: FinancialSnapshotServiceContract,
+) -> FastAPI:
     app = FastAPI(
         title="Supervisor AI",
         description="API HTTP para importação operacional do Supervisor AI.",
@@ -37,11 +55,17 @@ def create_http_application(service: CsvImportServiceContract) -> FastAPI:
     async def request_validation_error(
         request: Request, error: RequestValidationError
     ) -> JSONResponse:
-        del request, error
+        del error
+        if request.url.path == "/imports/csv":
+            return _error_response(
+                422,
+                "upload_validation_error",
+                "A CSV file is required in multipart field 'file'",
+            )
         return _error_response(
             422,
-            "upload_validation_error",
-            "A CSV file is required in multipart field 'file'",
+            "invalid_query_parameters",
+            "Financial snapshot query parameters are invalid",
         )
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
@@ -82,7 +106,7 @@ def create_http_application(service: CsvImportServiceContract) -> FastAPI:
                 "CSV file must use UTF-8 encoding",
             )
         try:
-            result = service.import_csv(content)
+            result = csv_import_service.import_csv(content)
         except CsvStructureError:
             return _error_response(
                 400,
@@ -99,6 +123,44 @@ def create_http_application(service: CsvImportServiceContract) -> FastAPI:
         return CsvImportResponse.model_validate(
             project_csv_import_report(file_name, result)
         )
+
+    @app.get(
+        "/financial/snapshot",
+        response_model=FinancialSnapshotResponse,
+        responses={422: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+        tags=["financial"],
+        summary="Consulta os créditos financeiros consolidados",
+        description=(
+            "Filtra créditos pela data UTC inclusiva de postagem. Valores "
+            "monetários são strings decimais."
+        ),
+    )
+    async def financial_snapshot(
+        collaborator_id: Annotated[str | None, Query(min_length=1)] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> FinancialSnapshotResponse | JSONResponse:
+        try:
+            query = GetFinancialSnapshotQuery(
+                collaborator_id=collaborator_id,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        except ValueError:
+            return _error_response(
+                422,
+                "invalid_date_range",
+                "start_date must not be after end_date",
+            )
+        try:
+            result = financial_snapshot_service.execute(query)
+        except Exception:
+            return _error_response(
+                500,
+                "internal_error",
+                "Financial snapshot could not be generated",
+            )
+        return _financial_snapshot_response(result)
 
     return app
 
@@ -121,3 +183,44 @@ def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
 
 def _safe_file_name(value: str) -> str:
     return value.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def _financial_snapshot_response(
+    result: GetFinancialSnapshotResult,
+) -> FinancialSnapshotResponse:
+    return FinancialSnapshotResponse(
+        filters=FinancialSnapshotFiltersResponse(
+            collaborator_id=result.filters.collaborator_id,
+            start_date=result.filters.start_date,
+            end_date=result.filters.end_date,
+        ),
+        credit_count=result.credit_count,
+        totals_by_currency=[
+            FinancialSnapshotTotalResponse(
+                currency=total.currency.value,
+                amount=_decimal_string(total.amount),
+            )
+            for total in result.totals_by_currency
+        ],
+        items=[
+            FinancialSnapshotItemResponse(
+                ledger_entry_id=item.ledger_entry_id,
+                commercial_event_id=item.commercial_event_id,
+                collaborator_id=item.collaborator_id,
+                amount=_decimal_string(item.amount),
+                currency=item.currency.value,
+                posted_at=item.posted_at,
+                entry_type=item.entry_type.value,
+                invoice_id=item.invoice_id,
+            )
+            for item in result.items
+        ],
+    )
+
+
+def _decimal_string(value: Decimal) -> str:
+    whole, separator, fraction = format(value, "f").partition(".")
+    if not separator:
+        return f"{whole}.00"
+    significant = fraction.rstrip("0")
+    return f"{whole}.{significant.ljust(2, '0')}"

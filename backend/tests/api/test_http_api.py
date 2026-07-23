@@ -1,5 +1,6 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from fastapi import FastAPI
@@ -8,6 +9,12 @@ from httpx import ASGITransport, AsyncClient, Response
 from supervisor_ai.api.app import (
     create_application_from_environment,
     create_http_application,
+)
+from supervisor_ai.application.use_cases import (
+    FinancialSnapshotCurrencyTotal,
+    FinancialSnapshotItem,
+    GetFinancialSnapshotQuery,
+    GetFinancialSnapshotResult,
 )
 from supervisor_ai.infrastructure.importing import (
     BatchDocumentResult,
@@ -18,6 +25,7 @@ from supervisor_ai.infrastructure.importing import (
     CsvImportAdapter,
     CsvStructureError,
 )
+from supervisor_ai.rules_engine import Currency, LedgerEntryType
 from tests.importing.csv_factories import csv_row, csv_text
 
 NOW = datetime(2026, 7, 22, 15, 0, tzinfo=UTC)
@@ -40,6 +48,34 @@ class StubService:
             raise self.error
         assert self.result is not None
         return self.result
+
+
+class StubFinancialService:
+    def __init__(
+        self,
+        result: GetFinancialSnapshotResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.queries: list[GetFinancialSnapshotQuery] = []
+
+    def execute(
+        self, query: GetFinancialSnapshotQuery
+    ) -> GetFinancialSnapshotResult:
+        self.queries.append(query)
+        if self.error is not None:
+            raise self.error
+        return self.result or GetFinancialSnapshotResult(query, 0, (), ())
+
+
+def _application(
+    service: StubService,
+    financial_service: StubFinancialService | None = None,
+) -> FastAPI:
+    return create_http_application(
+        service, financial_service or StubFinancialService()
+    )
 
 
 def successful_result() -> CsvBatchImportResult:
@@ -119,7 +155,7 @@ def upload(application: FastAPI, content: bytes, name: str = "commercial.csv"):
 
 def test_health_is_process_only_and_does_not_call_service() -> None:
     service = StubService(error=AssertionError("must not be called"))
-    application = create_http_application(service)
+    application = _application(service)
     response = request(application, "GET", "/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
@@ -128,7 +164,7 @@ def test_health_is_process_only_and_does_not_call_service() -> None:
 
 def test_missing_empty_and_invalid_encoding_uploads_return_422() -> None:
     service = StubService(successful_result())
-    application = create_http_application(service)
+    application = _application(service)
     missing = request(application, "POST", "/imports/csv")
     empty = upload(application, b"")
     invalid = upload(application, b"\xff\xfe")
@@ -141,7 +177,7 @@ def test_missing_empty_and_invalid_encoding_uploads_return_422() -> None:
 
 def test_invalid_global_structure_returns_safe_400() -> None:
     service = StubService(error=CsvStructureError("secret header detail"))
-    response = upload(create_http_application(service), b"invalid\n")
+    response = upload(_application(service), b"invalid\n")
     assert response.status_code == 400
     assert response.json() == {
         "error": {
@@ -154,12 +190,12 @@ def test_invalid_global_structure_returns_safe_400() -> None:
 
 def test_valid_and_partial_imports_both_return_200() -> None:
     success = upload(
-        create_http_application(StubService(successful_result())),
+        _application(StubService(successful_result())),
         csv_text([csv_row()]).encode(),
         name="C:\\fakepath\\commercial.csv",
     )
     partial = upload(
-        create_http_application(StubService(partial_result())),
+        _application(StubService(partial_result())),
         csv_text([csv_row()]).encode(),
     )
     assert success.status_code == partial.status_code == 200
@@ -172,7 +208,7 @@ def test_valid_and_partial_imports_both_return_200() -> None:
 def test_utf8_bom_upload_is_accepted() -> None:
     service = StubService(successful_result())
     response = upload(
-        create_http_application(service),
+        _application(service),
         csv_text([csv_row()]).encode("utf-8-sig"),
     )
     assert response.status_code == 200
@@ -186,7 +222,7 @@ def test_unexpected_failure_returns_safe_500_without_sensitive_details() -> None
         )
     )
     response = upload(
-        create_http_application(service),
+        _application(service),
         csv_text([csv_row()]).encode(),
     )
     assert response.status_code == 500
@@ -203,7 +239,7 @@ def test_unexpected_failure_returns_safe_500_without_sensitive_details() -> None
 
 def test_http_projection_never_exposes_transport_or_configuration_data() -> None:
     response = upload(
-        create_http_application(StubService(successful_result())),
+        _application(StubService(successful_result())),
         csv_text([csv_row()]).encode(),
     )
     assert response.status_code == 200
@@ -218,3 +254,144 @@ def test_environment_factory_requires_explicit_database_url(
     monkeypatch.delenv("SUPERVISOR_AI_DATABASE_URL", raising=False)
     with pytest.raises(RuntimeError, match="SUPERVISOR_AI_DATABASE_URL"):
         create_application_from_environment()
+
+
+def financial_result(query: GetFinancialSnapshotQuery) -> GetFinancialSnapshotResult:
+    item = FinancialSnapshotItem(
+        ledger_entry_id="ledger-1",
+        commercial_event_id="event-1",
+        collaborator_id="collaborator-1",
+        amount=Decimal("119.900000"),
+        currency=Currency.BRL,
+        posted_at=datetime(2026, 7, 20, 13, tzinfo=UTC),
+        entry_type=LedgerEntryType.CREDIT,
+        invoice_id="invoice-1",
+    )
+    return GetFinancialSnapshotResult(
+        filters=query,
+        credit_count=1,
+        totals_by_currency=(
+            FinancialSnapshotCurrencyTotal(Currency.BRL, Decimal("119.900000")),
+        ),
+        items=(item,),
+    )
+
+
+def test_financial_snapshot_returns_complete_and_empty_views() -> None:
+    query = GetFinancialSnapshotQuery()
+    populated_service = StubFinancialService(financial_result(query))
+    populated = request(
+        _application(StubService(), populated_service),
+        "GET",
+        "/financial/snapshot",
+    )
+    empty = request(
+        _application(StubService(), StubFinancialService()),
+        "GET",
+        "/financial/snapshot",
+    )
+    assert populated.status_code == empty.status_code == 200
+    assert populated.json()["credit_count"] == 1
+    assert populated.json()["totals_by_currency"] == [
+        {"currency": "BRL", "amount": "119.90"}
+    ]
+    assert populated.json()["items"][0]["amount"] == "119.90"
+    assert type(populated.json()["items"][0]["amount"]) is str
+    assert empty.json()["credit_count"] == 0
+    assert empty.json()["totals_by_currency"] == []
+    assert empty.json()["items"] == []
+
+
+@pytest.mark.parametrize(
+    "query_string",
+    [
+        "collaborator_id=collaborator-1",
+        "start_date=2026-07-01&end_date=2026-07-31",
+        (
+            "collaborator_id=collaborator-1&start_date=2026-07-01"
+            "&end_date=2026-07-31"
+        ),
+    ],
+)
+def test_financial_snapshot_forwards_supported_filters(query_string: str) -> None:
+    service = StubFinancialService()
+    response = request(
+        _application(StubService(), service),
+        "GET",
+        f"/financial/snapshot?{query_string}",
+    )
+    assert response.status_code == 200
+    assert len(service.queries) == 1
+    assert response.json()["filters"] == {
+        "collaborator_id": service.queries[0].collaborator_id,
+        "start_date": (
+            None
+            if service.queries[0].start_date is None
+            else service.queries[0].start_date.isoformat()
+        ),
+        "end_date": (
+            None
+            if service.queries[0].end_date is None
+            else service.queries[0].end_date.isoformat()
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    "query_string",
+    ["start_date=invalid", "end_date=2026-02-30"],
+)
+def test_invalid_financial_dates_return_route_specific_422(
+    query_string: str,
+) -> None:
+    response = request(
+        _application(StubService()),
+        "GET",
+        f"/financial/snapshot?{query_string}",
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_query_parameters"
+    assert "CSV file" not in response.text
+
+
+def test_inverted_financial_interval_returns_specific_422() -> None:
+    response = request(
+        _application(StubService()),
+        "GET",
+        "/financial/snapshot?start_date=2026-08-01&end_date=2026-07-31",
+    )
+    assert response.status_code == 422
+    assert response.json() == {
+        "error": {
+            "code": "invalid_date_range",
+            "message": "start_date must not be after end_date",
+        }
+    }
+
+
+def test_financial_failure_returns_safe_500() -> None:
+    service = StubFinancialService(
+        error=RuntimeError(
+            "postgresql://user:password raw_payload Traceback SQLAlchemy"
+        )
+    )
+    response = request(
+        _application(StubService(), service),
+        "GET",
+        "/financial/snapshot",
+    )
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "internal_error",
+            "message": "Financial snapshot could not be generated",
+        }
+    }
+    for sensitive in (
+        "raw_payload",
+        "password",
+        "Traceback",
+        "SQLAlchemy",
+        "postgresql",
+    ):
+        assert sensitive not in response.text

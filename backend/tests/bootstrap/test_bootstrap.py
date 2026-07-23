@@ -8,6 +8,7 @@ from sqlalchemy import Engine
 from supervisor_ai.application import CommercialEvent
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
+    GetFinancialSnapshotUseCase,
     ProcessAndPersistCommercialEventCommand,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventCommand,
@@ -15,6 +16,7 @@ from supervisor_ai.application.use_cases import (
 )
 from supervisor_ai.bootstrap import (
     build_csv_import_service,
+    build_financial_snapshot_service,
     build_rules_engine,
     build_session_factory,
     build_transactional_processor,
@@ -166,3 +168,11 @@ def test_build_csv_import_service_reuses_complete_composition(tmp_path: Path) ->
     assert service.__class__.__module__.startswith(
         "supervisor_ai.infrastructure.importing"
     )
+
+
+def test_build_financial_snapshot_service_uses_application_query(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'snapshot-bootstrap.sqlite3'}"
+    service = build_financial_snapshot_service(database_url)
+    assert isinstance(service, GetFinancialSnapshotUseCase)

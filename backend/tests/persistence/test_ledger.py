@@ -1,3 +1,5 @@
+from dataclasses import replace
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -93,3 +95,43 @@ def test_non_positive_amount_is_rejected(
 
 def test_ledger_has_no_balance_column() -> None:
     assert "balance" not in LedgerEntryRecord.__table__.columns
+
+
+def test_finds_filtered_credits_in_deterministic_posting_order(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        for event_id in ("event-1", "event-2", "event-3"):
+            persist_event(session, event_id)
+        repository = SqlAlchemyLedgerRepository(session)
+        repository.add(
+            replace(
+                ledger_entry("ledger-2", "event-2", amount=Decimal("20.00")),
+                beneficiary_id="collaborator-1",
+                posted_at=datetime(2026, 7, 20, 14, tzinfo=UTC),
+            )
+        )
+        repository.add(
+            replace(
+                ledger_entry("ledger-1", "event-1", amount=Decimal("10.00")),
+                beneficiary_id="collaborator-1",
+                posted_at=datetime(2026, 7, 20, 13, tzinfo=UTC),
+            )
+        )
+        repository.add(
+            replace(
+                ledger_entry("ledger-3", "event-3", amount=Decimal("30.00")),
+                beneficiary_id="collaborator-2",
+                posted_at=datetime(2026, 8, 1, 13, tzinfo=UTC),
+            )
+        )
+        session.commit()
+
+        result = repository.find_credits(
+            beneficiary_id="collaborator-1",
+            start_date=date(2026, 7, 20),
+            end_date=date(2026, 7, 20),
+        )
+
+    assert tuple(entry.entry_id for entry in result) == ("ledger-1", "ledger-2")
+    assert all(entry.beneficiary_id == "collaborator-1" for entry in result)

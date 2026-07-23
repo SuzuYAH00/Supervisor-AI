@@ -46,6 +46,16 @@ curl -X POST \
 
 A aplicação não cria tabelas ou aplica migrations durante a inicialização.
 
+## Consulta financeira
+
+```bash
+curl \
+  "http://127.0.0.1:8000/financial/snapshot?collaborator_id=collaborator-1&start_date=2026-07-01&end_date=2026-07-31"
+```
+
+Todos os filtros são opcionais. Datas são inclusivas sobre `posted_at` em UTC e
+valores monetários são strings decimais. Ausência de créditos retorna HTTP 200.
+
 ## Qualidade e testes
 
 ```bash

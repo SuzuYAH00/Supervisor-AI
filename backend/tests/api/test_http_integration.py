@@ -116,3 +116,68 @@ def test_composition_root_does_not_create_database_or_import_on_startup(
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
     assert not database_path.exists()
+
+
+def test_imported_credits_are_queryable_with_filters_and_remain_idempotent(
+    tmp_path: Path,
+) -> None:
+    application, database_url, engine = prepared_application(
+        tmp_path, "http-financial-snapshot.sqlite3"
+    )
+    rows = [csv_row(index) for index in range(1, 4)]
+    rows[0]["beneficiary_id"] = "collaborator-1"
+    rows[0]["posted_at"] = "2026-07-05T12:00:00Z"
+    rows[1]["beneficiary_id"] = "collaborator-2"
+    rows[1]["posted_at"] = "2026-07-20T12:00:00Z"
+    rows[2]["beneficiary_id"] = "collaborator-1"
+    rows[2]["posted_at"] = "2026-08-05T12:00:00Z"
+    content = csv_text(rows)
+
+    first_import = post_csv(application, content)
+    complete = request(application, "GET", "/financial/snapshot")
+    collaborator = request(
+        application,
+        "GET",
+        "/financial/snapshot?collaborator_id=collaborator-1",
+    )
+    july = request(
+        application,
+        "GET",
+        "/financial/snapshot?start_date=2026-07-01&end_date=2026-07-31",
+    )
+    combined = request(
+        application,
+        "GET",
+        (
+            "/financial/snapshot?collaborator_id=collaborator-1"
+            "&start_date=2026-07-01&end_date=2026-07-31"
+        ),
+    )
+    second_import = post_csv(application, content)
+    after_reimport = request(application, "GET", "/financial/snapshot")
+
+    assert first_import.status_code == second_import.status_code == 200
+    assert complete.status_code == collaborator.status_code == july.status_code == 200
+    assert combined.status_code == after_reimport.status_code == 200
+    assert complete.json()["credit_count"] == 3
+    assert complete.json()["totals_by_currency"] == [
+        {"currency": "BRL", "amount": "299.70"}
+    ]
+    assert tuple(item["ledger_entry_id"] for item in complete.json()["items"]) == (
+        "ledger.remuneration.credit:event-csv-1",
+        "ledger.remuneration.credit:event-csv-2",
+        "ledger.remuneration.credit:event-csv-3",
+    )
+    assert collaborator.json()["credit_count"] == 2
+    assert july.json()["credit_count"] == 2
+    assert combined.json()["credit_count"] == 1
+    assert after_reimport.json()["credit_count"] == 3
+    assert second_import.json()["processing"]["ledger_entries_created"] == 0
+
+    session_factory = build_session_factory(database_url)
+    unit_of_work_factory = build_unit_of_work_factory(session_factory)
+    with unit_of_work_factory() as unit_of_work:
+        for index in range(1, 4):
+            event_id = f"event-csv-{index}"
+            assert len(unit_of_work.processing_runs.find_by_event_id(event_id)) == 2
+    engine.dispose()

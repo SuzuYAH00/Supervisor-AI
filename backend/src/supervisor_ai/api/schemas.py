@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -50,6 +51,35 @@ class CsvImportResponse(BaseModel):
     started_at: str
     completed_at: str
     results: list[CsvRowResponse]
+
+
+class FinancialSnapshotFiltersResponse(BaseModel):
+    collaborator_id: str | None
+    start_date: date | None
+    end_date: date | None
+
+
+class FinancialSnapshotTotalResponse(BaseModel):
+    currency: str
+    amount: str
+
+
+class FinancialSnapshotItemResponse(BaseModel):
+    ledger_entry_id: str
+    commercial_event_id: str
+    collaborator_id: str
+    amount: str
+    currency: str
+    posted_at: datetime
+    entry_type: str
+    invoice_id: str | None
+
+
+class FinancialSnapshotResponse(BaseModel):
+    filters: FinancialSnapshotFiltersResponse
+    credit_count: int
+    totals_by_currency: list[FinancialSnapshotTotalResponse]
+    items: list[FinancialSnapshotItemResponse]
 
 
 class ErrorDetail(BaseModel):

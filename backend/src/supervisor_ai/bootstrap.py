@@ -10,6 +10,7 @@ from supervisor_ai.application import (
 )
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
+    GetFinancialSnapshotUseCase,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
 )
@@ -177,4 +178,14 @@ def build_csv_import_service(
 def build_http_application(database_url: str) -> FastAPI:
     if not database_url:
         raise ValueError("database_url must not be empty")
-    return create_http_application(build_csv_import_service(database_url))
+    return create_http_application(
+        build_csv_import_service(database_url),
+        build_financial_snapshot_service(database_url),
+    )
+
+
+def build_financial_snapshot_service(
+    database_url: str,
+) -> GetFinancialSnapshotUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetFinancialSnapshotUseCase(build_unit_of_work_factory(session_factory))

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from types import TracebackType
 from typing import Protocol, Self
 
@@ -30,6 +30,14 @@ class LedgerRepository(Protocol):
     def get_by_entry_id(self, entry_id: str) -> LedgerEntry | None: ...
 
     def find_credit_by_event_id(self, event_id: str) -> LedgerEntry | None: ...
+
+    def find_credits(
+        self,
+        *,
+        beneficiary_id: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> tuple[LedgerEntry, ...]: ...
 
 
 class UnitOfWork(Protocol):

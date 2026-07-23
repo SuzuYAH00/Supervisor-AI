@@ -1,7 +1,9 @@
 import { Link, useParams } from "react-router-dom";
 
 import { ErrorState } from "../../../components/feedback/ErrorState";
+import { InvalidRouteState } from "../../../components/feedback/InvalidRouteState";
 import { LoadingState } from "../../../components/feedback/LoadingState";
+import { NotFoundState } from "../../../components/feedback/NotFoundState";
 import { CommercialEventDetails } from "../components/CommercialEventDetails";
 import { useCommercialEventDetail } from "../hooks/use-commercial-event-detail";
 
@@ -28,10 +30,10 @@ export function CommercialEventDetailPage() {
       </div>
 
       {detail.isInvalidId ? (
-        <section className="feedback-state error-state" role="alert">
-          <h2>Rota de evento inválida</h2>
-          <p>O identificador do evento deve ser informado.</p>
-        </section>
+        <InvalidRouteState
+          title="Rota de evento inválida"
+          description="O identificador do evento deve ser informado."
+        />
       ) : null}
       {detail.isLoading ? (
         <LoadingState
@@ -40,13 +42,11 @@ export function CommercialEventDetailPage() {
         />
       ) : null}
       {!detail.isLoading && isNotFound ? (
-        <section className="feedback-state error-state" role="alert">
-          <h2>Evento comercial não encontrado</h2>
-          <p>Não existe um evento persistido com esse identificador.</p>
-          <button className="primary-button" type="button" onClick={detail.refetch}>
-            Tentar novamente
-          </button>
-        </section>
+        <NotFoundState
+          title="Evento comercial não encontrado"
+          description="Não existe um evento persistido com esse identificador."
+          action={{ label: "Tentar novamente", onClick: detail.refetch }}
+        />
       ) : null}
       {!detail.isLoading && detail.error !== null && !isNotFound ? (
         <ErrorState error={detail.error} onRetry={detail.refetch} />

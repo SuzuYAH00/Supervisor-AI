@@ -384,6 +384,22 @@ evitam atualização após desmontagem ou substituição de uma consulta por out
 O detalhe é somente leitura: não calcula duração, saúde, percentuais ou
 diagnóstico e não disponibiliza retry operacional, reprocessamento, edição ou
 exclusão.
+
+## Estados visuais compartilhados
+
+As páginas continuam responsáveis por interpretar estados da consulta e códigos
+públicos da API. Por exemplo, cada detalhe decide localmente se a combinação de
+HTTP 404 e seu código específico representa um recurso não encontrado.
+
+`NotFoundState`, `InvalidRouteState` e `EmptyState` compartilham somente
+estrutura visual e semântica acessível. Eles recebem textos e ações já
+decididos, não conhecem `ApiError`, códigos HTTP, entidades, hooks ou funções de
+consulta. O retry continua sendo fornecido explicitamente pela página.
+
+Hooks e códigos da API não foram abstraídos: hooks permanecem responsáveis
+apenas pelo estado da consulta, enquanto a interpretação de transporte pertence
+à página. Mensagens vazias internas de tabelas e distribuições permanecem
+locais quando sua estrutura contextual não corresponde ao banner de página.
 # Fundação frontend do MVP
 
 O frontend inicial do Supervisor AI usa React, TypeScript strict, Vite e React

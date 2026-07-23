@@ -1,4 +1,5 @@
 import { ErrorState } from "../../../components/feedback/ErrorState";
+import { EmptyState } from "../../../components/feedback/EmptyState";
 import { LoadingState } from "../../../components/feedback/LoadingState";
 import { CommercialEventsTable } from "../components/CommercialEventsTable";
 import { CursorPagination } from "../components/CursorPagination";
@@ -63,10 +64,10 @@ export function CommercialEventsPage() {
       {!isLoading && error === null && data !== null && (
         <>
           {data.items.length === 0 ? (
-            <section className="empty-banner" role="status">
-              <strong>Nenhum evento comercial foi encontrado.</strong>
-              <span>A consulta foi concluída sem registros neste escopo.</span>
-            </section>
+            <EmptyState
+              title="Nenhum evento comercial foi encontrado."
+              description="A consulta foi concluída sem registros neste escopo."
+            />
           ) : (
             <CommercialEventsTable items={data.items} />
           )}

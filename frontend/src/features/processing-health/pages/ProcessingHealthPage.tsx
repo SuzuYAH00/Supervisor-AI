@@ -1,4 +1,5 @@
 import { ErrorState } from "../../../components/feedback/ErrorState";
+import { EmptyState } from "../../../components/feedback/EmptyState";
 import { LoadingState } from "../../../components/feedback/LoadingState";
 import { ActiveFilters } from "../components/ActiveFilters";
 import { DistributionList } from "../components/DistributionList";
@@ -42,13 +43,10 @@ export function ProcessingHealthPage() {
       <ActiveFilters filters={data.filters} />
 
       {isEmpty && (
-        <section className="empty-banner" role="status">
-          <strong>Ainda não existem processamentos persistidos.</strong>
-          <span>
-            As métricas permanecerão disponíveis e serão atualizadas após a
-            primeira importação.
-          </span>
-        </section>
+        <EmptyState
+          title="Ainda não existem processamentos persistidos."
+          description="As métricas permanecerão disponíveis e serão atualizadas após a primeira importação."
+        />
       )}
 
       <section className="metrics-grid" aria-label="Métricas principais">

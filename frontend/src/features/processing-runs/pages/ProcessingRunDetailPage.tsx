@@ -1,7 +1,9 @@
 import { Link, useParams } from "react-router-dom";
 
 import { ErrorState } from "../../../components/feedback/ErrorState";
+import { InvalidRouteState } from "../../../components/feedback/InvalidRouteState";
 import { LoadingState } from "../../../components/feedback/LoadingState";
+import { NotFoundState } from "../../../components/feedback/NotFoundState";
 import { ProcessingRunDetails } from "../components/ProcessingRunDetails";
 import { useProcessingRunDetail } from "../hooks/use-processing-run-detail";
 
@@ -32,10 +34,10 @@ export function ProcessingRunDetailPage() {
       </div>
 
       {detail.isInvalidId ? (
-        <section className="feedback-state error-state" role="alert">
-          <h2>Rota de execução inválida</h2>
-          <p>O identificador da execução deve ser informado.</p>
-        </section>
+        <InvalidRouteState
+          title="Rota de execução inválida"
+          description="O identificador da execução deve ser informado."
+        />
       ) : null}
 
       {detail.isLoading ? (
@@ -46,18 +48,12 @@ export function ProcessingRunDetailPage() {
       ) : null}
 
       {!detail.isLoading && isNotFound ? (
-        <section className="feedback-state error-state" role="alert">
-          <p className="eyebrow">Execução não encontrada</p>
-          <h2>A execução não foi localizada</h2>
-          <p>Não existe uma Processing Run persistida com esse identificador.</p>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={detail.refetch}
-          >
-            Tentar novamente
-          </button>
-        </section>
+        <NotFoundState
+          eyebrow="Execução não encontrada"
+          title="A execução não foi localizada"
+          description="Não existe uma Processing Run persistida com esse identificador."
+          action={{ label: "Tentar novamente", onClick: detail.refetch }}
+        />
       ) : null}
 
       {!detail.isLoading &&

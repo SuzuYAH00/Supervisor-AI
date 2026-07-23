@@ -1,4 +1,5 @@
 import { ErrorState } from "../../../components/feedback/ErrorState";
+import { EmptyState } from "../../../components/feedback/EmptyState";
 import { LoadingState } from "../../../components/feedback/LoadingState";
 import { CollaboratorSummaryList } from "../components/CollaboratorSummaryList";
 import { CurrencyTotals } from "../components/CurrencyTotals";
@@ -44,13 +45,10 @@ export function FinancialSummaryPage() {
       <FinancialFilters filters={data.filters} />
 
       {isEmpty && (
-        <section className="empty-banner" role="status">
-          <strong>Ainda não existem créditos persistidos.</strong>
-          <span>
-            O resumo permanecerá disponível e será atualizado após um
-            lançamento no Ledger.
-          </span>
-        </section>
+        <EmptyState
+          title="Ainda não existem créditos persistidos."
+          description="O resumo permanecerá disponível e será atualizado após um lançamento no Ledger."
+        />
       )}
 
       <section className="metrics-grid financial-metrics" aria-label="Resumo geral">

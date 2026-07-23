@@ -1,4 +1,5 @@
 import { ErrorState } from "../../../components/feedback/ErrorState";
+import { EmptyState } from "../../../components/feedback/EmptyState";
 import { LoadingState } from "../../../components/feedback/LoadingState";
 import { CursorPagination } from "../components/CursorPagination";
 import { FinancialTimelineSearch } from "../components/FinancialTimelineSearch";
@@ -28,10 +29,10 @@ export function FinancialTimelinePage() {
       />
 
       {!timeline.hasSearched && (
-        <section className="empty-banner" role="status">
-          <strong>Informe um colaborador para iniciar a consulta.</strong>
-          <span>A timeline não é carregada enquanto o formulário não for enviado.</span>
-        </section>
+        <EmptyState
+          title="Informe um colaborador para iniciar a consulta."
+          description="A timeline não é carregada enquanto o formulário não for enviado."
+        />
       )}
 
       {timeline.isLoading && timeline.submittedCollaboratorId !== null && (
@@ -62,13 +63,10 @@ export function FinancialTimelinePage() {
         timeline.data !== null && (
           <>
             {timeline.data.items.length === 0 ? (
-              <section className="empty-banner" role="status">
-                <strong>Nenhum lançamento financeiro foi encontrado.</strong>
-                <span>
-                  A consulta de {timeline.data.collaborator_id} foi concluída
-                  sem registros.
-                </span>
-              </section>
+              <EmptyState
+                title="Nenhum lançamento financeiro foi encontrado."
+                description={`A consulta de ${timeline.data.collaborator_id} foi concluída sem registros.`}
+              />
             ) : (
               <FinancialTimelineTable items={timeline.data.items} />
             )}

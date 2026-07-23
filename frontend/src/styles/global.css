@@ -1,0 +1,401 @@
+:root {
+  color: #17201c;
+  background: #f4f6f4;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #d6a84b;
+  outline-offset: 3px;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 32px;
+  color: #fff;
+  background: #173c31;
+  border-bottom: 1px solid #2b584a;
+}
+
+.topbar p {
+  margin: 3px 0 0;
+  color: #c6d8d1;
+  font-size: 0.78rem;
+}
+
+.brand {
+  color: #fff;
+  font-size: 1.22rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.brand span {
+  color: #efc56e;
+}
+
+.environment-badge {
+  padding: 6px 10px;
+  border: 1px solid #709286;
+  border-radius: 999px;
+  color: #e5efeb;
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.app-body {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  min-height: calc(100vh - 76px);
+}
+
+.sidebar {
+  padding: 28px 18px;
+  background: #fff;
+  border-right: 1px solid #dce3df;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 7px;
+}
+
+.navigation-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #36433e;
+  text-decoration: none;
+}
+
+.navigation-link small {
+  color: #75817c;
+  font-size: 0.68rem;
+}
+
+.navigation-link.active {
+  color: #0f372b;
+  background: #e8f1ed;
+  font-weight: 700;
+}
+
+.navigation-link.disabled {
+  color: #727b77;
+  cursor: not-allowed;
+}
+
+.main-content {
+  width: 100%;
+  max-width: 1440px;
+  padding: 38px 44px 64px;
+}
+
+.page-stack {
+  display: grid;
+  gap: 26px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.page-header h1,
+.not-found h1 {
+  margin: 4px 0 10px;
+  color: #172d25;
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+.page-header p:not(.eyebrow) {
+  max-width: 690px;
+  margin: 0;
+  color: #57645f;
+  line-height: 1.55;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #497163;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 16px;
+  border-radius: 7px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary-button {
+  color: #fff;
+  background: #175843;
+  border: 1px solid #175843;
+}
+
+.secondary-button {
+  color: #174636;
+  background: #fff;
+  border: 1px solid #9eaaa5;
+}
+
+.primary-button:hover {
+  background: #104534;
+}
+
+.secondary-button:hover {
+  background: #f7faf8;
+}
+
+.filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  padding: 11px 15px;
+  color: #47534f;
+  background: #fff;
+  border: 1px solid #dce3df;
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+
+.filter-summary ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter-summary li {
+  padding: 4px 8px;
+  background: #edf2ef;
+  border-radius: 4px;
+}
+
+.empty-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 17px 19px;
+  color: #563f16;
+  background: #fff7e7;
+  border: 1px solid #e6ca8f;
+  border-radius: 8px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.metric-card,
+.distribution-card,
+.feedback-state,
+.not-found {
+  background: #fff;
+  border: 1px solid #dce3df;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgb(20 40 32 / 5%);
+}
+
+.metric-card {
+  min-height: 145px;
+  padding: 19px;
+}
+
+.metric-card p {
+  margin: 0;
+  color: #52605a;
+  font-size: 0.83rem;
+  font-weight: 650;
+}
+
+.metric-card strong {
+  display: block;
+  margin: 12px 0 8px;
+  color: #143a2e;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.metric-card small {
+  color: #718079;
+  line-height: 1.35;
+}
+
+.distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.distribution-card {
+  padding: 22px;
+}
+
+.distribution-card h2,
+.feedback-state h2 {
+  margin: 0 0 5px;
+  color: #20362e;
+  font-size: 1.08rem;
+}
+
+.distribution-card header p,
+.empty-list {
+  margin: 0;
+  color: #6b7772;
+  font-size: 0.86rem;
+}
+
+.distribution-card ul {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.distribution-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #edf0ee;
+}
+
+.distribution-card li strong {
+  color: #174636;
+}
+
+.empty-list {
+  margin-top: 20px;
+  padding: 18px 0;
+}
+
+.feedback-state,
+.not-found {
+  max-width: 680px;
+  padding: 32px;
+}
+
+.feedback-state p,
+.not-found p {
+  color: #5d6964;
+  line-height: 1.5;
+}
+
+.error-state {
+  border-color: #dbb7b2;
+}
+
+.loading-indicator {
+  width: 32px;
+  height: 4px;
+  margin-bottom: 22px;
+  background: #397966;
+  border-radius: 2px;
+}
+
+.not-found .primary-button {
+  margin-top: 10px;
+}
+
+@media (max-width: 1080px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    padding-inline: 20px;
+  }
+
+  .app-body {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    padding: 10px 16px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid #dce3df;
+  }
+
+  .sidebar nav {
+    display: flex;
+    min-width: max-content;
+  }
+
+  .navigation-link {
+    min-height: 42px;
+  }
+
+  .main-content {
+    padding: 28px 18px 48px;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .metrics-grid,
+  .distribution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

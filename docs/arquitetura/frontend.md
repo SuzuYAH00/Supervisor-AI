@@ -318,3 +318,69 @@ Possíveis evoluções:
 A primeira versão do frontend deve priorizar simplicidade.
 
 O objetivo inicial não é criar uma ferramenta complexa, mas entregar uma visão operacional rápida e confiável para o supervisor.
+# Fundação frontend do MVP
+
+O frontend inicial do Supervisor AI usa React, TypeScript strict, Vite e React
+Router. Sua responsabilidade é adaptar a API MVP v1 para uma interface
+operacional; ele não acessa sistemas externos, banco ou regras diretamente.
+
+## Organização
+
+A estrutura é orientada por feature:
+
+- `app/` monta layout e rotas;
+- `components/` contém layout e estados de feedback;
+- `features/processing-health/` concentra tipos, acesso à API, hook,
+  componentes e página;
+- `lib/http/` possui o cliente fetch independente de React;
+- `lib/config/` concentra ambiente;
+- `styles/` define a base visual responsiva.
+
+A raiz redireciona para `/processing-health`. Rotas desconhecidas exibem
+fallback visual. Financeiro, eventos, execuções e timeline aparecem somente
+como navegação futura desabilitada; páginas fictícias não foram criadas.
+
+## Integração HTTP
+
+`VITE_API_BASE_URL` é lida em um único módulo. No desenvolvimento, `/api` passa
+pelo proxy do Vite para `VITE_DEV_API_TARGET`, por padrão
+`http://127.0.0.1:8000`. Essa decisão evita alterar CORS no backend enquanto
+frontend e API são executados pelo fluxo local documentado.
+
+O cliente HTTP:
+
+- compõe URLs;
+- aceita `AbortSignal`;
+- interpreta JSON;
+- reconhece o envelope `{error: {code, message}}`;
+- diferencia erro conhecido, rede, cancelamento e resposta inválida;
+- devolve somente mensagens seguras;
+- não conhece React, autenticação, retry ou cache.
+
+A feature valida em runtime o contrato de `GET /processing/health`, além de
+representá-lo com tipos explícitos. O hook local usa `AbortController`, trata
+loading, sucesso, erro e refetch e cancela a chamada ao desmontar.
+
+## Primeira tela
+
+A página exibe exclusivamente fatos presentes no contrato:
+
+- total de execuções;
+- eventos considerados;
+- eventos com e sem Ledger;
+- eventos com várias execuções;
+- distribuições por status e versão;
+- filtros devolvidos pela API.
+
+Não são calculados score, taxa de sucesso, tendência, duração ou diagnóstico.
+Banco vazio permanece um sucesso com métricas zeradas. Falhas apresentam
+mensagem segura e botão de nova tentativa.
+
+HTML semântico, foco visível, navegação por teclado, regiões anunciáveis e
+contraste constituem a base mínima de acessibilidade.
+
+## Limites
+
+Não há autenticação, upload, telas financeiras, listagens, gráficos avançados,
+estado global, polling ou deploy. Esses recursos devem evoluir como novas
+features sem acoplar componentes diretamente ao transporte HTTP.

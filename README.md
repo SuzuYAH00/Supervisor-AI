@@ -499,3 +499,13 @@ Ele é uma plataforma de inteligência operacional.
 Sua missão é transformar grandes volumes de dados operacionais em decisões rápidas, confiáveis e baseadas em evidências.
 
 > Use dados, não opiniões.
+
+## Frontend MVP
+
+O repositório possui uma fundação React/TypeScript em [`frontend/`](frontend/).
+A primeira tela funcional consulta a saúde factual do processamento em
+`/processing-health`.
+
+O frontend é organizado por feature, usa fetch centralizado e proxy do Vite
+para desenvolvimento local. Consulte o
+[`README do frontend`](frontend/README.md) para instalação e execução.

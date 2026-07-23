@@ -1,8 +1,7 @@
 # Backend do Supervisor AI
 
 Aplicação FastAPI responsável pela API e pela infraestrutura dos motores de
-importação, processamento e regras do Supervisor AI. Nesta etapa, somente a
-fundação técnica da aplicação está implementada.
+importação, processamento e regras do Supervisor AI.
 
 ## Pré-requisitos
 
@@ -45,6 +44,54 @@ curl -X POST \
 ```
 
 A aplicação não cria tabelas ou aplica migrations durante a inicialização.
+
+## API MVP v1
+
+| Método | Rota | Finalidade |
+| --- | --- | --- |
+| GET | `/health` | Liveness do processo, sem acessar o banco |
+| POST | `/imports/csv` | Importar um CSV com atomicidade por documento |
+| GET | `/financial/snapshot` | Consultar créditos financeiros detalhados |
+| GET | `/financial/summary` | Agregar créditos por colaborador e moeda |
+| GET | `/commercial-events` | Localizar eventos comerciais |
+| GET | `/commercial-events/{id}` | Auditar evento, Ledger e execuções |
+| GET | `/collaborators/{id}/financial-timeline` | Navegar lançamentos do colaborador |
+| GET | `/processing-runs` | Localizar execuções persistidas |
+| GET | `/processing-runs/{id}` | Auditar as fases públicas de uma execução |
+| GET | `/processing/health` | Consultar métricas factuais de processamento |
+
+Fluxo principal para um frontend:
+
+1. importar o CSV;
+2. consultar snapshot ou resumo financeiro;
+3. localizar eventos comerciais;
+4. consultar a saúde factual do processamento;
+5. filtrar execuções;
+6. abrir a execução;
+7. abrir o evento relacionado;
+8. consultar a timeline do colaborador.
+
+Datas de consulta são ISO 8601; as janelas documentadas são inclusivas em UTC.
+Datas e horários retornados possuem offset explícito. Dinheiro é representado
+como string decimal.
+
+As listagens usam cursor opaco e não fornecem `total_count`. Os mesmos filtros
+devem acompanhar o `next_cursor` na página seguinte. Respostas de erro usam:
+
+```json
+{
+  "error": {
+    "code": "invalid_query_parameters",
+    "message": "Request parameters are invalid"
+  }
+}
+```
+
+Esta API ainda não possui autenticação ou autorização. A única entrada de
+arquivo do MVP é CSV; não há integração direta com MK, frontend, reprocessamento
+HTTP, filas ou automações. O marco MVP v1 define um contrato interno estável
+para integração com o frontend, não prontidão para exposição pública em
+produção.
 
 ## Consulta financeira
 

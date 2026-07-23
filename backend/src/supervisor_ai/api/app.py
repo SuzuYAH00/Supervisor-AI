@@ -6,6 +6,7 @@ from typing import Annotated, Protocol
 from fastapi import FastAPI, File, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from supervisor_ai.api.collaborators import (
     CollaboratorFinancialTimelineServiceContract,
@@ -88,9 +89,39 @@ def create_http_application(
 ) -> FastAPI:
     app = FastAPI(
         title="Supervisor AI",
-        description="API HTTP para importação operacional do Supervisor AI.",
-        version="0.1.0",
+        description=(
+            "API MVP v1 para importação, consultas financeiras e auditoria "
+            "operacional do Supervisor AI."
+        ),
+        version="1.0.0",
     )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(
+        request: Request, error: StarletteHTTPException
+    ) -> JSONResponse:
+        del request
+        if error.status_code == 404:
+            return error_response(
+                404,
+                "route_not_found",
+                "Requested route was not found",
+                headers=error.headers,
+            )
+        if error.status_code == 405:
+            return error_response(
+                405,
+                "method_not_allowed",
+                "HTTP method is not allowed for this route",
+                headers=error.headers,
+            )
+        return error_response(
+            error.status_code,
+            "http_error",
+            "HTTP request could not be completed",
+            headers=error.headers,
+        )
+
     @app.exception_handler(RequestValidationError)
     async def request_validation_error(
         request: Request, error: RequestValidationError

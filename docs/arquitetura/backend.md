@@ -1390,3 +1390,65 @@ Falhas de filtro ou cursor retornam `422` seguro; falhas inesperadas retornam
 mensagem fixa. A consulta não executa regras, importação, reprocessamento ou
 gravação. Evoluções como busca parcial, ordenação configurável, duração,
 total_count e filtros associados ao cursor permanecem fora deste MVP.
+
+---
+
+# 28. Marco API MVP v1
+
+A API MVP v1 consolida os dez contratos HTTP existentes:
+
+- liveness em `GET /health`;
+- entrada CSV em `POST /imports/csv`;
+- snapshot e resumo financeiros;
+- coleção e drill-down de CommercialEvent;
+- timeline financeira do colaborador;
+- coleção e drill-down de ProcessingRun;
+- saúde factual do processamento.
+
+Esse marco estabiliza transporte e composição; não cria regras ou módulos de
+negócio. Routers recebem parâmetros, executam casos de uso injetados e projetam
+schemas explícitos. Application e Rules Engine continuam independentes de
+FastAPI e SQLAlchemy. Consultas abrem uma Unit of Work, não chamam `commit` e
+mantêm ordenação e paginação definidas.
+
+## Garantias públicas
+
+- OpenAPI informa versão `1.0.0`, possui dez operation IDs únicos e referencia
+  schemas explícitos;
+- datas de filtro seguem a referência temporal documentada em cada recurso e
+  são inclusivas em UTC;
+- datetimes têm timezone explícito;
+- dinheiro permanece Decimal internamente e string decimal no HTTP;
+- coleções vazias retornam `200`, listas vazias e cursor nulo;
+- cursores são versionados, opacos e exigem repetição dos filtros;
+- não existe paginação OFFSET nem `total_count`;
+- erros esperados usam `{ "error": { "code", "message" } }`;
+- validações automáticas, rotas inexistentes e métodos não permitidos também
+  usam o envelope público;
+- respostas não expõem ORM, SQL, raw payload, credenciais ou traceback.
+
+Rotas de coleção são declaradas separadamente das rotas parametrizadas e foram
+testadas contra captura indevida. `HttpApplicationServices` contém todas as
+dependências obrigatórias, montadas explicitamente pelo Composition Root, sem
+service locator ou estado global mutável.
+
+## Limites e decisões mantidas
+
+O MVP não possui autenticação, autorização, frontend, integração direta com MK,
+reprocessamento HTTP, cache, filas, background jobs, observabilidade externa ou
+deploy. A única entrada de arquivo pública é CSV. A API é adequada ao próximo
+passo de integração interna com frontend, mas não é declarada pronta para
+exposição pública em produção.
+
+Foram mantidas deliberadamente:
+
+- diferenças contextuais entre `event_id` e `commercial_event_id`;
+- respostas de paginação já publicadas, algumas com bloco `page` e a listagem
+  de ProcessingRuns com `next_cursor` na raiz;
+- códigos específicos de filtro/cursor definidos por cada recurso;
+- `api/schemas.py` em arquivo único, ainda pequeno e coeso para o MVP.
+
+Pendências não bloqueantes incluem autenticação, hash dos filtros no cursor,
+índices compostos orientados por métricas reais, eventual divisão dos schemas,
+padronização adicional de códigos not-found, integração MK, observabilidade e
+estratégia de deploy. Nenhuma foi antecipada nesta estabilização.

@@ -77,6 +77,16 @@ curl \
 O endpoint retorna evento, LedgerEntries e ProcessingRuns em ordem
 determinística. Ele é somente leitura e não expõe o `raw_payload`.
 
+Para localizar eventos antes do drill-down, inclusive aqueles sem crédito:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/commercial-events?source=csv-example&limit=25"
+```
+
+A listagem usa paginação por cursor. Reutilize os mesmos filtros ao enviar o
+`next_cursor`; não existe paginação por offset nem total global.
+
 ## Qualidade e testes
 
 ```bash

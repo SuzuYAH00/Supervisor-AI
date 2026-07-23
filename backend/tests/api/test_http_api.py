@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -11,12 +11,17 @@ from supervisor_ai.api.app import (
     create_application_from_environment,
     create_http_application,
 )
-from supervisor_ai.application import CommercialEventNotFound
+from supervisor_ai.api.pagination import decode_cursor, encode_cursor
+from supervisor_ai.application import (
+    CommercialEventCursorPosition,
+    CommercialEventNotFound,
+)
 from supervisor_ai.application.use_cases import (
     CollaboratorCurrencySummary,
     CollaboratorFinancialSummary,
     CommercialEventDetails,
     CommercialEventLedgerEntry,
+    CommercialEventListItem,
     CommercialEventProcessingRun,
     FinancialSnapshotCurrencyTotal,
     FinancialSnapshotItem,
@@ -27,6 +32,8 @@ from supervisor_ai.application.use_cases import (
     GetFinancialSnapshotResult,
     GetFinancialSummaryQuery,
     GetFinancialSummaryResult,
+    ListCommercialEventsQuery,
+    ListCommercialEventsResult,
 )
 from supervisor_ai.infrastructure.importing import (
     BatchDocumentResult,
@@ -118,11 +125,29 @@ class StubCommercialEventDetailsService:
         return self.result
 
 
+class StubCommercialEventListService:
+    def __init__(
+        self,
+        result: ListCommercialEventsResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.queries: list[ListCommercialEventsQuery] = []
+
+    def execute(self, query: ListCommercialEventsQuery) -> ListCommercialEventsResult:
+        self.queries.append(query)
+        if self.error is not None:
+            raise self.error
+        return self.result or ListCommercialEventsResult(query, (), False, None)
+
+
 def _application(
     service: StubService,
     financial_service: StubFinancialService | None = None,
     summary_service: StubFinancialSummaryService | None = None,
     details_service: StubCommercialEventDetailsService | None = None,
+    list_service: StubCommercialEventListService | None = None,
 ) -> FastAPI:
     return create_http_application(
         HttpApplicationServices(
@@ -132,6 +157,7 @@ def _application(
             commercial_event_details=(
                 details_service or StubCommercialEventDetailsService()
             ),
+            commercial_event_list=list_service or StubCommercialEventListService(),
         )
     )
 
@@ -730,6 +756,162 @@ def test_commercial_event_details_failure_returns_safe_500() -> None:
         "error": {
             "code": "internal_error",
             "message": "Commercial event details could not be retrieved",
+        }
+    }
+    for sensitive in ("raw_payload", "password", "Traceback", "SQLAlchemy"):
+        assert sensitive not in response.text
+
+
+def commercial_event_list_result(
+    query: ListCommercialEventsQuery,
+    *,
+    has_more: bool = True,
+) -> ListCommercialEventsResult:
+    item = CommercialEventListItem(
+        event_id="event-2",
+        external_reference="external-2",
+        source="csv",
+        occurred_at=NOW,
+        received_at=NOW + timedelta(minutes=1),
+        created_at=NOW + timedelta(minutes=2),
+    )
+    return ListCommercialEventsResult(
+        filters=query,
+        items=(item,),
+        has_more=has_more,
+        next_cursor_position=(
+            CommercialEventCursorPosition(item.occurred_at, item.event_id)
+            if has_more
+            else None
+        ),
+    )
+
+
+def test_commercial_event_list_returns_public_items_and_cursor() -> None:
+    query = ListCommercialEventsQuery(limit=1)
+    service = StubCommercialEventListService(commercial_event_list_result(query))
+    response = request(
+        _application(StubService(), list_service=service),
+        "GET",
+        "/commercial-events?limit=1",
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["filters"] == {
+        "source": None,
+        "external_reference": None,
+        "start_date": None,
+        "end_date": None,
+    }
+    assert body["page"]["limit"] == 1
+    assert body["page"]["has_more"] is True
+    assert decode_cursor(body["page"]["next_cursor"]) == (
+        CommercialEventCursorPosition(NOW, "event-2")
+    )
+    assert body["items"] == [
+        {
+            "event_id": "event-2",
+            "external_reference": "external-2",
+            "source": "csv",
+            "occurred_at": "2026-07-22T15:00:00Z",
+            "received_at": "2026-07-22T15:01:00Z",
+            "created_at": "2026-07-22T15:02:00Z",
+        }
+    ]
+    for absent in ("raw_payload", "ledger_entries", "processing_runs"):
+        assert absent not in response.text
+
+
+def test_commercial_event_list_empty_response_uses_default_limit() -> None:
+    response = request(_application(StubService()), "GET", "/commercial-events")
+    assert response.status_code == 200
+    assert response.json() == {
+        "filters": {
+            "source": None,
+            "external_reference": None,
+            "start_date": None,
+            "end_date": None,
+        },
+        "page": {"limit": 50, "next_cursor": None, "has_more": False},
+        "items": [],
+    }
+
+
+def test_commercial_event_list_forwards_filters_and_decoded_cursor() -> None:
+    position = CommercialEventCursorPosition(NOW, "event-2")
+    service = StubCommercialEventListService()
+    cursor = encode_cursor(position)
+    response = request(
+        _application(StubService(), list_service=service),
+        "GET",
+        (
+            "/commercial-events?source=csv&external_reference=external-2"
+            "&start_date=2026-07-01&end_date=2026-07-31"
+            f"&limit=25&cursor={cursor}"
+        ),
+    )
+    assert response.status_code == 200
+    assert service.queries == [
+        ListCommercialEventsQuery(
+            source="csv",
+            external_reference="external-2",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            limit=25,
+            after=position,
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "query_string",
+    [
+        "limit=0",
+        "limit=101",
+        "source=%20%20",
+        "external_reference=%20",
+        "start_date=invalid",
+        "start_date=2026-08-01&end_date=2026-07-31",
+    ],
+)
+def test_commercial_event_list_rejects_invalid_filters(query_string: str) -> None:
+    response = request(
+        _application(StubService()),
+        "GET",
+        f"/commercial-events?{query_string}",
+    )
+    assert response.status_code == 422
+
+
+def test_commercial_event_list_rejects_invalid_cursor_with_stable_error() -> None:
+    response = request(
+        _application(StubService()),
+        "GET",
+        "/commercial-events?cursor=not-valid***",
+    )
+    assert response.status_code == 422
+    assert response.json() == {
+        "error": {
+            "code": "invalid_cursor",
+            "message": "Pagination cursor is invalid",
+        }
+    }
+
+
+def test_commercial_event_list_failure_is_safe() -> None:
+    service = StubCommercialEventListService(
+        error=RuntimeError("postgresql password raw_payload Traceback SQLAlchemy")
+    )
+    response = request(
+        _application(StubService(), list_service=service),
+        "GET",
+        "/commercial-events",
+    )
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "internal_error",
+            "message": "Commercial events could not be retrieved",
         }
     }
     for sensitive in ("raw_payload", "password", "Traceback", "SQLAlchemy"):

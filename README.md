@@ -319,6 +319,23 @@ O drill-down retorna os dados públicos do evento, todos os lançamentos
 relacionados e o histórico de processamento. A consulta é somente leitura e não
 expõe `raw_payload`, reexecuta regras ou cria novos lançamentos.
 
+Eventos com ou sem crédito podem ser localizados pela listagem:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/commercial-events?source=csv-example&limit=25"
+```
+
+Quando `next_cursor` for retornado, repita os mesmos filtros:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/commercial-events?source=csv-example&limit=2&cursor=<next_cursor>"
+```
+
+A ordem é `occurred_at` decrescente e depois `event_id` decrescente. As datas
+filtram `occurred_at` em UTC de forma inclusiva.
+
 Para validar o projeto:
 
 ```bash

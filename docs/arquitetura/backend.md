@@ -1108,5 +1108,65 @@ A formatação decimal comum a snapshot, resumo e drill-down foi movida para
 `api/projections.py`. A extração é pequena e específica para dinheiro, sem criar
 uma biblioteca genérica de serialização.
 
-O endpoint atual é somente leitura, sem listagem, paginação, edição,
-reprocessamento, raw payload, autenticação ou integração MK.
+O drill-down é somente leitura, sem edição, reprocessamento, raw payload,
+autenticação ou integração MK.
+
+---
+
+# 23. Listagem de eventos comerciais
+
+`ListCommercialEventsUseCase` permite localizar eventos persistidos antes de
+existir crédito. Ele consulta exclusivamente `EventRepository.search()`, dentro
+de uma Unit of Work de leitura, e não carrega LedgerEntries ou ProcessingRuns.
+Não executa regras, não recalcula remuneração e não chama `commit`.
+
+## Filtros e ordem
+
+`source` e `external_reference` usam igualdade exata. `start_date` e `end_date`
+são inclusivas sobre a data UTC de `occurred_at`; não existe período implícito.
+A ordem fixa é:
+
+1. `occurred_at` decrescente;
+2. `event_id` decrescente.
+
+Os filtros, a ordenação e o limite são aplicados pelo SQLAlchemy no banco.
+Nesta versão o ORM materializa a entidade completa, inclusive `raw_payload`,
+porque esse é o mapeamento existente. O caso de uso projeta imediatamente apenas
+os seis campos públicos, e o payload nunca atravessa a Application ou o HTTP.
+Uma projeção ORM paralela seria otimização prematura para o volume do MVP.
+
+## Paginação keyset
+
+O limite padrão é 50, com mínimo 1 e máximo 100. O caso de uso solicita
+`limit + 1`; o registro excedente determina `has_more`, e a posição do último
+item retornado forma o próximo cursor.
+
+A posição tipada contém somente `occurred_at` e `event_id`. A camada HTTP
+serializa JSON versionado e Base64 URL-safe; a Application não conhece JSON ou
+Base64. O cursor não contém SQL, tabelas, filtros ou dados sensíveis e não
+depende da existência posterior do evento que originou a posição.
+
+Para a ordem descendente, a próxima página aplica:
+
+```text
+occurred_at < cursor.occurred_at
+OR (
+    occurred_at == cursor.occurred_at
+    AND event_id < cursor.event_id
+)
+```
+
+O consumidor deve repetir os mesmos filtros em todas as páginas. Cursor
+inválido retorna `422` com `invalid_cursor`; resposta vazia retorna `200`.
+
+## Fronteira HTTP
+
+`GET /commercial-events` reutiliza `CommercialEventResponse`, preservando a
+representação do drill-down. A lista não inclui raw payload, finanças, status
+derivado, contagens ou resultados de processamento. Cada item pode ser aberto
+em `GET /commercial-events/{commercial_event_id}`.
+
+`api/pagination.py` concentra somente encode/decode do cursor e
+`api/errors.py` concentra a pequena projeção estável de erros já usada pelas
+rotas. Não foram criados framework de exceptions, OFFSET, `total_count`,
+migration, cache ou tabela de resumo.

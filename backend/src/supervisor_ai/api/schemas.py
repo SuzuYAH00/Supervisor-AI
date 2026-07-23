@@ -143,6 +143,25 @@ class CommercialEventDetailsResponse(BaseModel):
     processing_runs: list[CommercialEventProcessingRunResponse]
 
 
+class CommercialEventListFiltersResponse(BaseModel):
+    source: str | None
+    external_reference: str | None
+    start_date: date | None
+    end_date: date | None
+
+
+class CursorPageResponse(BaseModel):
+    limit: int
+    next_cursor: str | None
+    has_more: bool
+
+
+class CommercialEventListResponse(BaseModel):
+    filters: CommercialEventListFiltersResponse
+    page: CursorPageResponse
+    items: list[CommercialEventResponse]
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

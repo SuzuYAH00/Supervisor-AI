@@ -12,7 +12,11 @@ from supervisor_ai.application.financial_snapshot import (
     RemunerationFacts,
     RemunerationPostingFacts,
 )
-from supervisor_ai.application.persistence import CommercialEvent, ProcessingRun
+from supervisor_ai.application.persistence import (
+    CommercialEvent,
+    CommercialEventCursorPosition,
+    ProcessingRun,
+)
 from supervisor_ai.application.ports import (
     Clock,
     EventRepository,
@@ -27,6 +31,7 @@ __all__ = [
     "ApplicationConflict",
     "CommercialEvent",
     "CommercialEventConflict",
+    "CommercialEventCursorPosition",
     "CommercialEventNotFound",
     "Clock",
     "EventRepository",

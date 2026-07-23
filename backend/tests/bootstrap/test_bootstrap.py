@@ -11,6 +11,7 @@ from supervisor_ai.application.use_cases import (
     GetCommercialEventDetailsUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
+    ListCommercialEventsUseCase,
     ProcessAndPersistCommercialEventCommand,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventCommand,
@@ -18,6 +19,7 @@ from supervisor_ai.application.use_cases import (
 )
 from supervisor_ai.bootstrap import (
     build_commercial_event_details_service,
+    build_commercial_event_list_service,
     build_csv_import_service,
     build_financial_snapshot_service,
     build_financial_summary_service,
@@ -196,3 +198,11 @@ def test_build_commercial_event_details_service_uses_application_query(
     database_url = f"sqlite+pysqlite:///{tmp_path / 'details-bootstrap.sqlite3'}"
     service = build_commercial_event_details_service(database_url)
     assert isinstance(service, GetCommercialEventDetailsUseCase)
+
+
+def test_build_commercial_event_list_service_uses_application_query(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'list-bootstrap.sqlite3'}"
+    service = build_commercial_event_list_service(database_url)
+    assert isinstance(service, ListCommercialEventsUseCase)

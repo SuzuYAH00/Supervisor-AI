@@ -1,9 +1,13 @@
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
-from supervisor_ai.application.persistence import CommercialEvent, ProcessingRun
+from supervisor_ai.application.persistence import (
+    CommercialEvent,
+    CommercialEventCursorPosition,
+    ProcessingRun,
+)
 from supervisor_ai.infrastructure.persistence.mappings import (
     event_to_record,
     ledger_entry_to_record,
@@ -41,6 +45,60 @@ class SqlAlchemyEventRepository:
             )
         )
         return None if record is None else record_to_event(record)
+
+    def search(
+        self,
+        *,
+        source: str | None,
+        external_reference: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        after: CommercialEventCursorPosition | None,
+        limit: int,
+    ) -> tuple[CommercialEvent, ...]:
+        statement = select(CommercialEventRecord)
+        if source is not None:
+            statement = statement.where(CommercialEventRecord.source == source)
+        if external_reference is not None:
+            statement = statement.where(
+                CommercialEventRecord.external_reference == external_reference
+            )
+        if start_date is not None:
+            statement = statement.where(
+                CommercialEventRecord.occurred_at
+                >= datetime.combine(start_date, time.min, tzinfo=UTC)
+            )
+        if end_date is not None:
+            end_boundary = (
+                datetime.combine(end_date, time.max, tzinfo=UTC)
+                if end_date == date.max
+                else datetime.combine(
+                    end_date + timedelta(days=1), time.min, tzinfo=UTC
+                )
+            )
+            comparison = (
+                CommercialEventRecord.occurred_at <= end_boundary
+                if end_date == date.max
+                else CommercialEventRecord.occurred_at < end_boundary
+            )
+            statement = statement.where(comparison)
+        if after is not None:
+            statement = statement.where(
+                or_(
+                    CommercialEventRecord.occurred_at < after.occurred_at,
+                    and_(
+                        CommercialEventRecord.occurred_at == after.occurred_at,
+                        CommercialEventRecord.id < after.event_id,
+                    ),
+                )
+            )
+        records = self.session.scalars(
+            statement.order_by(
+                CommercialEventRecord.occurred_at.desc(),
+                CommercialEventRecord.id.desc(),
+            ).limit(limit)
+        )
+        return tuple(record_to_event(record) for record in records)
 
 
 class SqlAlchemyProcessingRunRepository:

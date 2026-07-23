@@ -33,6 +33,19 @@ class CommercialEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class CommercialEventCursorPosition:
+    occurred_at: datetime
+    event_id: str
+
+    def __post_init__(self) -> None:
+        _require_aware(self.occurred_at, "occurred_at")
+        if not self.event_id.strip():
+            raise ValueError("event_id must not be blank")
+        if len(self.event_id) > 128:
+            raise ValueError("event_id must not exceed 128 characters")
+
+
+@dataclass(frozen=True, slots=True)
 class ProcessingRun:
     id: str
     event_id: str

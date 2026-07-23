@@ -2,7 +2,11 @@ from datetime import date, datetime
 from types import TracebackType
 from typing import Protocol, Self
 
-from supervisor_ai.application.persistence import CommercialEvent, ProcessingRun
+from supervisor_ai.application.persistence import (
+    CommercialEvent,
+    CommercialEventCursorPosition,
+    ProcessingRun,
+)
 from supervisor_ai.rules_engine import LedgerEntry
 
 
@@ -14,6 +18,17 @@ class EventRepository(Protocol):
     def get_by_external_reference(
         self, external_reference: str
     ) -> CommercialEvent | None: ...
+
+    def search(
+        self,
+        *,
+        source: str | None,
+        external_reference: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        after: CommercialEventCursorPosition | None,
+        limit: int,
+    ) -> tuple[CommercialEvent, ...]: ...
 
 
 class ProcessingRunRepository(Protocol):

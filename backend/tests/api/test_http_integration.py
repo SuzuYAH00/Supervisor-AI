@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import replace
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -356,4 +357,102 @@ def test_commercial_event_drill_down_preserves_ledger_and_records_reprocessing(
     assert "raw_payload" not in second_details.text
     assert missing.status_code == 404
     assert missing.json()["error"]["code"] == "commercial_event_not_found"
+    engine.dispose()
+
+
+def test_commercial_event_list_uses_keyset_filters_and_includes_unposted_events(
+    tmp_path: Path,
+) -> None:
+    application, database_url, engine = prepared_application(
+        tmp_path, "http-commercial-event-list.sqlite3"
+    )
+    same_time = datetime(2026, 7, 20, 12, tzinfo=UTC)
+    events = (
+        replace(
+            commercial_event("event-5", external_reference="external-5"),
+            source="api",
+            occurred_at=datetime(2026, 8, 1, 12, tzinfo=UTC),
+        ),
+        replace(
+            commercial_event("event-4", external_reference="external-4"),
+            source="csv",
+            occurred_at=same_time,
+        ),
+        replace(
+            commercial_event("event-3", external_reference="external-3"),
+            source="csv",
+            occurred_at=same_time,
+        ),
+        replace(
+            commercial_event("event-2", external_reference="external-2"),
+            source="csv",
+            occurred_at=datetime(2026, 7, 1, 12, tzinfo=UTC),
+        ),
+        replace(
+            commercial_event("event-1", external_reference="external-1"),
+            source="legacy",
+            occurred_at=datetime(2026, 6, 1, 12, tzinfo=UTC),
+        ),
+    )
+    unit_of_work_factory = build_unit_of_work_factory(
+        build_session_factory(database_url)
+    )
+    with unit_of_work_factory() as unit_of_work:
+        for event in events:
+            unit_of_work.events.add(event)
+        unit_of_work.commit()
+
+    pages = []
+    cursor: str | None = None
+    for _ in range(3):
+        suffix = "" if cursor is None else f"&cursor={cursor}"
+        response = request(
+            application, "GET", f"/commercial-events?limit=2{suffix}"
+        )
+        assert response.status_code == 200
+        body = response.json()
+        pages.extend(item["event_id"] for item in body["items"])
+        cursor = body["page"]["next_cursor"]
+
+    csv_only = request(
+        application, "GET", "/commercial-events?source=csv"
+    )
+    exact = request(
+        application,
+        "GET",
+        "/commercial-events?external_reference=external-3",
+    )
+    july = request(
+        application,
+        "GET",
+        "/commercial-events?start_date=2026-07-01&end_date=2026-07-31",
+    )
+    details = request(application, "GET", "/commercial-events/event-4")
+    empty = request(
+        application, "GET", "/commercial-events?source=does-not-exist"
+    )
+    invalid = request(
+        application, "GET", "/commercial-events?cursor=invalid***"
+    )
+
+    assert pages == ["event-5", "event-4", "event-3", "event-2", "event-1"]
+    assert len(pages) == len(set(pages)) == 5
+    assert [item["event_id"] for item in csv_only.json()["items"]] == [
+        "event-4",
+        "event-3",
+        "event-2",
+    ]
+    assert [item["event_id"] for item in exact.json()["items"]] == ["event-3"]
+    assert [item["event_id"] for item in july.json()["items"]] == [
+        "event-4",
+        "event-3",
+        "event-2",
+    ]
+    assert details.status_code == 200
+    assert details.json()["ledger_entries"] == []
+    assert details.json()["processing_runs"] == []
+    assert "raw_payload" not in details.text
+    assert empty.status_code == 200 and empty.json()["items"] == []
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "invalid_cursor"
     engine.dispose()

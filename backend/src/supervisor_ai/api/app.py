@@ -9,8 +9,10 @@ from fastapi.responses import JSONResponse
 
 from supervisor_ai.api.commercial_events import (
     CommercialEventDetailsServiceContract,
+    CommercialEventListServiceContract,
     commercial_events_router,
 )
+from supervisor_ai.api.errors import error_response
 from supervisor_ai.api.projections import decimal_string
 from supervisor_ai.api.schemas import (
     CollaboratorCurrencySummaryResponse,
@@ -61,6 +63,7 @@ class HttpApplicationServices:
     financial_snapshot: FinancialSnapshotServiceContract
     financial_summary: FinancialSummaryServiceContract
     commercial_event_details: CommercialEventDetailsServiceContract
+    commercial_event_list: CommercialEventListServiceContract
 
 
 def create_http_application(
@@ -77,12 +80,12 @@ def create_http_application(
     ) -> JSONResponse:
         del error
         if request.url.path == "/imports/csv":
-            return _error_response(
+            return error_response(
                 422,
                 "upload_validation_error",
                 "A CSV file is required in multipart field 'file'",
             )
-        return _error_response(
+        return error_response(
             422,
             "invalid_query_parameters",
             "Request parameters are invalid",
@@ -106,21 +109,21 @@ def create_http_application(
         file: Annotated[UploadFile, File()],
     ) -> CsvImportResponse | JSONResponse:
         if not file.filename:
-            return _error_response(422, "invalid_upload", "CSV filename is required")
+            return error_response(422, "invalid_upload", "CSV filename is required")
         try:
             content_bytes = await file.read()
         except Exception:
-            return _error_response(
+            return error_response(
                 500,
                 "upload_read_error",
                 "CSV upload could not be read",
             )
         if not content_bytes:
-            return _error_response(422, "empty_upload", "CSV file must not be empty")
+            return error_response(422, "empty_upload", "CSV file must not be empty")
         try:
             content = content_bytes.decode("utf-8-sig")
         except UnicodeDecodeError:
-            return _error_response(
+            return error_response(
                 422,
                 "invalid_encoding",
                 "CSV file must use UTF-8 encoding",
@@ -128,13 +131,13 @@ def create_http_application(
         try:
             result = services.csv_import.import_csv(content)
         except CsvStructureError:
-            return _error_response(
+            return error_response(
                 400,
                 "csv_structure_error",
                 "CSV structure is invalid",
             )
         except Exception:
-            return _error_response(
+            return error_response(
                 500,
                 "internal_error",
                 "CSV import could not be completed",
@@ -167,7 +170,7 @@ def create_http_application(
                 end_date=end_date,
             )
         except ValueError:
-            return _error_response(
+            return error_response(
                 422,
                 "invalid_date_range",
                 "start_date must not be after end_date",
@@ -175,7 +178,7 @@ def create_http_application(
         try:
             result = services.financial_snapshot.execute(query)
         except Exception:
-            return _error_response(
+            return error_response(
                 500,
                 "internal_error",
                 "Financial snapshot could not be generated",
@@ -205,7 +208,7 @@ def create_http_application(
                 end_date=end_date,
             )
         except ValueError:
-            return _error_response(
+            return error_response(
                 422,
                 "invalid_date_range",
                 "start_date must not be after end_date",
@@ -213,14 +216,19 @@ def create_http_application(
         try:
             result = services.financial_summary.execute(query)
         except Exception:
-            return _error_response(
+            return error_response(
                 500,
                 "internal_error",
                 "Financial summary could not be generated",
             )
         return _financial_summary_response(result)
 
-    app.include_router(commercial_events_router(services.commercial_event_details))
+    app.include_router(
+        commercial_events_router(
+            services.commercial_event_details,
+            services.commercial_event_list,
+        )
+    )
     return app
 
 
@@ -231,13 +239,6 @@ def create_application_from_environment() -> FastAPI:
     from supervisor_ai.bootstrap import build_http_application
 
     return build_http_application(database_url)
-
-
-def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status_code,
-        content={"error": {"code": code, "message": message}},
-    )
 
 
 def _safe_file_name(value: str) -> str:

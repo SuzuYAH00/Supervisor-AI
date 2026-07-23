@@ -13,6 +13,7 @@ from supervisor_ai.application.use_cases import (
     GetCommercialEventDetailsUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
+    ListCommercialEventsUseCase,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
 )
@@ -188,6 +189,7 @@ def build_http_application(database_url: str) -> FastAPI:
             commercial_event_details=build_commercial_event_details_service(
                 database_url
             ),
+            commercial_event_list=build_commercial_event_list_service(database_url),
         )
     )
 
@@ -211,3 +213,10 @@ def build_commercial_event_details_service(
     return GetCommercialEventDetailsUseCase(
         build_unit_of_work_factory(session_factory)
     )
+
+
+def build_commercial_event_list_service(
+    database_url: str,
+) -> ListCommercialEventsUseCase:
+    session_factory = build_session_factory(database_url)
+    return ListCommercialEventsUseCase(build_unit_of_work_factory(session_factory))

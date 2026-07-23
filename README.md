@@ -263,11 +263,26 @@ Execute as migrações e inicie a API:
 
 ```bash
 uv --project backend run alembic -c backend/alembic.ini upgrade head
-uv --project backend run uvicorn supervisor_ai.main:app --reload
+SUPERVISOR_AI_DATABASE_URL="$DATABASE_URL" \
+  uv --project backend run uvicorn \
+  supervisor_ai.main:create_application_from_environment --factory --reload
 ```
 
 A API ficará disponível em `http://localhost:8000` e o endpoint de saúde em
 `http://localhost:8000/health`.
+
+Importe CSV por multipart sem armazenar o upload no servidor:
+
+```bash
+curl -X POST \
+  -F "file=@docs/exemplos/importacao_comercial.csv;type=text/csv" \
+  http://127.0.0.1:8000/imports/csv
+```
+
+O endpoint retorna `200` tanto para sucesso integral quanto para falhas
+parciais, diferenciadas pelo campo `status`. Estrutura CSV inválida retorna
+`400`; upload ausente, vazio ou fora de UTF-8 retorna `422`; falhas fatais
+retornam `500` com mensagem segura.
 
 Para validar o projeto:
 

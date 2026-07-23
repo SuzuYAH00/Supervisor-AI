@@ -29,11 +29,22 @@ uv --project backend run alembic -c backend/alembic.ini upgrade head
 ## API
 
 ```bash
-uv --project backend run uvicorn supervisor_ai.main:app --reload
+SUPERVISOR_AI_DATABASE_URL="$DATABASE_URL" \
+  uv --project backend run uvicorn \
+  supervisor_ai.main:create_application_from_environment --factory --reload
 ```
 
 A API ficará disponível em `http://localhost:8000`. O endpoint de saúde está
-disponível em `http://localhost:8000/health`.
+disponível em `http://localhost:8000/health`. A importação CSV está disponível
+em `POST /imports/csv` com o arquivo no campo multipart `file`.
+
+```bash
+curl -X POST \
+  -F "file=@docs/exemplos/importacao_comercial.csv;type=text/csv" \
+  http://127.0.0.1:8000/imports/csv
+```
+
+A aplicação não cria tabelas ou aplica migrations durante a inicialização.
 
 ## Qualidade e testes
 

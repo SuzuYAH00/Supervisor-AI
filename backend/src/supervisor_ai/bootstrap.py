@@ -1,5 +1,7 @@
+from fastapi import FastAPI
 from sqlalchemy.orm import Session, sessionmaker
 
+from supervisor_ai.api.app import create_http_application
 from supervisor_ai.application import (
     Clock,
     ProcessingRunIdGenerator,
@@ -170,3 +172,9 @@ def build_csv_import_service(
         adapter=CsvImportAdapter(),
         batch_processor=build_batch_processor(database_url, clock=clock),
     )
+
+
+def build_http_application(database_url: str) -> FastAPI:
+    if not database_url:
+        raise ValueError("database_url must not be empty")
+    return create_http_application(build_csv_import_service(database_url))

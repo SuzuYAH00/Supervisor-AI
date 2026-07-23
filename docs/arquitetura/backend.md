@@ -857,3 +857,73 @@ Erros esperados não exibem traceback. `--debug` libera traceback somente para
 falhas fatais de inicialização ou execução; erros normais de linha permanecem no
 relatório. O processamento continua sequencial e cada documento preserva sua
 transação independente e a idempotência do pipeline existente.
+
+---
+
+# 19. API HTTP
+
+A primeira camada HTTP usa FastAPI e `python-multipart` apenas para adaptar
+requisições ao `CsvImportService`. Ela não acessa persistência, não abre Unit of
+Work, não reconstrói documentos e não executa regras. O Composition Root expõe
+`build_http_application(database_url)`, que injeta o resultado de
+`build_csv_import_service(database_url)` na aplicação.
+
+Para o servidor, `create_application_from_environment()` lê exclusivamente
+`SUPERVISOR_AI_DATABASE_URL` e delega ao builder. Não existe aplicação global
+que falhe durante import nem banco padrão. A inicialização não conecta para
+health, não executa importação, não aplica migrations e não chama `create_all`.
+
+```bash
+SUPERVISOR_AI_DATABASE_URL=sqlite+pysqlite:///supervisor_ai.sqlite3 \
+  uvicorn supervisor_ai.main:create_application_from_environment --factory
+```
+
+## Endpoints
+
+`GET /health` retorna `{"status":"healthy"}` sem acessar serviço ou banco.
+
+`POST /imports/csv` recebe multipart no campo `file`, mantém o conteúdo em
+memória, aceita UTF-8 com ou sem BOM e chama diretamente
+`CsvImportService.import_csv()`. O upload não é persistido em arquivo temporário.
+
+```bash
+curl -X POST \
+  -F "file=@docs/exemplos/importacao_comercial.csv;type=text/csv" \
+  http://127.0.0.1:8000/imports/csv
+```
+
+Resposta resumida:
+
+```json
+{
+  "file": "importacao_comercial.csv",
+  "status": "success",
+  "parsing": {"total_data_rows": 1, "converted_rows": 1, "error_rows": 0},
+  "processing": {"successful_documents": 1, "ledger_entries_created": 1},
+  "duration_seconds": 0.01,
+  "results": [{"line_number": 2, "status": "success"}]
+}
+```
+
+O schema real inclui todas as contagens, timestamps e identificadores públicos
+auditáveis.
+
+## Política HTTP e segurança
+
+- `200`: lote concluído, inclusive com falhas parciais;
+- `400`: estrutura global do CSV inválida;
+- `422`: multipart ausente, nome ausente, arquivo vazio ou encoding inválido;
+- `500`: falha fatal inesperada.
+
+Conflitos individuais permanecem no relatório como `business_conflict`; não se
+transformam em `409`. Erros globais usam `{error: {code, message}}` e não expõem
+exceções, traceback, `raw_payload`, URL, credenciais, SQL ou caminhos locais.
+
+A projeção `project_csv_import_report()` pertence ao Import Engine e é usada
+tanto pela CLI quanto pela API. Ela serializa explicitamente enums, datetimes,
+durações e resultados em ordem física, substituindo mensagens técnicas por texto
+seguro. A API preserva a mesma atomicidade e idempotência do batch: uma segunda
+requisição idêntica cria novos `ProcessingRun` e zero créditos duplicados.
+
+O escopo atual não inclui autenticação, CORS customizado, upload persistente,
+background tasks, filas, consultas, versionamento ou processamento paralelo.

@@ -7,9 +7,9 @@ router = APIRouter(tags=["health"])
 
 
 class HealthResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["healthy"]
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    return HealthResponse(status="ok")
+    return HealthResponse(status="healthy")

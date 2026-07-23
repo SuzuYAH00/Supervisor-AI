@@ -29,6 +29,12 @@ from supervisor_ai.infrastructure.importing.importer import (
     JsonCommercialEventImporter,
     JsonImportResult,
 )
+from supervisor_ai.infrastructure.importing.reporting import (
+    CorrelatedCsvRowResult,
+    correlate_csv_rows,
+    has_csv_import_failures,
+    project_csv_import_report,
+)
 
 __all__ = [
     "BatchDocument",
@@ -48,10 +54,14 @@ __all__ = [
     "CsvRowErrorCategory",
     "CsvRowResult",
     "CsvStructureError",
+    "CorrelatedCsvRowResult",
     "DocumentImporter",
     "ImportDocumentError",
     "ImportValidationError",
     "JsonCommercialEventImporter",
     "JsonImportResult",
     "JsonSyntaxError",
+    "correlate_csv_rows",
+    "has_csv_import_failures",
+    "project_csv_import_report",
 ]

@@ -4,6 +4,7 @@ import { RouterProvider, createMemoryRouter } from "react-router-dom";
 
 import { appRoutes } from "../src/app/routes";
 import { getCommercialEvents } from "../src/features/commercial-events/api/get-commercial-events";
+import { getCommercialEventDetail } from "../src/features/commercial-events/api/get-commercial-event-detail";
 import { getFinancialSummary } from "../src/features/financial-summary/api/get-financial-summary";
 import { getFinancialTimeline } from "../src/features/financial-timeline/api/get-financial-timeline";
 import { getProcessingHealth } from "../src/features/processing-health/api/get-processing-health";
@@ -11,6 +12,7 @@ import { getProcessingRuns } from "../src/features/processing-runs/api/get-proce
 import { getProcessingRunDetail } from "../src/features/processing-runs/api/get-processing-run-detail";
 import {
   commercialEvents,
+  commercialEventDetail,
   financialSummary,
   processingHealth,
   processingRuns,
@@ -38,6 +40,10 @@ vi.mock(
   () => ({ getCommercialEvents: vi.fn() }),
 );
 vi.mock(
+  "../src/features/commercial-events/api/get-commercial-event-detail",
+  () => ({ getCommercialEventDetail: vi.fn() }),
+);
+vi.mock(
   "../src/features/financial-summary/api/get-financial-summary",
   () => ({ getFinancialSummary: vi.fn() }),
 );
@@ -45,6 +51,7 @@ vi.mock(
 const getProcessingHealthMock = vi.mocked(getProcessingHealth);
 const getFinancialSummaryMock = vi.mocked(getFinancialSummary);
 const getCommercialEventsMock = vi.mocked(getCommercialEvents);
+const getCommercialEventDetailMock = vi.mocked(getCommercialEventDetail);
 const getFinancialTimelineMock = vi.mocked(getFinancialTimeline);
 const getProcessingRunsMock = vi.mocked(getProcessingRuns);
 const getProcessingRunDetailMock = vi.mocked(getProcessingRunDetail);
@@ -116,6 +123,62 @@ test("commercial events route renders directly", async () => {
   renderRoute("/commercial-events");
   expect(await screen.findByText("Eventos persistidos")).toBeInTheDocument();
   expect(screen.getByText("MVP interno")).toBeInTheDocument();
+});
+
+test("commercial event opens its detail and related run through React Router", async () => {
+  const user = userEvent.setup();
+  getCommercialEventsMock.mockResolvedValue(commercialEvents());
+  getCommercialEventDetailMock.mockResolvedValue(commercialEventDetail());
+  getProcessingRunDetailMock.mockResolvedValue(processingRunDetail());
+  renderRoute("/commercial-events");
+
+  expect(getCommercialEventDetailMock).not.toHaveBeenCalled();
+  await user.click(await screen.findByRole("link", { name: "event-2" }));
+  expect(
+    await screen.findByRole("heading", {
+      name: "Detalhes do evento comercial",
+    }),
+  ).toBeInTheDocument();
+  expect(getCommercialEventDetailMock).toHaveBeenCalledWith(
+    "event-2",
+    expect.any(AbortSignal),
+  );
+
+  const runLink = screen.getByRole("link", { name: "run-1" });
+  expect(runLink).toHaveAttribute("href", "/processing-runs/run-1");
+  await user.click(runLink);
+  expect(
+    await screen.findByRole("heading", { name: "Detalhes da execução" }),
+  ).toBeInTheDocument();
+});
+
+test("processing run navigates to its commercial event and returns", async () => {
+  const user = userEvent.setup();
+  getProcessingRunDetailMock.mockResolvedValue(processingRunDetail());
+  getCommercialEventDetailMock.mockResolvedValue(commercialEventDetail());
+  getCommercialEventsMock.mockResolvedValue(commercialEvents());
+  renderRoute("/processing-runs/run-1");
+
+  const eventLinks = await screen.findAllByRole("link", { name: "event-1" });
+  expect(eventLinks[0]).toHaveAttribute("href", "/commercial-events/event-1");
+  await user.click(eventLinks[0]);
+  expect(
+    await screen.findByRole("heading", {
+      name: "Detalhes do evento comercial",
+    }),
+  ).toBeInTheDocument();
+  await user.click(screen.getByRole("link", { name: "Voltar para eventos" }));
+  expect(await screen.findByText("Eventos persistidos")).toBeInTheDocument();
+});
+
+test("commercial event detail supports direct access", async () => {
+  getCommercialEventDetailMock.mockResolvedValue(commercialEventDetail());
+  renderRoute("/commercial-events/event-1");
+  expect(
+    await screen.findByRole("heading", {
+      name: "Detalhes do evento comercial",
+    }),
+  ).toBeInTheDocument();
 });
 
 test("financial timeline navigation uses React Router and starts idle", async () => {

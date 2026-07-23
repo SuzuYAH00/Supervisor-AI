@@ -27,7 +27,11 @@ export function CommercialEventsTable({ items }: CommercialEventsTableProps) {
             {items.map((item) => (
               <tr key={item.event_id}>
                 <th className="identifier-cell" scope="row">
-                  {item.event_id}
+                  <Link
+                    to={`/commercial-events/${encodeURIComponent(item.event_id)}`}
+                  >
+                    {item.event_id}
+                  </Link>
                 </th>
                 <td className="identifier-cell">{item.external_reference}</td>
                 <td>{item.source}</td>
@@ -48,3 +52,4 @@ export function CommercialEventsTable({ items }: CommercialEventsTableProps) {
     </section>
   );
 }
+import { Link } from "react-router-dom";

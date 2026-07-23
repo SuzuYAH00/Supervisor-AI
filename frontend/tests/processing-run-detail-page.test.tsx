@@ -52,6 +52,9 @@ test("loads and projects every public detail field", async () => {
   expect(await screen.findByText("Execução persistida")).toBeInTheDocument();
   expect(screen.getAllByText("run-1").length).toBeGreaterThan(0);
   expect(screen.getAllByText("event-1").length).toBeGreaterThan(0);
+  expect(
+    screen.getAllByRole("link", { name: "event-1" })[0],
+  ).toHaveAttribute("href", "/commercial-events/event-1");
   expect(screen.getByText("posted")).toBeInTheDocument();
   expect(screen.getByText("rules-1")).toBeInTheDocument();
   expect(screen.getByText("external-1")).toBeInTheDocument();

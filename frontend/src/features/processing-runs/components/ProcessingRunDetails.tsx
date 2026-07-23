@@ -8,14 +8,21 @@ interface FactProps {
   readonly label: string;
   readonly value: string;
   readonly dateTime?: boolean;
+  readonly to?: string;
 }
 
-function Fact({ label, value, dateTime = false }: FactProps) {
+function Fact({ label, value, dateTime = false, to }: FactProps) {
   return (
     <div>
       <dt>{label}</dt>
       <dd className="identifier-cell">
-        {dateTime ? <time dateTime={value}>{value}</time> : value}
+        {to !== undefined ? (
+          <Link to={to}>{value}</Link>
+        ) : dateTime ? (
+          <time dateTime={value}>{value}</time>
+        ) : (
+          value
+        )}
       </dd>
     </div>
   );
@@ -34,7 +41,11 @@ export function ProcessingRunDetails({ detail }: ProcessingRunDetailsProps) {
         <h2 id="run-metadata-title">Execução persistida</h2>
         <dl className="detail-list">
           <Fact label="Identificador" value={run.processing_run_id} />
-          <Fact label="Evento comercial" value={run.event_id} />
+          <Fact
+            label="Evento comercial"
+            value={run.event_id}
+            to={`/commercial-events/${encodeURIComponent(run.event_id)}`}
+          />
           <Fact label="Status final" value={run.final_status} />
           <Fact label="Início" value={run.started_at} dateTime />
           <Fact label="Conclusão" value={run.completed_at} dateTime />
@@ -46,7 +57,11 @@ export function ProcessingRunDetails({ detail }: ProcessingRunDetailsProps) {
       <section className="financial-table-card" aria-labelledby="run-event-title">
         <h2 id="run-event-title">Evento comercial relacionado</h2>
         <dl className="detail-list">
-          <Fact label="Identificador" value={event.event_id} />
+          <Fact
+            label="Identificador"
+            value={event.event_id}
+            to={`/commercial-events/${encodeURIComponent(event.event_id)}`}
+          />
           <Fact label="Referência externa" value={event.external_reference} />
           <Fact label="Origem" value={event.source} />
           <Fact label="Ocorrência" value={event.occurred_at} dateTime />
@@ -83,3 +98,4 @@ export function ProcessingRunDetails({ detail }: ProcessingRunDetailsProps) {
     </div>
   );
 }
+import { Link } from "react-router-dom";

@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 
 import { getCommercialEvents } from "../src/features/commercial-events/api/get-commercial-events";
 import { CommercialEventsPage } from "../src/features/commercial-events/pages/CommercialEventsPage";
@@ -13,6 +14,14 @@ vi.mock(
 
 const getCommercialEventsMock = vi.mocked(getCommercialEvents);
 
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <CommercialEventsPage />
+    </MemoryRouter>,
+  );
+}
+
 test("announces loading and renders factual event fields", async () => {
   let resolveRequest: (value: ReturnType<typeof commercialEvents>) => void =
     () => undefined;
@@ -21,7 +30,7 @@ test("announces loading and renders factual event fields", async () => {
       resolveRequest = resolve;
     }),
   );
-  render(<CommercialEventsPage />);
+  renderPage();
   expect(screen.getByText("Carregando eventos comerciais")).toBeInTheDocument();
 
   resolveRequest(commercialEvents());
@@ -29,6 +38,10 @@ test("announces loading and renders factual event fields", async () => {
   const eventRow = screen.getByRole("row", {
     name: /event-2 external-2 csv-example/,
   });
+  expect(within(eventRow).getByRole("link", { name: "event-2" })).toHaveAttribute(
+    "href",
+    "/commercial-events/event-2",
+  );
   expect(within(eventRow).getByText("2026-07-22T12:00:00Z")).toHaveAttribute(
     "datetime",
     "2026-07-22T12:00:00Z",
@@ -41,7 +54,7 @@ test("renders an empty result as success with next disabled", async () => {
   getCommercialEventsMock.mockResolvedValue(
     commercialEvents({ items: [] }),
   );
-  render(<CommercialEventsPage />);
+  renderPage();
 
   expect(
     await screen.findByText("Nenhum evento comercial foi encontrado."),
@@ -63,7 +76,7 @@ test("retries an initial error", async () => {
       }),
     )
     .mockResolvedValueOnce(commercialEvents());
-  render(<CommercialEventsPage />);
+  renderPage();
 
   expect(await screen.findByText("O backend está indisponível")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Tentar novamente" }));
@@ -95,7 +108,7 @@ test("navigates forward and backward using opaque cursor history", async () => {
         page: { limit: 1, next_cursor: "cursor-page-2", has_more: true },
       }),
     );
-  render(<CommercialEventsPage />);
+  renderPage();
 
   const nextButton = await screen.findByRole("button", {
     name: "Próxima página",
@@ -155,7 +168,7 @@ test("retry after a page transition repeats the requested cursor", async () => {
       }),
     )
     .mockResolvedValueOnce(commercialEvents());
-  render(<CommercialEventsPage />);
+  renderPage();
 
   await user.click(
     await screen.findByRole("button", { name: "Próxima página" }),
@@ -176,7 +189,7 @@ test("aborts the active request when unmounted", () => {
     receivedSignal = signal;
     return new Promise(() => undefined);
   });
-  const view = render(<CommercialEventsPage />);
+  const view = renderPage();
   expect(receivedSignal?.aborted).toBe(false);
   view.unmount();
   expect(receivedSignal?.aborted).toBe(true);

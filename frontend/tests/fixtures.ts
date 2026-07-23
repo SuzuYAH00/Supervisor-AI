@@ -1,9 +1,52 @@
 import type { CommercialEventList } from "../src/features/commercial-events/types/commercial-events";
+import type { CommercialEventDetailResponse } from "../src/features/commercial-events/types/commercial-event-detail";
 import type { FinancialSummary } from "../src/features/financial-summary/types/financial-summary";
 import type { FinancialTimeline } from "../src/features/financial-timeline/types/financial-timeline";
 import type { ProcessingHealth } from "../src/features/processing-health/types/processing-health";
 import type { ProcessingRunsResponse } from "../src/features/processing-runs/types/processing-runs";
 import type { ProcessingRunDetailResponse } from "../src/features/processing-runs/types/processing-run-detail";
+
+export function commercialEventDetail(
+  changes: Partial<CommercialEventDetailResponse> = {},
+): CommercialEventDetailResponse {
+  return {
+    commercial_event: {
+      event_id: "event-1",
+      external_reference: "external-1",
+      source: "csv-example",
+      occurred_at: "2026-07-23T13:59:00Z",
+      received_at: "2026-07-23T14:00:00Z",
+      created_at: "2026-07-23T14:00:00Z",
+    },
+    ledger_entries: [
+      {
+        ledger_entry_id: "ledger-1",
+        event_id: "event-1",
+        beneficiary_id: "employee-1",
+        entry_type: "credit",
+        amount: "119.90",
+        currency: "BRL",
+        posted_at: "2026-07-23T14:00:01Z",
+        posting_reference: "posting-1",
+        remuneration_calculation_reference: "calculation-1",
+        invoice_id: null,
+        source_reference_ids: ["invoice-1"],
+      },
+    ],
+    processing_runs: [
+      {
+        processing_run_id: "run-1",
+        event_id: "event-1",
+        final_status: "posted",
+        started_at: "2026-07-23T14:00:00Z",
+        completed_at: "2026-07-23T14:00:01Z",
+        rules_engine_version: "rules-1",
+        created_at: "2026-07-23T14:00:01Z",
+      },
+    ],
+    ...changes,
+  };
+}
 
 export function processingRunDetail(
   changes: Partial<ProcessingRunDetailResponse> = {},

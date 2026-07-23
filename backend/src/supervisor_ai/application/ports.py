@@ -3,11 +3,13 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from supervisor_ai.application.persistence import (
+    CollaboratorFinancialTimelineCursorPosition,
+    CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
     ProcessingRun,
 )
-from supervisor_ai.rules_engine import LedgerEntry
+from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
 
 
 class EventRepository(Protocol):
@@ -55,6 +57,18 @@ class LedgerRepository(Protocol):
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> tuple[LedgerEntry, ...]: ...
+
+    def search_collaborator_timeline(
+        self,
+        *,
+        collaborator_id: str,
+        start_date: date | None,
+        end_date: date | None,
+        entry_type: LedgerEntryType | None,
+        currency: Currency | None,
+        after: CollaboratorFinancialTimelineCursorPosition | None,
+        limit: int,
+    ) -> tuple[CollaboratorFinancialTimelineRecord, ...]: ...
 
 
 class UnitOfWork(Protocol):

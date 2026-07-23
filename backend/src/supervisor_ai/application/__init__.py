@@ -13,6 +13,8 @@ from supervisor_ai.application.financial_snapshot import (
     RemunerationPostingFacts,
 )
 from supervisor_ai.application.persistence import (
+    CollaboratorFinancialTimelineCursorPosition,
+    CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
     ProcessingRun,
@@ -32,6 +34,8 @@ __all__ = [
     "CommercialEvent",
     "CommercialEventConflict",
     "CommercialEventCursorPosition",
+    "CollaboratorFinancialTimelineCursorPosition",
+    "CollaboratorFinancialTimelineRecord",
     "CommercialEventNotFound",
     "Clock",
     "EventRepository",

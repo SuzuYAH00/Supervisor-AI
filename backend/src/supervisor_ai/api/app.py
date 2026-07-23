@@ -7,6 +7,10 @@ from fastapi import FastAPI, File, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from supervisor_ai.api.collaborators import (
+    CollaboratorFinancialTimelineServiceContract,
+    collaborators_router,
+)
 from supervisor_ai.api.commercial_events import (
     CommercialEventDetailsServiceContract,
     CommercialEventListServiceContract,
@@ -64,6 +68,7 @@ class HttpApplicationServices:
     financial_summary: FinancialSummaryServiceContract
     commercial_event_details: CommercialEventDetailsServiceContract
     commercial_event_list: CommercialEventListServiceContract
+    collaborator_financial_timeline: CollaboratorFinancialTimelineServiceContract
 
 
 def create_http_application(
@@ -228,6 +233,9 @@ def create_http_application(
             services.commercial_event_details,
             services.commercial_event_list,
         )
+    )
+    app.include_router(
+        collaborators_router(services.collaborator_financial_timeline)
     )
     return app
 

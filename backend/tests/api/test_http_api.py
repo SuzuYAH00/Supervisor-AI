@@ -11,14 +11,20 @@ from supervisor_ai.api.app import (
     create_application_from_environment,
     create_http_application,
 )
-from supervisor_ai.api.pagination import decode_cursor, encode_cursor
+from supervisor_ai.api.pagination import (
+    decode_cursor,
+    encode_cursor,
+    encode_timeline_cursor,
+)
 from supervisor_ai.application import (
+    CollaboratorFinancialTimelineCursorPosition,
     CommercialEventCursorPosition,
     CommercialEventNotFound,
 )
 from supervisor_ai.application.use_cases import (
     CollaboratorCurrencySummary,
     CollaboratorFinancialSummary,
+    CollaboratorFinancialTimelineItem,
     CommercialEventDetails,
     CommercialEventLedgerEntry,
     CommercialEventListItem,
@@ -26,6 +32,8 @@ from supervisor_ai.application.use_cases import (
     FinancialSnapshotCurrencyTotal,
     FinancialSnapshotItem,
     FinancialSummaryCurrencyTotal,
+    GetCollaboratorFinancialTimelineQuery,
+    GetCollaboratorFinancialTimelineResult,
     GetCommercialEventDetailsQuery,
     GetCommercialEventDetailsResult,
     GetFinancialSnapshotQuery,
@@ -34,6 +42,7 @@ from supervisor_ai.application.use_cases import (
     GetFinancialSummaryResult,
     ListCommercialEventsQuery,
     ListCommercialEventsResult,
+    TimelineCommercialEvent,
 )
 from supervisor_ai.infrastructure.importing import (
     BatchDocumentResult,
@@ -142,12 +151,34 @@ class StubCommercialEventListService:
         return self.result or ListCommercialEventsResult(query, (), False, None)
 
 
+class StubCollaboratorTimelineService:
+    def __init__(
+        self,
+        result: GetCollaboratorFinancialTimelineResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.queries: list[GetCollaboratorFinancialTimelineQuery] = []
+
+    def execute(
+        self, query: GetCollaboratorFinancialTimelineQuery
+    ) -> GetCollaboratorFinancialTimelineResult:
+        self.queries.append(query)
+        if self.error is not None:
+            raise self.error
+        return self.result or GetCollaboratorFinancialTimelineResult(
+            query, (), False, None
+        )
+
+
 def _application(
     service: StubService,
     financial_service: StubFinancialService | None = None,
     summary_service: StubFinancialSummaryService | None = None,
     details_service: StubCommercialEventDetailsService | None = None,
     list_service: StubCommercialEventListService | None = None,
+    timeline_service: StubCollaboratorTimelineService | None = None,
 ) -> FastAPI:
     return create_http_application(
         HttpApplicationServices(
@@ -158,6 +189,9 @@ def _application(
                 details_service or StubCommercialEventDetailsService()
             ),
             commercial_event_list=list_service or StubCommercialEventListService(),
+            collaborator_financial_timeline=(
+                timeline_service or StubCollaboratorTimelineService()
+            ),
         )
     )
 
@@ -916,3 +950,137 @@ def test_commercial_event_list_failure_is_safe() -> None:
     }
     for sensitive in ("raw_payload", "password", "Traceback", "SQLAlchemy"):
         assert sensitive not in response.text
+
+
+def timeline_result(
+    query: GetCollaboratorFinancialTimelineQuery,
+) -> GetCollaboratorFinancialTimelineResult:
+    item = CollaboratorFinancialTimelineItem(
+        ledger_entry_id="ledger-1",
+        posted_at=NOW,
+        entry_type=LedgerEntryType.CREDIT,
+        amount=Decimal("99.900000"),
+        currency=Currency.BRL,
+        invoice_id="invoice-1",
+        posting_reference="posting-1",
+        remuneration_calculation_reference="calculation-1",
+        source_reference_ids=("invoice-1",),
+        commercial_event=TimelineCommercialEvent(
+            event_id="event-1",
+            external_reference="external-1",
+            source="csv",
+            occurred_at=NOW - timedelta(minutes=5),
+        ),
+    )
+    return GetCollaboratorFinancialTimelineResult(
+        query,
+        (item,),
+        True,
+        CollaboratorFinancialTimelineCursorPosition(NOW, "ledger-1"),
+    )
+
+
+def test_collaborator_timeline_returns_explicit_decimal_projection() -> None:
+    query = GetCollaboratorFinancialTimelineQuery("alice", limit=1)
+    service = StubCollaboratorTimelineService(timeline_result(query))
+    response = request(
+        _application(StubService(), timeline_service=service),
+        "GET",
+        "/collaborators/alice/financial-timeline?limit=1",
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["collaborator_id"] == "alice"
+    assert body["page"]["has_more"] is True
+    assert type(body["page"]["next_cursor"]) is str
+    assert body["items"][0]["amount"] == "99.90"
+    assert type(body["items"][0]["amount"]) is str
+    assert body["items"][0]["entry_type"] == "credit"
+    assert body["items"][0]["commercial_event"]["event_id"] == "event-1"
+    for absent in ("raw_payload", "processing_runs", "database_url"):
+        assert absent not in response.text
+
+
+def test_collaborator_timeline_empty_is_200_with_default_limit() -> None:
+    response = request(
+        _application(StubService()),
+        "GET",
+        "/collaborators/unknown/financial-timeline",
+    )
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["page"] == {
+        "limit": 50,
+        "next_cursor": None,
+        "has_more": False,
+    }
+
+
+def test_collaborator_timeline_forwards_filters_and_cursor() -> None:
+    position = CollaboratorFinancialTimelineCursorPosition(NOW, "ledger-1")
+    cursor = encode_timeline_cursor(position)
+    service = StubCollaboratorTimelineService()
+    response = request(
+        _application(StubService(), timeline_service=service),
+        "GET",
+        (
+            "/collaborators/alice/financial-timeline"
+            "?start_date=2026-07-01&end_date=2026-07-31"
+            f"&entry_type=credit&currency=BRL&limit=25&cursor={cursor}"
+        ),
+    )
+    assert response.status_code == 200
+    assert service.queries == [
+        GetCollaboratorFinancialTimelineQuery(
+            "alice",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            entry_type=LedgerEntryType.CREDIT,
+            currency=Currency.BRL,
+            limit=25,
+            after=position,
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/collaborators/%20%20/financial-timeline",
+        f"/collaborators/{'x' * 129}/financial-timeline",
+        "/collaborators/alice/financial-timeline?limit=0",
+        "/collaborators/alice/financial-timeline?entry_type=unknown",
+        "/collaborators/alice/financial-timeline?currency=EUR",
+        "/collaborators/alice/financial-timeline?start_date=invalid",
+        (
+            "/collaborators/alice/financial-timeline"
+            "?start_date=2026-08-01&end_date=2026-07-31"
+        ),
+    ],
+)
+def test_collaborator_timeline_rejects_invalid_parameters(path: str) -> None:
+    assert request(_application(StubService()), "GET", path).status_code == 422
+
+
+def test_collaborator_timeline_maps_invalid_cursor_and_safe_failure() -> None:
+    invalid = request(
+        _application(StubService()),
+        "GET",
+        "/collaborators/alice/financial-timeline?cursor=invalid***",
+    )
+    service = StubCollaboratorTimelineService(
+        error=RuntimeError("postgresql password raw_payload Traceback SQLAlchemy")
+    )
+    failed = request(
+        _application(StubService(), timeline_service=service),
+        "GET",
+        "/collaborators/alice/financial-timeline",
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "invalid_cursor"
+    assert failed.status_code == 500
+    assert failed.json()["error"]["message"] == (
+        "Collaborator financial timeline could not be retrieved"
+    )
+    for sensitive in ("password", "raw_payload", "Traceback", "SQLAlchemy"):
+        assert sensitive not in failed.text

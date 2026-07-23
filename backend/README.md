@@ -87,6 +87,16 @@ curl \
 A listagem usa paginação por cursor. Reutilize os mesmos filtros ao enviar o
 `next_cursor`; não existe paginação por offset nem total global.
 
+A timeline de um colaborador também usa paginação keyset:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/collaborators/employee-1/financial-timeline?entry_type=credit&currency=BRL&limit=25"
+```
+
+Ela retorna lançamentos reais e metadados mínimos dos eventos relacionados,
+sem recalcular remuneração ou expor payloads.
+
 ## Qualidade e testes
 
 ```bash

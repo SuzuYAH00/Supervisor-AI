@@ -14,7 +14,7 @@ from supervisor_ai.bootstrap import (
     build_unit_of_work_factory,
 )
 from supervisor_ai.database.base import Base
-from supervisor_ai.rules_engine import Currency
+from supervisor_ai.rules_engine import Currency, LedgerEntryType
 from tests.importing.csv_factories import csv_row, csv_text
 from tests.persistence.factories import commercial_event, ledger_entry
 
@@ -455,4 +455,137 @@ def test_commercial_event_list_uses_keyset_filters_and_includes_unposted_events(
     assert empty.status_code == 200 and empty.json()["items"] == []
     assert invalid.status_code == 422
     assert invalid.json()["error"]["code"] == "invalid_cursor"
+    engine.dispose()
+
+
+def test_collaborator_financial_timeline_pages_filters_and_drills_down(
+    tmp_path: Path,
+) -> None:
+    application, database_url, engine = prepared_application(
+        tmp_path, "http-collaborator-timeline.sqlite3"
+    )
+    same_time = datetime(2026, 7, 20, 13, tzinfo=UTC)
+    events = tuple(
+        commercial_event(f"event-{index}", external_reference=f"external-{index}")
+        for index in range(1, 7)
+    )
+    entries = (
+        replace(
+            ledger_entry("ledger-6", "event-6", amount=Decimal("60.00")),
+            beneficiary_id="bob",
+            posted_at=datetime(2026, 8, 1, 13, tzinfo=UTC),
+        ),
+        replace(
+            ledger_entry("ledger-5", "event-5", amount=Decimal("50.00")),
+            beneficiary_id="alice",
+            entry_type=LedgerEntryType.DEBIT,
+            currency=Currency.USD,
+            posted_at=datetime(2026, 7, 25, 13, tzinfo=UTC),
+        ),
+        replace(
+            ledger_entry("ledger-4", "event-4", amount=Decimal("40.00")),
+            beneficiary_id="alice",
+            entry_type=LedgerEntryType.ADJUSTMENT,
+            posted_at=same_time,
+        ),
+        replace(
+            ledger_entry("ledger-3", "event-3", amount=Decimal("30.00")),
+            beneficiary_id="alice",
+            posted_at=same_time,
+        ),
+        replace(
+            ledger_entry("ledger-2", "event-2", amount=Decimal("20.00")),
+            beneficiary_id="alice",
+            posted_at=datetime(2026, 7, 10, 13, tzinfo=UTC),
+        ),
+        replace(
+            ledger_entry("ledger-1", "event-1", amount=Decimal("10.00")),
+            beneficiary_id="alice",
+            posted_at=datetime(2026, 6, 1, 13, tzinfo=UTC),
+        ),
+    )
+    unit_of_work_factory = build_unit_of_work_factory(
+        build_session_factory(database_url)
+    )
+    with unit_of_work_factory() as unit_of_work:
+        for event in events:
+            unit_of_work.events.add(event)
+        for entry in entries:
+            unit_of_work.ledger.add(entry)
+        unit_of_work.commit()
+
+    identifiers: list[str] = []
+    cursor: str | None = None
+    for _ in range(3):
+        suffix = "" if cursor is None else f"&cursor={cursor}"
+        response = request(
+            application,
+            "GET",
+            f"/collaborators/alice/financial-timeline?limit=2{suffix}",
+        )
+        assert response.status_code == 200
+        identifiers.extend(item["ledger_entry_id"] for item in response.json()["items"])
+        cursor = response.json()["page"]["next_cursor"]
+
+    debit = request(
+        application,
+        "GET",
+        "/collaborators/alice/financial-timeline?entry_type=debit",
+    )
+    usd = request(
+        application,
+        "GET",
+        "/collaborators/alice/financial-timeline?currency=USD",
+    )
+    july = request(
+        application,
+        "GET",
+        (
+            "/collaborators/alice/financial-timeline"
+            "?start_date=2026-07-01&end_date=2026-07-31"
+        ),
+    )
+    bob = request(
+        application, "GET", "/collaborators/bob/financial-timeline"
+    )
+    empty = request(
+        application, "GET", "/collaborators/unknown/financial-timeline"
+    )
+    invalid = request(
+        application,
+        "GET",
+        "/collaborators/alice/financial-timeline?cursor=invalid***",
+    )
+    details = request(application, "GET", "/commercial-events/event-5")
+
+    assert identifiers == [
+        "ledger-5",
+        "ledger-4",
+        "ledger-3",
+        "ledger-2",
+        "ledger-1",
+    ]
+    assert len(identifiers) == len(set(identifiers)) == 5
+    assert [item["ledger_entry_id"] for item in debit.json()["items"]] == [
+        "ledger-5"
+    ]
+    assert [item["ledger_entry_id"] for item in usd.json()["items"]] == [
+        "ledger-5"
+    ]
+    assert [item["ledger_entry_id"] for item in july.json()["items"]] == [
+        "ledger-5",
+        "ledger-4",
+        "ledger-3",
+        "ledger-2",
+    ]
+    assert [item["ledger_entry_id"] for item in bob.json()["items"]] == [
+        "ledger-6"
+    ]
+    assert empty.status_code == 200 and empty.json()["items"] == []
+    assert invalid.status_code == 422
+    assert details.status_code == 200
+    assert details.json()["ledger_entries"][0]["amount"] == (
+        debit.json()["items"][0]["amount"]
+    )
+    assert "raw_payload" not in debit.text
     engine.dispose()

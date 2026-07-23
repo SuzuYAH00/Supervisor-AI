@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
+
+from supervisor_ai.rules_engine import Currency, LedgerEntryType
 
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
@@ -43,6 +46,36 @@ class CommercialEventCursorPosition:
             raise ValueError("event_id must not be blank")
         if len(self.event_id) > 128:
             raise ValueError("event_id must not exceed 128 characters")
+
+
+@dataclass(frozen=True, slots=True)
+class CollaboratorFinancialTimelineCursorPosition:
+    posted_at: datetime
+    ledger_entry_id: str
+
+    def __post_init__(self) -> None:
+        _require_aware(self.posted_at, "posted_at")
+        if not self.ledger_entry_id.strip():
+            raise ValueError("ledger_entry_id must not be blank")
+        if len(self.ledger_entry_id) > 255:
+            raise ValueError("ledger_entry_id must not exceed 255 characters")
+
+
+@dataclass(frozen=True, slots=True)
+class CollaboratorFinancialTimelineRecord:
+    ledger_entry_id: str
+    posted_at: datetime
+    entry_type: LedgerEntryType
+    amount: Decimal
+    currency: Currency
+    invoice_id: str | None
+    posting_reference: str
+    remuneration_calculation_reference: str
+    source_reference_ids: tuple[str, ...]
+    event_id: str
+    external_reference: str
+    event_source: str
+    event_occurred_at: datetime
 
 
 @dataclass(frozen=True, slots=True)

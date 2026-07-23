@@ -336,6 +336,16 @@ curl \
 A ordem é `occurred_at` decrescente e depois `event_id` decrescente. As datas
 filtram `occurred_at` em UTC de forma inclusiva.
 
+Abra a linha do tempo financeira de um colaborador localizado no resumo:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/collaborators/employee-1/financial-timeline?limit=25"
+```
+
+Ela aceita período, `entry_type`, `currency` e cursor. Cada lançamento aponta
+para o evento que pode ser aberto em `/commercial-events/{event_id}`.
+
 Para validar o projeto:
 
 ```bash

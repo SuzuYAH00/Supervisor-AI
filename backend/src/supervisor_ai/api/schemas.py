@@ -162,6 +162,40 @@ class CommercialEventListResponse(BaseModel):
     items: list[CommercialEventResponse]
 
 
+class CollaboratorTimelineFiltersResponse(BaseModel):
+    start_date: date | None
+    end_date: date | None
+    entry_type: str | None
+    currency: str | None
+
+
+class TimelineCommercialEventResponse(BaseModel):
+    event_id: str
+    external_reference: str
+    source: str
+    occurred_at: datetime
+
+
+class CollaboratorFinancialTimelineItemResponse(BaseModel):
+    ledger_entry_id: str
+    posted_at: datetime
+    entry_type: str
+    amount: str
+    currency: str
+    invoice_id: str | None
+    posting_reference: str
+    remuneration_calculation_reference: str
+    source_reference_ids: list[str]
+    commercial_event: TimelineCommercialEventResponse
+
+
+class CollaboratorFinancialTimelineResponse(BaseModel):
+    collaborator_id: str
+    filters: CollaboratorTimelineFiltersResponse
+    page: CursorPageResponse
+    items: list[CollaboratorFinancialTimelineItemResponse]
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

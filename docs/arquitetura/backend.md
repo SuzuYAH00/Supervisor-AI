@@ -1170,3 +1170,54 @@ em `GET /commercial-events/{commercial_event_id}`.
 `api/errors.py` concentra a pequena projeção estável de erros já usada pelas
 rotas. Não foram criados framework de exceptions, OFFSET, `total_count`,
 migration, cache ou tabela de resumo.
+
+---
+
+# 24. Linha do tempo financeira por colaborador
+
+`GetCollaboratorFinancialTimelineUseCase` oferece uma visão cronológica dos
+lançamentos persistidos de um beneficiário. Não existe entidade Collaborator
+nesta etapa; um identificador válido sem lançamentos retorna `200` e lista
+vazia.
+
+O repositório executa uma única consulta por colunas entre `ledger_entries` e
+`commercial_events`, vinculados pela foreign key `event_id`. A projeção retorna
+somente campos necessários do Ledger e `event_id`, `external_reference`,
+`source` e `occurred_at` do evento. Não materializa `raw_payload`, não consulta
+ProcessingRuns e não produz N+1.
+
+## Filtros, ordem e cursor
+
+Datas são inclusivas sobre `posted_at` em UTC. `entry_type` e `currency` aceitam
+somente os enums públicos existentes. A ordem fixa é:
+
+1. `posted_at` decrescente;
+2. `ledger_entry_id` decrescente.
+
+O cursor próprio `CollaboratorFinancialTimelineCursorPosition` contém somente
+`posted_at` e `ledger_entry_id`. A camada HTTP codifica JSON versionado em
+Base64 URL-safe; ele não reutiliza o cursor de evento como identidade
+financeira. A próxima página aplica a mesma comparação keyset descendente e o
+caso de uso solicita `limit + 1`.
+
+O limite padrão é 50, com mínimo 1 e máximo 100. Não há OFFSET, total global,
+agregação ou período implícito.
+
+## Navegação e segurança
+
+O fluxo gerencial é:
+
+```text
+/financial/summary
+    → /collaborators/{id}/financial-timeline
+        → /commercial-events/{event_id}
+```
+
+Dinheiro permanece `Decimal` até `decimal_string()` na projeção HTTP. A timeline
+não retorna raw payload, execuções, resultados de fases, status derivados ou
+regras recalculadas. Falhas inesperadas usam mensagem fixa; cursor e filtros
+inválidos retornam `422`.
+
+`api/collaborators.py` contém exclusivamente transporte e projeção da timeline.
+O serviço é uma dependência explícita de `HttpApplicationServices` e é montado
+pelo Composition Root. Nenhuma migration ou modelo ORM persistido foi criado.

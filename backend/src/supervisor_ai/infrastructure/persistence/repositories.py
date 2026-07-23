@@ -4,6 +4,8 @@ from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
 from supervisor_ai.application.persistence import (
+    CollaboratorFinancialTimelineCursorPosition,
+    CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
     ProcessingRun,
@@ -21,7 +23,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     LedgerEntryRecord,
     ProcessingRunRecord,
 )
-from supervisor_ai.rules_engine import LedgerEntry, LedgerEntryType
+from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
 
 
 class SqlAlchemyEventRepository:
@@ -169,6 +171,97 @@ class SqlAlchemyLedgerRepository:
         ).order_by(LedgerEntryRecord.posted_at, LedgerEntryRecord.entry_id)
         records = self.session.scalars(statement)
         return tuple(record_to_ledger_entry(record) for record in records)
+
+    def search_collaborator_timeline(
+        self,
+        *,
+        collaborator_id: str,
+        start_date: date | None,
+        end_date: date | None,
+        entry_type: LedgerEntryType | None,
+        currency: Currency | None,
+        after: CollaboratorFinancialTimelineCursorPosition | None,
+        limit: int,
+    ) -> tuple[CollaboratorFinancialTimelineRecord, ...]:
+        statement = (
+            select(
+                LedgerEntryRecord.entry_id,
+                LedgerEntryRecord.posted_at,
+                LedgerEntryRecord.entry_type,
+                LedgerEntryRecord.amount,
+                LedgerEntryRecord.currency,
+                LedgerEntryRecord.invoice_id,
+                LedgerEntryRecord.posting_reference,
+                LedgerEntryRecord.remuneration_calculation_reference,
+                LedgerEntryRecord.source_reference_ids,
+                CommercialEventRecord.id,
+                CommercialEventRecord.external_reference,
+                CommercialEventRecord.source,
+                CommercialEventRecord.occurred_at,
+            )
+            .join(
+                CommercialEventRecord,
+                CommercialEventRecord.id == LedgerEntryRecord.event_id,
+            )
+            .where(LedgerEntryRecord.beneficiary_id == collaborator_id)
+        )
+        if start_date is not None:
+            statement = statement.where(
+                LedgerEntryRecord.posted_at
+                >= datetime.combine(start_date, time.min, tzinfo=UTC)
+            )
+        if end_date is not None:
+            statement = statement.where(
+                LedgerEntryRecord.posted_at
+                <= datetime.combine(end_date, time.max, tzinfo=UTC)
+                if end_date == date.max
+                else LedgerEntryRecord.posted_at
+                < datetime.combine(
+                    end_date + timedelta(days=1), time.min, tzinfo=UTC
+                )
+            )
+        if entry_type is not None:
+            statement = statement.where(
+                LedgerEntryRecord.entry_type == entry_type.value
+            )
+        if currency is not None:
+            statement = statement.where(LedgerEntryRecord.currency == currency.value)
+        if after is not None:
+            statement = statement.where(
+                or_(
+                    LedgerEntryRecord.posted_at < after.posted_at,
+                    and_(
+                        LedgerEntryRecord.posted_at == after.posted_at,
+                        LedgerEntryRecord.entry_id < after.ledger_entry_id,
+                    ),
+                )
+            )
+        rows = self.session.execute(
+            statement.order_by(
+                LedgerEntryRecord.posted_at.desc(),
+                LedgerEntryRecord.entry_id.desc(),
+            ).limit(limit)
+        ).all()
+        return tuple(
+            CollaboratorFinancialTimelineRecord(
+                ledger_entry_id=row.entry_id,
+                posted_at=row.posted_at,
+                entry_type=LedgerEntryType(row.entry_type),
+                amount=row.amount,
+                currency=Currency(row.currency),
+                invoice_id=row.invoice_id,
+                posting_reference=row.posting_reference,
+                remuneration_calculation_reference=(
+                    row.remuneration_calculation_reference
+                ),
+                source_reference_ids=tuple(row.source_reference_ids),
+                event_id=row.id,
+                external_reference=row.external_reference,
+                event_source=row.source,
+                event_occurred_at=row.occurred_at,
+            )
+            for row in rows
+        )
 
 
 def _apply_credit_filters(

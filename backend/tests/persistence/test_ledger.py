@@ -6,12 +6,13 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from supervisor_ai.application import CollaboratorFinancialTimelineCursorPosition
 from supervisor_ai.infrastructure.persistence.models import LedgerEntryRecord
 from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
 )
-from supervisor_ai.rules_engine import LedgerEntry, LedgerEntryType
+from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
 from tests.persistence.factories import commercial_event, ledger_entry
 
 
@@ -181,3 +182,96 @@ def test_find_by_event_id_returns_all_entry_types_in_stable_order(
         LedgerEntryType.DEBIT,
     )
     assert missing == ()
+
+
+def test_collaborator_timeline_joins_event_filters_and_uses_keyset(
+    session_factory: sessionmaker[Session],
+) -> None:
+    same_time = datetime(2026, 7, 20, 13, tzinfo=UTC)
+    with session_factory() as session:
+        for event_id in ("event-1", "event-2", "event-3", "event-4"):
+            persist_event(session, event_id)
+        repository = SqlAlchemyLedgerRepository(session)
+        entries = (
+            replace(
+                ledger_entry("ledger-4", "event-4", amount=Decimal("40.00")),
+                beneficiary_id="bob",
+                posted_at=datetime(2026, 8, 1, 13, tzinfo=UTC),
+            ),
+            replace(
+                ledger_entry("ledger-3", "event-3", amount=Decimal("30.00")),
+                beneficiary_id="alice",
+                entry_type=LedgerEntryType.DEBIT,
+                currency=Currency.USD,
+                posted_at=same_time,
+            ),
+            replace(
+                ledger_entry("ledger-2", "event-2", amount=Decimal("20.00")),
+                beneficiary_id="alice",
+                entry_type=LedgerEntryType.ADJUSTMENT,
+                posted_at=same_time,
+            ),
+            replace(
+                ledger_entry("ledger-1", "event-1", amount=Decimal("10.00")),
+                beneficiary_id="alice",
+                posted_at=datetime(2026, 7, 1, 0, tzinfo=UTC),
+            ),
+        )
+        for entry in entries:
+            repository.add(entry)
+        session.commit()
+
+        first = repository.search_collaborator_timeline(
+            collaborator_id="alice",
+            start_date=None,
+            end_date=None,
+            entry_type=None,
+            currency=None,
+            after=None,
+            limit=2,
+        )
+        second = repository.search_collaborator_timeline(
+            collaborator_id="alice",
+            start_date=None,
+            end_date=None,
+            entry_type=None,
+            currency=None,
+            after=CollaboratorFinancialTimelineCursorPosition(
+                first[-1].posted_at, first[-1].ledger_entry_id
+            ),
+            limit=10,
+        )
+        filtered = repository.search_collaborator_timeline(
+            collaborator_id="alice",
+            start_date=date(2026, 7, 20),
+            end_date=date(2026, 7, 20),
+            entry_type=LedgerEntryType.DEBIT,
+            currency=Currency.USD,
+            after=None,
+            limit=10,
+        )
+        missing_position = repository.search_collaborator_timeline(
+            collaborator_id="alice",
+            start_date=None,
+            end_date=None,
+            entry_type=None,
+            currency=None,
+            after=CollaboratorFinancialTimelineCursorPosition(
+                same_time, "ledger-9"
+            ),
+            limit=10,
+        )
+
+    assert tuple(item.ledger_entry_id for item in first) == (
+        "ledger-3",
+        "ledger-2",
+    )
+    assert tuple(item.ledger_entry_id for item in second) == ("ledger-1",)
+    assert tuple(item.ledger_entry_id for item in filtered) == ("ledger-3",)
+    assert filtered[0].event_id == "event-3"
+    assert filtered[0].external_reference == "external-event-3"
+    assert tuple(item.ledger_entry_id for item in missing_position) == (
+        "ledger-3",
+        "ledger-2",
+        "ledger-1",
+    )

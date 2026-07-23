@@ -3,9 +3,9 @@ import { ApiError } from "./api-error";
 
 type JsonObject = { readonly [key: string]: unknown };
 
-export type JsonParser<T> = (value: unknown) => T;
+type JsonParser<T> = (value: unknown) => T;
 
-export interface ApiRequestOptions<T> {
+interface ApiRequestOptions<T> {
   readonly signal?: AbortSignal;
   readonly parse: JsonParser<T>;
 }

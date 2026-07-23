@@ -1,4 +1,4 @@
-export type ApiErrorKind = "api" | "network" | "invalid-response" | "cancelled";
+type ApiErrorKind = "api" | "network" | "invalid-response" | "cancelled";
 
 export class ApiError extends Error {
   readonly status: number | null;

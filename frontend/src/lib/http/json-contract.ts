@@ -1,4 +1,4 @@
-export type JsonObject = { readonly [key: string]: unknown };
+type JsonObject = { readonly [key: string]: unknown };
 
 export function jsonObject(value: unknown, field: string): JsonObject {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

@@ -114,11 +114,6 @@ a:focus-visible {
   font-weight: 700;
 }
 
-.navigation-link.disabled {
-  color: #727b77;
-  cursor: not-allowed;
-}
-
 .main-content {
   width: 100%;
   max-width: 1440px;

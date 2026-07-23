@@ -5,7 +5,7 @@ import { ProcessingRunsTable } from "../components/ProcessingRunsTable";
 import { useProcessingRuns } from "../hooks/use-processing-runs";
 
 export function ProcessingRunsPage() {
-  const timeline = useProcessingRuns();
+  const listing = useProcessingRuns();
 
   return (
     <section className="page-section" aria-labelledby="processing-runs-title">
@@ -21,53 +21,53 @@ export function ProcessingRunsPage() {
         <button
           className="button button--secondary"
           type="button"
-          onClick={timeline.refetch}
-          disabled={timeline.isLoading}
+          onClick={listing.refetch}
+          disabled={listing.isLoading}
         >
           Atualizar
         </button>
       </div>
 
-      {timeline.isLoading ? (
+      {listing.isLoading ? (
         <LoadingState
           title="Carregando execuções"
-          description={`Consultando a página ${timeline.sessionPage} desta sessão.`}
+          description={`Consultando a página ${listing.sessionPage} desta sessão.`}
         />
       ) : null}
 
-      {!timeline.isLoading && timeline.error !== null ? (
+      {!listing.isLoading && listing.error !== null ? (
         <>
-          <ErrorState error={timeline.error} onRetry={timeline.refetch} />
-          {timeline.canGoPrevious ? (
+          <ErrorState error={listing.error} onRetry={listing.refetch} />
+          {listing.canGoPrevious ? (
             <CursorPagination
-              sessionPage={timeline.sessionPage}
+              sessionPage={listing.sessionPage}
               canGoNext={false}
-              canGoPrevious={timeline.canGoPrevious}
-              onNext={timeline.goNext}
-              onPrevious={timeline.goPrevious}
+              canGoPrevious={listing.canGoPrevious}
+              onNext={listing.goNext}
+              onPrevious={listing.goPrevious}
             />
           ) : null}
         </>
       ) : null}
 
-      {!timeline.isLoading &&
-      timeline.error === null &&
-      timeline.data !== null ? (
+      {!listing.isLoading &&
+      listing.error === null &&
+      listing.data !== null ? (
         <>
-          {timeline.data.items.length === 0 ? (
+          {listing.data.items.length === 0 ? (
             <div className="empty-state" role="status">
               <h2>Nenhuma execução encontrada</h2>
               <p>Nenhuma execução de processamento foi encontrada.</p>
             </div>
           ) : (
-            <ProcessingRunsTable items={timeline.data.items} />
+            <ProcessingRunsTable items={listing.data.items} />
           )}
           <CursorPagination
-            sessionPage={timeline.sessionPage}
-            canGoNext={timeline.canGoNext}
-            canGoPrevious={timeline.canGoPrevious}
-            onNext={timeline.goNext}
-            onPrevious={timeline.goPrevious}
+            sessionPage={listing.sessionPage}
+            canGoNext={listing.canGoNext}
+            canGoPrevious={listing.canGoPrevious}
+            onNext={listing.goNext}
+            onPrevious={listing.goPrevious}
           />
         </>
       ) : null}

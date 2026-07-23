@@ -307,6 +307,18 @@ O resumo usa os mesmos filtros inclusivos em UTC, separa valores por moeda e
 informa quantidade, ranking e participação de cada colaborador. Dinheiro e
 percentuais são strings decimais; um resultado vazio também retorna HTTP 200.
 
+Para navegar de um crédito até sua trilha de auditoria, copie o
+`commercial_event_id` retornado por `/financial/snapshot`:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/commercial-events/event-csv-1"
+```
+
+O drill-down retorna os dados públicos do evento, todos os lançamentos
+relacionados e o histórico de processamento. A consulta é somente leitura e não
+expõe `raw_payload`, reexecuta regras ou cria novos lançamentos.
+
 Para validar o projeto:
 
 ```bash

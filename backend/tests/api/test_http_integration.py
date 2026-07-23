@@ -303,3 +303,57 @@ def test_financial_summary_keeps_currencies_independent(tmp_path: Path) -> None:
         for item in collaborators.values()
     )
     engine.dispose()
+
+
+def test_commercial_event_drill_down_preserves_ledger_and_records_reprocessing(
+    tmp_path: Path,
+) -> None:
+    application, _, engine = prepared_application(
+        tmp_path, "http-commercial-event-details.sqlite3"
+    )
+    content = csv_text([csv_row(1)])
+
+    first_import = post_csv(application, content)
+    snapshot = request(application, "GET", "/financial/snapshot")
+    event_id = snapshot.json()["items"][0]["commercial_event_id"]
+    first_details = request(
+        application, "GET", f"/commercial-events/{event_id}"
+    )
+    second_import = post_csv(application, content)
+    second_details = request(
+        application, "GET", f"/commercial-events/{event_id}"
+    )
+    missing = request(
+        application, "GET", "/commercial-events/event-does-not-exist"
+    )
+
+    assert first_import.status_code == snapshot.status_code == 200
+    assert first_details.status_code == second_import.status_code == 200
+    assert second_details.status_code == 200
+    first_body = first_details.json()
+    second_body = second_details.json()
+    assert first_body["commercial_event"]["event_id"] == "event-csv-1"
+    assert first_body["commercial_event"]["external_reference"] == "external-csv-1"
+    assert len(first_body["ledger_entries"]) == 1
+    assert first_body["ledger_entries"][0]["ledger_entry_id"] == (
+        "ledger.remuneration.credit:event-csv-1"
+    )
+    assert first_body["ledger_entries"][0]["amount"] == "99.90"
+    assert len(first_body["processing_runs"]) == 1
+    assert len(second_body["ledger_entries"]) == 1
+    assert len(second_body["processing_runs"]) == 2
+    assert second_import.json()["processing"]["ledger_entries_created"] == 0
+    assert tuple(
+        (run["started_at"], run["processing_run_id"])
+        for run in second_body["processing_runs"]
+    ) == tuple(
+        sorted(
+            (run["started_at"], run["processing_run_id"])
+            for run in second_body["processing_runs"]
+        )
+    )
+    assert "raw_payload" not in first_details.text
+    assert "raw_payload" not in second_details.text
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "commercial_event_not_found"
+    engine.dispose()

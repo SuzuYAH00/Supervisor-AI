@@ -3,6 +3,7 @@
 from supervisor_ai.application.errors import (
     ApplicationConflict,
     CommercialEventConflict,
+    CommercialEventNotFound,
     LedgerConflict,
 )
 from supervisor_ai.application.financial_snapshot import (
@@ -26,6 +27,7 @@ __all__ = [
     "ApplicationConflict",
     "CommercialEvent",
     "CommercialEventConflict",
+    "CommercialEventNotFound",
     "Clock",
     "EventRepository",
     "FinancialSnapshot",

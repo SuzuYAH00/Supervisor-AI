@@ -66,6 +66,17 @@ curl \
 Ele agrupa colaboradores e moedas, calcula ranking e participação com
 `Decimal`, e preserva a mesma política de filtros e resposta vazia do snapshot.
 
+O fluxo de auditoria parte do resumo, passa pelos itens do snapshot e usa o
+identificador do evento:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/commercial-events/event-csv-1"
+```
+
+O endpoint retorna evento, LedgerEntries e ProcessingRuns em ordem
+determinística. Ele é somente leitura e não expõe o `raw_payload`.
+
 ## Qualidade e testes
 
 ```bash

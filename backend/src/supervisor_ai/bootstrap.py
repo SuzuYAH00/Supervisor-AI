@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from sqlalchemy.orm import Session, sessionmaker
 
-from supervisor_ai.api.app import create_http_application
+from supervisor_ai.api.app import HttpApplicationServices, create_http_application
 from supervisor_ai.application import (
     Clock,
     ProcessingRunIdGenerator,
@@ -10,6 +10,7 @@ from supervisor_ai.application import (
 )
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
+    GetCommercialEventDetailsUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
     ProcessAndPersistCommercialEventUseCase,
@@ -180,9 +181,14 @@ def build_http_application(database_url: str) -> FastAPI:
     if not database_url:
         raise ValueError("database_url must not be empty")
     return create_http_application(
-        build_csv_import_service(database_url),
-        build_financial_snapshot_service(database_url),
-        build_financial_summary_service(database_url),
+        HttpApplicationServices(
+            csv_import=build_csv_import_service(database_url),
+            financial_snapshot=build_financial_snapshot_service(database_url),
+            financial_summary=build_financial_summary_service(database_url),
+            commercial_event_details=build_commercial_event_details_service(
+                database_url
+            ),
+        )
     )
 
 
@@ -196,3 +202,12 @@ def build_financial_snapshot_service(
 def build_financial_summary_service(database_url: str) -> GetFinancialSummaryUseCase:
     session_factory = build_session_factory(database_url)
     return GetFinancialSummaryUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_commercial_event_details_service(
+    database_url: str,
+) -> GetCommercialEventDetailsUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetCommercialEventDetailsUseCase(
+        build_unit_of_work_factory(session_factory)
+    )

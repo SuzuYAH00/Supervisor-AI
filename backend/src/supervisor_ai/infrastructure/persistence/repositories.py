@@ -85,6 +85,14 @@ class SqlAlchemyLedgerRepository:
         )
         return None if record is None else record_to_ledger_entry(record)
 
+    def find_by_event_id(self, event_id: str) -> tuple[LedgerEntry, ...]:
+        records = self.session.scalars(
+            select(LedgerEntryRecord)
+            .where(LedgerEntryRecord.event_id == event_id)
+            .order_by(LedgerEntryRecord.posted_at, LedgerEntryRecord.entry_id)
+        )
+        return tuple(record_to_ledger_entry(record) for record in records)
+
     def find_credits(
         self,
         *,

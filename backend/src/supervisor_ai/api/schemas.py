@@ -104,6 +104,45 @@ class FinancialSummaryResponse(BaseModel):
     collaborators: list[CollaboratorFinancialSummaryResponse]
 
 
+class CommercialEventResponse(BaseModel):
+    event_id: str
+    external_reference: str
+    source: str
+    occurred_at: datetime
+    received_at: datetime
+    created_at: datetime
+
+
+class CommercialEventLedgerEntryResponse(BaseModel):
+    ledger_entry_id: str
+    event_id: str
+    beneficiary_id: str
+    entry_type: str
+    amount: str
+    currency: str
+    posted_at: datetime
+    posting_reference: str
+    remuneration_calculation_reference: str
+    invoice_id: str | None
+    source_reference_ids: list[str]
+
+
+class CommercialEventProcessingRunResponse(BaseModel):
+    processing_run_id: str
+    event_id: str
+    final_status: str
+    started_at: datetime
+    completed_at: datetime
+    rules_engine_version: str
+    created_at: datetime
+
+
+class CommercialEventDetailsResponse(BaseModel):
+    commercial_event: CommercialEventResponse
+    ledger_entries: list[CommercialEventLedgerEntryResponse]
+    processing_runs: list[CommercialEventProcessingRunResponse]
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

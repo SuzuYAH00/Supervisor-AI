@@ -11,7 +11,7 @@ from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
 )
-from supervisor_ai.rules_engine import LedgerEntry
+from supervisor_ai.rules_engine import LedgerEntry, LedgerEntryType
 from tests.persistence.factories import commercial_event, ledger_entry
 
 
@@ -135,3 +135,49 @@ def test_finds_filtered_credits_in_deterministic_posting_order(
 
     assert tuple(entry.entry_id for entry in result) == ("ledger-1", "ledger-2")
     assert all(entry.beneficiary_id == "collaborator-1" for entry in result)
+
+
+def test_find_by_event_id_returns_all_entry_types_in_stable_order(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        persist_event(session, "event-related")
+        persist_event(session, "event-other")
+        repository = SqlAlchemyLedgerRepository(session)
+        repository.add(
+            replace(
+                ledger_entry("ledger-later", "event-related"),
+                entry_type=LedgerEntryType.DEBIT,
+                posted_at=datetime(2026, 7, 21, 13, tzinfo=UTC),
+            )
+        )
+        repository.add(
+            replace(
+                ledger_entry("ledger-b", "event-related"),
+                entry_type=LedgerEntryType.ADJUSTMENT,
+                posted_at=datetime(2026, 7, 20, 13, tzinfo=UTC),
+            )
+        )
+        repository.add(
+            replace(
+                ledger_entry("ledger-a", "event-related"),
+                posted_at=datetime(2026, 7, 20, 13, tzinfo=UTC),
+            )
+        )
+        repository.add(ledger_entry("ledger-other", "event-other"))
+        session.commit()
+
+        entries = repository.find_by_event_id("event-related")
+        missing = repository.find_by_event_id("missing")
+
+    assert tuple(entry.entry_id for entry in entries) == (
+        "ledger-a",
+        "ledger-b",
+        "ledger-later",
+    )
+    assert tuple(entry.entry_type for entry in entries) == (
+        LedgerEntryType.CREDIT,
+        LedgerEntryType.ADJUSTMENT,
+        LedgerEntryType.DEBIT,
+    )
+    assert missing == ()

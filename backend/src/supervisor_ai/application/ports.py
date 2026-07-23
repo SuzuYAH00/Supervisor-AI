@@ -31,6 +31,8 @@ class LedgerRepository(Protocol):
 
     def find_credit_by_event_id(self, event_id: str) -> LedgerEntry | None: ...
 
+    def find_by_event_id(self, event_id: str) -> tuple[LedgerEntry, ...]: ...
+
     def find_credits(
         self,
         *,

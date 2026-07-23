@@ -1054,3 +1054,59 @@ serviço injetado pelo Composition Root e projeta DTOs explícitos.
 O resumo atual não representa equipes, metas, folha de pagamento ou RV mensal.
 Ele é somente uma visão gerencial dos créditos imutáveis já consolidados e
 preserva a idempotência do Ledger em reimportações.
+
+---
+
+# 22. Auditoria de eventos comerciais
+
+O drill-down fecha o fluxo gerencial sem duplicar o extrato financeiro:
+
+```text
+GET /financial/summary
+        ↓
+GET /financial/snapshot
+        ↓
+GET /commercial-events/{commercial_event_id}
+```
+
+`GetCommercialEventDetailsUseCase` recebe um identificador de até 128
+caracteres, abre uma única Unit of Work e executa no máximo três consultas:
+evento, lançamentos e execuções. Não chama o Rules Engine, não recalcula o
+Financial Snapshot, não cria ProcessingRun e não chama `commit`.
+
+## Modelo público
+
+O evento expõe apenas `event_id`, `external_reference`, `source`,
+`occurred_at`, `received_at` e `created_at`. `raw_payload` é deliberadamente
+excluído do DTO de Application e do schema HTTP: ele pode conter dados pessoais,
+acoplar consumidores ao transporte ou tornar o contrato instável.
+
+Cada lançamento relacionado expõe sua identidade, tipo, beneficiário, valor,
+moeda, instante, referências de postagem/cálculo/origem e fatura. A consulta usa
+`LedgerRepository.find_by_event_id()` e inclui crédito, débito e ajuste,
+ordenados por `posted_at` e `entry_id`. Dinheiro continua como `Decimal` na
+Application e string decimal no HTTP.
+
+Cada execução expõe identificador, status final, início, conclusão, versão das
+regras e criação. Resultados internos de fase, warnings e estruturas JSON não
+atravessam esta fronteira. As execuções são
+ordenadas por `started_at` e `id`, tornando visíveis todas as tentativas
+idempotentes.
+
+Evento inexistente retorna `404` com `commercial_event_not_found`. Identificador
+inválido retorna `422`; falhas inesperadas retornam `500` com mensagem fixa.
+Nenhuma resposta inclui SQL, configuração, traceback, caminhos ou objetos ORM.
+
+## Estrutura HTTP
+
+Com o quinto endpoint, a rota e a projeção de eventos foram isoladas em
+`api/commercial_events.py`; `app.py` permanece responsável pela criação da
+aplicação e inclusão do router. `HttpApplicationServices` é uma dataclass
+imutável de dependências explícitas, não um service locator.
+
+A formatação decimal comum a snapshot, resumo e drill-down foi movida para
+`api/projections.py`. A extração é pequena e específica para dinheiro, sem criar
+uma biblioteca genérica de serialização.
+
+O endpoint atual é somente leitura, sem listagem, paginação, edição,
+reprocessamento, raw payload, autenticação ou integração MK.

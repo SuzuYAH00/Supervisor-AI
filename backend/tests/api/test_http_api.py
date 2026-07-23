@@ -7,15 +7,22 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient, Response
 
 from supervisor_ai.api.app import (
+    HttpApplicationServices,
     create_application_from_environment,
     create_http_application,
 )
+from supervisor_ai.application import CommercialEventNotFound
 from supervisor_ai.application.use_cases import (
     CollaboratorCurrencySummary,
     CollaboratorFinancialSummary,
+    CommercialEventDetails,
+    CommercialEventLedgerEntry,
+    CommercialEventProcessingRun,
     FinancialSnapshotCurrencyTotal,
     FinancialSnapshotItem,
     FinancialSummaryCurrencyTotal,
+    GetCommercialEventDetailsQuery,
+    GetCommercialEventDetailsResult,
     GetFinancialSnapshotQuery,
     GetFinancialSnapshotResult,
     GetFinancialSummaryQuery,
@@ -91,15 +98,41 @@ class StubFinancialSummaryService:
         return self.result or GetFinancialSummaryResult(query, 0, 0, (), ())
 
 
+class StubCommercialEventDetailsService:
+    def __init__(
+        self,
+        result: GetCommercialEventDetailsResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.queries: list[GetCommercialEventDetailsQuery] = []
+
+    def execute(
+        self, query: GetCommercialEventDetailsQuery
+    ) -> GetCommercialEventDetailsResult:
+        self.queries.append(query)
+        if self.error is not None:
+            raise self.error
+        assert self.result is not None
+        return self.result
+
+
 def _application(
     service: StubService,
     financial_service: StubFinancialService | None = None,
     summary_service: StubFinancialSummaryService | None = None,
+    details_service: StubCommercialEventDetailsService | None = None,
 ) -> FastAPI:
     return create_http_application(
-        service,
-        financial_service or StubFinancialService(),
-        summary_service or StubFinancialSummaryService(),
+        HttpApplicationServices(
+            csv_import=service,
+            financial_snapshot=financial_service or StubFinancialService(),
+            financial_summary=summary_service or StubFinancialSummaryService(),
+            commercial_event_details=(
+                details_service or StubCommercialEventDetailsService()
+            ),
+        )
     )
 
 
@@ -563,6 +596,140 @@ def test_financial_summary_failure_returns_safe_500() -> None:
         "error": {
             "code": "internal_error",
             "message": "Financial summary could not be generated",
+        }
+    }
+    for sensitive in ("raw_payload", "password", "Traceback", "SQLAlchemy"):
+        assert sensitive not in response.text
+
+
+def commercial_event_details_result() -> GetCommercialEventDetailsResult:
+    return GetCommercialEventDetailsResult(
+        commercial_event=CommercialEventDetails(
+            event_id="event-1",
+            external_reference="external-1",
+            source="csv",
+            occurred_at=NOW,
+            received_at=NOW + timedelta(minutes=1),
+            created_at=NOW + timedelta(minutes=2),
+        ),
+        ledger_entries=(
+            CommercialEventLedgerEntry(
+                ledger_entry_id="ledger-1",
+                event_id="event-1",
+                beneficiary_id="alice",
+                entry_type=LedgerEntryType.CREDIT,
+                amount=Decimal("119.900000"),
+                currency=Currency.BRL,
+                posted_at=NOW + timedelta(minutes=5),
+                posting_reference="posting-1",
+                remuneration_calculation_reference="calculation-1",
+                invoice_id="invoice-1",
+                source_reference_ids=("ticket-1", "invoice-1"),
+            ),
+        ),
+        processing_runs=(
+            CommercialEventProcessingRun(
+                processing_run_id="run-1",
+                event_id="event-1",
+                final_status="posted",
+                started_at=NOW + timedelta(minutes=3),
+                completed_at=NOW + timedelta(minutes=4),
+                rules_engine_version="rules-1",
+                created_at=NOW + timedelta(minutes=3),
+            ),
+        ),
+    )
+
+
+def test_commercial_event_details_returns_explicit_safe_projection() -> None:
+    service = StubCommercialEventDetailsService(commercial_event_details_result())
+    response = request(
+        _application(StubService(), details_service=service),
+        "GET",
+        "/commercial-events/event-1",
+    )
+    assert response.status_code == 200
+    assert service.queries == [GetCommercialEventDetailsQuery("event-1")]
+    body = response.json()
+    assert body["commercial_event"] == {
+        "event_id": "event-1",
+        "external_reference": "external-1",
+        "source": "csv",
+        "occurred_at": "2026-07-22T15:00:00Z",
+        "received_at": "2026-07-22T15:01:00Z",
+        "created_at": "2026-07-22T15:02:00Z",
+    }
+    assert body["ledger_entries"][0]["amount"] == "119.90"
+    assert type(body["ledger_entries"][0]["amount"]) is str
+    assert body["ledger_entries"][0]["entry_type"] == "credit"
+    for sensitive in (
+        "raw_payload",
+        "database_url",
+        "password",
+        "Traceback",
+        "SQLAlchemy",
+    ):
+        assert sensitive not in response.text
+
+
+def test_commercial_event_details_supports_empty_related_histories() -> None:
+    original = commercial_event_details_result()
+    service = StubCommercialEventDetailsService(
+        GetCommercialEventDetailsResult(original.commercial_event, (), ())
+    )
+    response = request(
+        _application(StubService(), details_service=service),
+        "GET",
+        "/commercial-events/event-1",
+    )
+    assert response.status_code == 200
+    assert response.json()["ledger_entries"] == []
+    assert response.json()["processing_runs"] == []
+
+
+def test_commercial_event_details_maps_not_found_to_stable_404() -> None:
+    service = StubCommercialEventDetailsService(
+        error=CommercialEventNotFound("missing")
+    )
+    response = request(
+        _application(StubService(), details_service=service),
+        "GET",
+        "/commercial-events/missing",
+    )
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "commercial_event_not_found",
+            "message": "Commercial event was not found",
+        }
+    }
+
+
+@pytest.mark.parametrize("event_id", ["%20%20", "x" * 129])
+def test_commercial_event_details_rejects_invalid_identifier(event_id: str) -> None:
+    response = request(
+        _application(StubService()),
+        "GET",
+        f"/commercial-events/{event_id}",
+    )
+    assert response.status_code == 422
+    assert "CSV file" not in response.text
+
+
+def test_commercial_event_details_failure_returns_safe_500() -> None:
+    service = StubCommercialEventDetailsService(
+        error=RuntimeError("postgresql password raw_payload Traceback SQLAlchemy")
+    )
+    response = request(
+        _application(StubService(), details_service=service),
+        "GET",
+        "/commercial-events/event-1",
+    )
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "internal_error",
+            "message": "Commercial event details could not be retrieved",
         }
     }
     for sensitive in ("raw_payload", "password", "Traceback", "SQLAlchemy"):

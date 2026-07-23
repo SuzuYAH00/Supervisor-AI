@@ -1,12 +1,17 @@
 import os
+from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
 from typing import Annotated, Protocol
 
 from fastapi import FastAPI, File, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from supervisor_ai.api.commercial_events import (
+    CommercialEventDetailsServiceContract,
+    commercial_events_router,
+)
+from supervisor_ai.api.projections import decimal_string
 from supervisor_ai.api.schemas import (
     CollaboratorCurrencySummaryResponse,
     CollaboratorFinancialSummaryResponse,
@@ -50,17 +55,22 @@ class FinancialSummaryServiceContract(Protocol):
     def execute(self, query: GetFinancialSummaryQuery) -> GetFinancialSummaryResult: ...
 
 
+@dataclass(frozen=True, slots=True)
+class HttpApplicationServices:
+    csv_import: CsvImportServiceContract
+    financial_snapshot: FinancialSnapshotServiceContract
+    financial_summary: FinancialSummaryServiceContract
+    commercial_event_details: CommercialEventDetailsServiceContract
+
+
 def create_http_application(
-    csv_import_service: CsvImportServiceContract,
-    financial_snapshot_service: FinancialSnapshotServiceContract,
-    financial_summary_service: FinancialSummaryServiceContract,
+    services: HttpApplicationServices,
 ) -> FastAPI:
     app = FastAPI(
         title="Supervisor AI",
         description="API HTTP para importação operacional do Supervisor AI.",
         version="0.1.0",
     )
-
     @app.exception_handler(RequestValidationError)
     async def request_validation_error(
         request: Request, error: RequestValidationError
@@ -75,7 +85,7 @@ def create_http_application(
         return _error_response(
             422,
             "invalid_query_parameters",
-            "Financial query parameters are invalid",
+            "Request parameters are invalid",
         )
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
@@ -116,7 +126,7 @@ def create_http_application(
                 "CSV file must use UTF-8 encoding",
             )
         try:
-            result = csv_import_service.import_csv(content)
+            result = services.csv_import.import_csv(content)
         except CsvStructureError:
             return _error_response(
                 400,
@@ -163,7 +173,7 @@ def create_http_application(
                 "start_date must not be after end_date",
             )
         try:
-            result = financial_snapshot_service.execute(query)
+            result = services.financial_snapshot.execute(query)
         except Exception:
             return _error_response(
                 500,
@@ -201,7 +211,7 @@ def create_http_application(
                 "start_date must not be after end_date",
             )
         try:
-            result = financial_summary_service.execute(query)
+            result = services.financial_summary.execute(query)
         except Exception:
             return _error_response(
                 500,
@@ -210,6 +220,7 @@ def create_http_application(
             )
         return _financial_summary_response(result)
 
+    app.include_router(commercial_events_router(services.commercial_event_details))
     return app
 
 
@@ -246,7 +257,7 @@ def _financial_snapshot_response(
         totals_by_currency=[
             FinancialSnapshotTotalResponse(
                 currency=total.currency.value,
-                amount=_decimal_string(total.amount),
+                amount=decimal_string(total.amount),
             )
             for total in result.totals_by_currency
         ],
@@ -255,7 +266,7 @@ def _financial_snapshot_response(
                 ledger_entry_id=item.ledger_entry_id,
                 commercial_event_id=item.commercial_event_id,
                 collaborator_id=item.collaborator_id,
-                amount=_decimal_string(item.amount),
+                amount=decimal_string(item.amount),
                 currency=item.currency.value,
                 posted_at=item.posted_at,
                 entry_type=item.entry_type.value,
@@ -264,14 +275,6 @@ def _financial_snapshot_response(
             for item in result.items
         ],
     )
-
-
-def _decimal_string(value: Decimal) -> str:
-    whole, separator, fraction = format(value, "f").partition(".")
-    if not separator:
-        return f"{whole}.00"
-    significant = fraction.rstrip("0")
-    return f"{whole}.{significant.ljust(2, '0')}"
 
 
 def _financial_summary_response(
@@ -288,7 +291,7 @@ def _financial_summary_response(
         totals_by_currency=[
             FinancialSnapshotTotalResponse(
                 currency=total.currency.value,
-                amount=_decimal_string(total.amount),
+                amount=decimal_string(total.amount),
             )
             for total in result.totals_by_currency
         ],
@@ -299,10 +302,10 @@ def _financial_summary_response(
                 totals_by_currency=[
                     CollaboratorCurrencySummaryResponse(
                         currency=total.currency.value,
-                        amount=_decimal_string(total.amount),
+                        amount=decimal_string(total.amount),
                         credit_count=total.credit_count,
                         rank=total.rank,
-                        share_percentage=_decimal_string(total.share_percentage),
+                        share_percentage=decimal_string(total.share_percentage),
                     )
                     for total in collaborator.totals_by_currency
                 ],

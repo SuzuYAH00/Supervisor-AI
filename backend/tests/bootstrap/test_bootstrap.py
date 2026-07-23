@@ -8,6 +8,7 @@ from sqlalchemy import Engine
 from supervisor_ai.application import CommercialEvent
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
+    GetCommercialEventDetailsUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
     ProcessAndPersistCommercialEventCommand,
@@ -16,6 +17,7 @@ from supervisor_ai.application.use_cases import (
     ProcessCommercialEventUseCase,
 )
 from supervisor_ai.bootstrap import (
+    build_commercial_event_details_service,
     build_csv_import_service,
     build_financial_snapshot_service,
     build_financial_summary_service,
@@ -186,3 +188,11 @@ def test_build_financial_summary_service_uses_application_query(
     database_url = f"sqlite+pysqlite:///{tmp_path / 'summary-bootstrap.sqlite3'}"
     service = build_financial_summary_service(database_url)
     assert isinstance(service, GetFinancialSummaryUseCase)
+
+
+def test_build_commercial_event_details_service_uses_application_query(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'details-bootstrap.sqlite3'}"
+    service = build_commercial_event_details_service(database_url)
+    assert isinstance(service, GetCommercialEventDetailsUseCase)

@@ -8,3 +8,7 @@ class CommercialEventConflict(ApplicationConflict):
 
 class LedgerConflict(ApplicationConflict):
     """O crédito existente diverge daquele produzido no reprocessamento."""
+
+
+class CommercialEventNotFound(Exception):
+    """O evento comercial solicitado não existe na persistência."""

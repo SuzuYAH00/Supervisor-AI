@@ -2,7 +2,8 @@
 
 Fundação React do frontend operacional interno. As telas disponíveis são
 `/processing-health`, que consome `GET /processing/health`, e
-`/financial-summary`, que consome `GET /financial/summary` da API MVP v1.
+`/financial-summary`, que consome `GET /financial/summary`, e
+`/commercial-events`, que consome `GET /commercial-events` da API MVP v1.
 
 ## Stack
 
@@ -72,6 +73,7 @@ npm run build
 - `src/components`: layout e feedback reutilizável;
 - `src/features/processing-health`: API, tipos, hook, componentes e página;
 - `src/features/financial-summary`: resumo financeiro com a mesma separação;
+- `src/features/commercial-events`: listagem factual e paginação por cursor;
 - `src/lib`: configuração e cliente HTTP sem dependência de React;
 - `src/styles`: estilos globais e responsivos;
 - `tests`: contratos HTTP, feature e roteamento.
@@ -86,16 +88,30 @@ valores monetários permanecem strings decimais e não são convertidos em
 
 - `/processing-health`: métricas factuais da saúde do processamento;
 - `/financial-summary`: créditos consolidados por moeda e colaborador.
+- `/commercial-events`: eventos persistidos, em ordem e páginas da API.
 
 A tela financeira projeta somente os totais e agrupamentos entregues pela API.
-Ela não calcula ranking, percentual, produtividade, tendência ou conversão entre
-moedas.
+Ela não calcula ranking, percentual, produtividade, tendência ou conversão
+entre moedas; posições e participações já retornadas pela API são apenas
+exibidas.
+
+## Paginação dos eventos
+
+A listagem comercial trata `next_cursor` como valor opaco. “Próxima página”
+envia o cursor recebido, enquanto “Página anterior” reutiliza o histórico
+mantido somente durante a sessão da tela. O cursor não é decodificado nem
+persistido. A indicação “Página N desta sessão” representa apenas a navegação
+local, não uma posição absoluta no banco.
+
+A tela não oferece filtros editáveis nesta etapa, embora seu cliente tipado
+suporte todos os filtros públicos da API. Também não calcula estado, crédito,
+estatística ou interpretação comercial.
 
 ## Limitações atuais
 
 - sem autenticação ou autorização;
-- Processing Health e Resumo Financeiro estão ativos;
-- navegação de eventos, execuções e timeline está marcada como
+- Processing Health, Resumo Financeiro e Eventos Comerciais estão ativos;
+- navegação de execuções e timeline está marcada como
   “Em breve”;
 - sem upload CSV, filtros editáveis, gráficos avançados ou estado global;
 - sem deploy, telemetria ou atualização automática.

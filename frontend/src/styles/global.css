@@ -369,6 +369,38 @@ a:focus-visible {
   color: #20362e;
 }
 
+.events-table {
+  min-width: 1080px;
+}
+
+.identifier-cell {
+  max-width: 250px;
+  overflow-wrap: anywhere;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.pagination-controls span {
+  color: #55625d;
+  font-size: 0.86rem;
+}
+
+.secondary-button:disabled {
+  color: #87918d;
+  background: #f0f2f1;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.previous-after-error {
+  justify-self: start;
+}
+
 .feedback-state,
 .not-found {
   max-width: 680px;

@@ -3,13 +3,22 @@ import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 
 import { appRoutes } from "../src/app/routes";
+import { getCommercialEvents } from "../src/features/commercial-events/api/get-commercial-events";
 import { getFinancialSummary } from "../src/features/financial-summary/api/get-financial-summary";
 import { getProcessingHealth } from "../src/features/processing-health/api/get-processing-health";
-import { financialSummary, processingHealth } from "./fixtures";
+import {
+  commercialEvents,
+  financialSummary,
+  processingHealth,
+} from "./fixtures";
 
 vi.mock(
   "../src/features/processing-health/api/get-processing-health",
   () => ({ getProcessingHealth: vi.fn() }),
+);
+vi.mock(
+  "../src/features/commercial-events/api/get-commercial-events",
+  () => ({ getCommercialEvents: vi.fn() }),
 );
 vi.mock(
   "../src/features/financial-summary/api/get-financial-summary",
@@ -18,6 +27,7 @@ vi.mock(
 
 const getProcessingHealthMock = vi.mocked(getProcessingHealth);
 const getFinancialSummaryMock = vi.mocked(getFinancialSummary);
+const getCommercialEventsMock = vi.mocked(getCommercialEvents);
 
 function renderRoute(path: string) {
   return render(
@@ -63,6 +73,28 @@ test("financial summary route renders directly", async () => {
   getFinancialSummaryMock.mockResolvedValue(financialSummary());
   renderRoute("/financial-summary");
   expect(await screen.findByText("Resumo financeiro")).toBeInTheDocument();
+  expect(screen.getByText("MVP interno")).toBeInTheDocument();
+});
+
+test("commercial events navigation opens the list through React Router", async () => {
+  const user = userEvent.setup();
+  getProcessingHealthMock.mockResolvedValue(processingHealth());
+  getCommercialEventsMock.mockResolvedValue(commercialEvents());
+  renderRoute("/processing-health");
+
+  await user.click(
+    await screen.findByRole("link", { name: /Eventos comerciais/ }),
+  );
+  expect(await screen.findByText("Eventos persistidos")).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: /Eventos comerciais/ }),
+  ).toHaveAttribute("href", "/commercial-events");
+});
+
+test("commercial events route renders directly", async () => {
+  getCommercialEventsMock.mockResolvedValue(commercialEvents());
+  renderRoute("/commercial-events");
+  expect(await screen.findByText("Eventos persistidos")).toBeInTheDocument();
   expect(screen.getByText("MVP interno")).toBeInTheDocument();
 });
 

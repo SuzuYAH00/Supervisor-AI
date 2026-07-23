@@ -333,13 +333,16 @@ A estrutura é orientada por feature:
 - `features/processing-health/` concentra a visão operacional;
 - `features/financial-summary/` concentra tipos, acesso à API, hook,
   componentes e página do resumo financeiro;
+- `features/commercial-events/` concentra o contrato, consulta, paginação e
+  tabela dos eventos persistidos;
 - `lib/http/` possui o cliente fetch independente de React;
 - `lib/config/` concentra ambiente;
 - `styles/` define a base visual responsiva.
 
 A raiz redireciona para `/processing-health`. Rotas desconhecidas exibem
 fallback visual. O resumo financeiro está disponível em `/financial-summary`;
-eventos, execuções e timeline permanecem como navegação futura desabilitada.
+eventos comerciais estão disponíveis em `/commercial-events`; execuções e
+timeline permanecem como navegação futura desabilitada.
 
 ## Integração HTTP
 
@@ -358,8 +361,9 @@ O cliente HTTP:
 - devolve somente mensagens seguras;
 - não conhece React, autenticação, retry ou cache.
 
-Cada feature valida em runtime seu contrato (`GET /processing/health` ou
-`GET /financial/summary`) e o representa com tipos explícitos. Validadores
+Cada feature valida em runtime seu contrato (`GET /processing/health`,
+`GET /financial/summary` ou `GET /commercial-events`) e o representa com tipos
+explícitos. Validadores
 estruturais pequenos são compartilhados em `lib/http/`, sem transformar o
 cliente em uma camada de domínio. Os hooks locais usam `AbortController`, tratam
 loading, sucesso, erro e refetch e cancelam a chamada ao desmontar.
@@ -390,15 +394,32 @@ A segunda tela projeta exclusivamente o contrato financeiro persistido:
 - filtros devolvidos pela API.
 
 Dinheiro permanece string decimal do transporte até a renderização. A tela não
-soma moedas, não converte valores e não calcula ranking, percentual,
-produtividade ou tendência. Campos adicionais do contrato são validados, mas
-somente os fatos necessários à tela são apresentados.
+soma moedas, não converte valores nem calcula ranking, percentual,
+produtividade ou tendência. Posições e participações calculadas pelo backend
+são apenas projetadas.
+
+## Eventos comerciais
+
+A terceira tela lista somente os seis campos públicos retornados por
+`GET /commercial-events`. Não reconstrói evento, não consulta Ledger e não
+deriva status ou métricas.
+
+O cursor permanece opaco. O hook guarda uma pilha local dos cursores já
+percorridos: avançar usa `next_cursor`; voltar remove a posição atual e repete a
+consulta com o cursor anterior; retry repete a posição solicitada. Os dados da
+página anterior são removidos durante a transição para não parecerem atuais. O
+histórico desaparece ao desmontar a tela e não usa `localStorage`.
+
+A API ordena os itens por `occurred_at` e `event_id` decrescentes. O frontend
+preserva essa ordem e mostra “Página N desta sessão”, sem sugerir quantidade
+total ou página absoluta.
 
 HTML semântico, foco visível, navegação por teclado, regiões anunciáveis e
 contraste constituem a base mínima de acessibilidade.
 
 ## Limites
 
-Não há autenticação, upload, demais telas financeiras, listagens, gráficos avançados,
-estado global, polling ou deploy. Esses recursos devem evoluir como novas
-features sem acoplar componentes diretamente ao transporte HTTP.
+Não há autenticação, upload, detalhes dos eventos, filtros editáveis, demais
+telas financeiras, gráficos avançados, estado global, polling ou deploy. Esses
+recursos devem evoluir como novas features sem acoplar componentes diretamente
+ao transporte HTTP.

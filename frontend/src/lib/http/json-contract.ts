@@ -32,6 +32,13 @@ export function nonNegativeInteger(value: unknown, field: string): number {
   throw new TypeError(`Invalid ${field}`);
 }
 
+export function booleanValue(value: unknown, field: string): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  throw new TypeError(`Invalid ${field}`);
+}
+
 export function jsonList<T>(
   value: unknown,
   parseItem: (item: unknown) => T,

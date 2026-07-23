@@ -1,5 +1,35 @@
+import type { CommercialEventList } from "../src/features/commercial-events/types/commercial-events";
 import type { FinancialSummary } from "../src/features/financial-summary/types/financial-summary";
 import type { ProcessingHealth } from "../src/features/processing-health/types/processing-health";
+
+export function commercialEvents(
+  changes: Partial<CommercialEventList> = {},
+): CommercialEventList {
+  return {
+    filters: {
+      source: null,
+      external_reference: null,
+      start_date: null,
+      end_date: null,
+    },
+    page: {
+      limit: 50,
+      next_cursor: null,
+      has_more: false,
+    },
+    items: [
+      {
+        event_id: "event-2",
+        external_reference: "external-2",
+        source: "csv-example",
+        occurred_at: "2026-07-22T12:00:00Z",
+        received_at: "2026-07-22T12:01:00Z",
+        created_at: "2026-07-22T12:01:00Z",
+      },
+    ],
+    ...changes,
+  };
+}
 
 export function financialSummary(
   changes: Partial<FinancialSummary> = {},

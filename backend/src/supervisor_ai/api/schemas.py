@@ -225,6 +225,43 @@ class ProcessingRunDetailsResponse(BaseModel):
     phases: list[ProcessingRunPhaseResponse]
 
 
+class ProcessingHealthFiltersResponse(BaseModel):
+    start_date: date | None
+    end_date: date | None
+    source: str | None
+    rules_engine_version: str | None
+
+
+class ProcessingRunStatusCountResponse(BaseModel):
+    final_status: str
+    count: int
+
+
+class ProcessingRunVersionCountResponse(BaseModel):
+    rules_engine_version: str
+    count: int
+
+
+class ProcessingRunHealthResponse(BaseModel):
+    total: int
+    by_final_status: list[ProcessingRunStatusCountResponse]
+    by_rules_engine_version: list[ProcessingRunVersionCountResponse]
+
+
+class CommercialEventProcessingHealthResponse(BaseModel):
+    events_with_processing_runs: int
+    events_without_processing_runs: int
+    events_with_multiple_processing_runs: int
+    events_with_ledger_entries: int
+    events_without_ledger_entries: int
+
+
+class ProcessingHealthResponse(BaseModel):
+    filters: ProcessingHealthFiltersResponse
+    processing_runs: ProcessingRunHealthResponse
+    commercial_events: CommercialEventProcessingHealthResponse
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

@@ -1,13 +1,16 @@
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, case, distinct, func, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from supervisor_ai.application.persistence import (
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    ProcessingHealthCount,
+    ProcessingHealthRecord,
     ProcessingRun,
 )
 from supervisor_ai.infrastructure.persistence.mappings import (
@@ -122,6 +125,124 @@ class SqlAlchemyProcessingRunRepository:
             .order_by(ProcessingRunRecord.started_at, ProcessingRunRecord.id)
         )
         return tuple(record_to_processing_run(record) for record in records)
+
+
+class SqlAlchemyProcessingHealthRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_processing_health(
+        self,
+        *,
+        start_date: date | None,
+        end_date: date | None,
+        source: str | None,
+        rules_engine_version: str | None,
+    ) -> ProcessingHealthRecord:
+        run_filters = _processing_run_filters(
+            start_date=start_date,
+            end_date=end_date,
+            source=source,
+            rules_engine_version=rules_engine_version,
+        )
+        run_source = (
+            select(
+                ProcessingRunRecord.event_id.label("event_id"),
+                ProcessingRunRecord.final_status.label("final_status"),
+                ProcessingRunRecord.rules_engine_version.label(
+                    "rules_engine_version"
+                ),
+            )
+            .join(
+                CommercialEventRecord,
+                CommercialEventRecord.id == ProcessingRunRecord.event_id,
+            )
+            .where(*run_filters)
+            .subquery()
+        )
+        total = self.session.scalar(select(func.count()).select_from(run_source)) or 0
+        status_rows = self.session.execute(
+            select(run_source.c.final_status, func.count())
+            .group_by(run_source.c.final_status)
+            .order_by(run_source.c.final_status)
+        ).all()
+        version_rows = self.session.execute(
+            select(run_source.c.rules_engine_version, func.count())
+            .group_by(run_source.c.rules_engine_version)
+            .order_by(run_source.c.rules_engine_version)
+        ).all()
+
+        has_processing_filter = (
+            start_date is not None
+            or end_date is not None
+            or rules_engine_version is not None
+        )
+        if has_processing_filter:
+            cohort = select(
+                distinct(run_source.c.event_id).label("event_id")
+            ).subquery()
+        else:
+            cohort_statement = select(
+                CommercialEventRecord.id.label("event_id")
+            )
+            if source is not None:
+                cohort_statement = cohort_statement.where(
+                    CommercialEventRecord.source == source
+                )
+            cohort = cohort_statement.subquery()
+
+        run_counts = (
+            select(
+                run_source.c.event_id,
+                func.count().label("run_count"),
+            )
+            .group_by(run_source.c.event_id)
+            .subquery()
+        )
+        ledger_events = (
+            select(LedgerEntryRecord.event_id.label("event_id"))
+            .group_by(LedgerEntryRecord.event_id)
+            .subquery()
+        )
+        metrics = self.session.execute(
+            select(
+                func.count(cohort.c.event_id),
+                func.count(run_counts.c.event_id),
+                func.coalesce(
+                    func.sum(case((run_counts.c.run_count > 1, 1), else_=0)),
+                    0,
+                ),
+                func.count(ledger_events.c.event_id),
+            )
+            .select_from(cohort)
+            .outerjoin(
+                run_counts,
+                run_counts.c.event_id == cohort.c.event_id,
+            )
+            .outerjoin(
+                ledger_events,
+                ledger_events.c.event_id == cohort.c.event_id,
+            )
+        ).one()
+        event_total = int(metrics[0])
+        with_runs = int(metrics[1])
+        with_ledger = int(metrics[3])
+        return ProcessingHealthRecord(
+            processing_run_total=int(total),
+            by_final_status=tuple(
+                ProcessingHealthCount(str(value), int(count))
+                for value, count in status_rows
+            ),
+            by_rules_engine_version=tuple(
+                ProcessingHealthCount(str(value), int(count))
+                for value, count in version_rows
+            ),
+            events_with_processing_runs=with_runs,
+            events_without_processing_runs=event_total - with_runs,
+            events_with_multiple_processing_runs=int(metrics[2]),
+            events_with_ledger_entries=with_ledger,
+            events_without_ledger_entries=event_total - with_ledger,
+        )
 
 
 class SqlAlchemyLedgerRepository:
@@ -292,3 +413,33 @@ def _apply_credit_filters(
                 < datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
             )
     return statement
+
+
+def _processing_run_filters(
+    *,
+    start_date: date | None,
+    end_date: date | None,
+    source: str | None,
+    rules_engine_version: str | None,
+) -> tuple[ColumnElement[bool], ...]:
+    filters: list[ColumnElement[bool]] = []
+    if start_date is not None:
+        filters.append(
+            ProcessingRunRecord.started_at
+            >= datetime.combine(start_date, time.min, tzinfo=UTC)
+        )
+    if end_date is not None:
+        filters.append(
+            ProcessingRunRecord.started_at
+            <= datetime.combine(end_date, time.max, tzinfo=UTC)
+            if end_date == date.max
+            else ProcessingRunRecord.started_at
+            < datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
+        )
+    if source is not None:
+        filters.append(CommercialEventRecord.source == source)
+    if rules_engine_version is not None:
+        filters.append(
+            ProcessingRunRecord.rules_engine_version == rules_engine_version
+        )
+    return tuple(filters)

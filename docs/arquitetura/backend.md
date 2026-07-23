@@ -1272,3 +1272,62 @@ configuração, mensagens técnicas ou objetos ORM.
 `processing_run_details` é dependência obrigatória de
 `HttpApplicationServices`, construída pelo Composition Root. Consultas não
 chamam `commit`, não criam execução e não alteram Ledger ou evento.
+
+---
+
+# 26. Saúde factual do processamento
+
+`GET /processing/health` é uma visão operacional agregada dos dados
+persistidos. Diferentemente de `GET /health`, que apenas confirma que o processo
+HTTP está ativo e não acessa o banco, essa consulta abre uma Unit of Work de
+leitura. Ela não atribui score, severidade, diagnóstico, taxa ou recomendação.
+
+`GetProcessingHealthUseCase` recebe filtros tipados, delega a agregação à porta
+`ProcessingHealthRepository` e devolve DTOs imutáveis. O Composition Root monta
+`SqlAlchemyProcessingHealthRepository` na mesma Session da Unit of Work e
+injeta o caso de uso em `HttpApplicationServices`. A rota
+`api/processing.py` somente valida transporte, executa o serviço e projeta
+schemas explícitos.
+
+## Janela temporal e filtros
+
+A referência temporal é exclusivamente `ProcessingRun.started_at`, com datas
+inclusivas em UTC. `source` filtra a origem do CommercialEvent e
+`rules_engine_version` filtra a versão persistida na execução.
+
+Sem filtro de data ou versão, a coorte de eventos contém todos os eventos da
+origem selecionada. Assim, eventos ainda sem execução permanecem visíveis.
+Quando data ou versão é informada, a coorte passa a conter os eventos com ao
+menos uma execução correspondente à janela; consequentemente, “eventos sem
+execução” é zero nessa coorte. Essa política evita misturar silenciosamente
+`occurred_at` do evento com `started_at` da execução. O cliente recebe os
+filtros aplicados na resposta e nenhum período é presumido.
+
+## Agregação e consistência
+
+As contagens e os agrupamentos são executados no banco. Uma subconsulta de
+execuções filtradas alimenta:
+
+- total e `GROUP BY` de `final_status`;
+- total e `GROUP BY` de `rules_engine_version`;
+- contagem agregada de execuções por evento.
+
+Outra subconsulta reduz o Ledger a um identificador por evento. A consulta de
+eventos faz joins apenas com essas projeções agregadas, evitando que múltiplas
+execuções combinadas com múltiplos lançamentos multipliquem contagens. O número
+de consultas é constante, não há N+1 e nenhuma entidade completa, raw payload,
+resultado de fase, warning, referência ou valor monetário é materializado.
+
+Os agrupamentos são ordenados alfabeticamente pelo valor persistido. Totais de
+execuções correspondem às somas por status e por versão, cujas colunas são
+obrigatórias no modelo atual. Eventos sem Ledger não são classificados como
+erro, e eventos com várias execuções não são classificados como duplicados.
+
+## Segurança e limites
+
+A operação não chama `commit`, não recalcula regras e não cria registros.
+Filtros inválidos retornam `422`; falhas inesperadas usam mensagem fixa e não
+expõem SQL, ORM, credenciais, caminhos ou exceções. A primeira versão não
+fornece percentuais, duração, tendências, séries temporais, thresholds nem
+listas de itens. O drill-down permanece nos endpoints de CommercialEvent e
+ProcessingRun.

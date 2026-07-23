@@ -16,7 +16,7 @@ from supervisor_ai.bootstrap import (
 from supervisor_ai.database.base import Base
 from supervisor_ai.rules_engine import Currency, LedgerEntryType
 from tests.importing.csv_factories import csv_row, csv_text
-from tests.persistence.factories import commercial_event, ledger_entry
+from tests.persistence.factories import commercial_event, ledger_entry, processing_run
 
 
 def prepared_application(tmp_path: Path, name: str) -> tuple[FastAPI, str, Engine]:
@@ -655,4 +655,139 @@ def test_processing_run_drill_down_is_allowlisted_and_read_only(
             assert absent not in response.text
     assert missing.status_code == 404
     assert invalid.status_code == 422
+    engine.dispose()
+
+
+def test_processing_health_aggregates_persisted_data_without_side_effects(
+    tmp_path: Path,
+) -> None:
+    application, database_url, engine = prepared_application(
+        tmp_path, "http-processing-health.sqlite3"
+    )
+    unit_of_work_factory = build_unit_of_work_factory(
+        build_session_factory(database_url)
+    )
+    with unit_of_work_factory() as unit_of_work:
+        for index in range(1, 6):
+            unit_of_work.events.add(
+                replace(
+                    commercial_event(
+                        f"health-event-{index}",
+                        external_reference=f"health-external-{index}",
+                    ),
+                    source="source-b" if index == 4 else "source-a",
+                )
+            )
+        unit_of_work.processing_runs.add(
+            replace(
+                processing_run("health-run-2", "health-event-2"),
+                started_at=datetime(2026, 7, 1, 0, tzinfo=UTC),
+                completed_at=datetime(2026, 7, 1, 0, 1, tzinfo=UTC),
+                final_status="posted",
+                rules_engine_version="rules-1",
+            )
+        )
+        unit_of_work.processing_runs.add(
+            replace(
+                processing_run("health-run-3a", "health-event-3"),
+                started_at=datetime(2026, 7, 15, 0, tzinfo=UTC),
+                completed_at=datetime(2026, 7, 15, 0, 1, tzinfo=UTC),
+                final_status="not_evaluable",
+                rules_engine_version="rules-1",
+                phase_results=[
+                    {
+                        "phase": "classification",
+                        "status": "completed",
+                        "can_continue": True,
+                    }
+                ],
+            )
+        )
+        unit_of_work.processing_runs.add(
+            replace(
+                processing_run("health-run-3b", "health-event-3"),
+                started_at=datetime(2026, 7, 31, 23, tzinfo=UTC),
+                completed_at=datetime(2026, 7, 31, 23, 1, tzinfo=UTC),
+                final_status="posted",
+                rules_engine_version="rules-2",
+            )
+        )
+        unit_of_work.processing_runs.add(
+            replace(
+                processing_run("health-run-4", "health-event-4"),
+                final_status="not_evaluable",
+                rules_engine_version="rules-2",
+            )
+        )
+        unit_of_work.ledger.add(
+            replace(ledger_entry("health-ledger-2", "health-event-2"))
+        )
+        unit_of_work.ledger.add(
+            replace(ledger_entry("health-ledger-3", "health-event-3"))
+        )
+        unit_of_work.commit()
+
+    complete = request(application, "GET", "/processing/health")
+    source = request(
+        application, "GET", "/processing/health?source=source-a"
+    )
+    period = request(
+        application,
+        "GET",
+        "/processing/health?start_date=2026-07-01&end_date=2026-07-31",
+    )
+    version = request(
+        application,
+        "GET",
+        "/processing/health?rules_engine_version=rules-2",
+    )
+    empty = request(
+        application,
+        "GET",
+        "/processing/health?start_date=2025-01-01&end_date=2025-01-31",
+    )
+    run_details = request(
+        application, "GET", "/processing-runs/health-run-3a"
+    )
+    event_details = request(
+        application, "GET", "/commercial-events/health-event-3"
+    )
+
+    assert complete.status_code == source.status_code == period.status_code == 200
+    assert complete.json()["processing_runs"]["total"] == 4
+    assert complete.json()["processing_runs"]["by_final_status"] == [
+        {"final_status": "not_evaluable", "count": 2},
+        {"final_status": "posted", "count": 2},
+    ]
+    assert complete.json()["processing_runs"]["by_rules_engine_version"] == [
+        {"rules_engine_version": "rules-1", "count": 2},
+        {"rules_engine_version": "rules-2", "count": 2},
+    ]
+    assert complete.json()["commercial_events"] == {
+        "events_with_processing_runs": 3,
+        "events_without_processing_runs": 2,
+        "events_with_multiple_processing_runs": 1,
+        "events_with_ledger_entries": 2,
+        "events_without_ledger_entries": 3,
+    }
+    assert source.json()["processing_runs"]["total"] == 3
+    assert source.json()["commercial_events"]["events_without_processing_runs"] == 2
+    assert period.json()["processing_runs"]["total"] == 4
+    assert period.json()["commercial_events"]["events_without_processing_runs"] == 0
+    assert version.json()["processing_runs"]["total"] == 2
+    assert version.json()["commercial_events"]["events_with_processing_runs"] == 2
+    assert empty.json()["processing_runs"]["total"] == 0
+    assert empty.json()["commercial_events"]["events_without_ledger_entries"] == 0
+    assert run_details.status_code == event_details.status_code == 200
+    assert len(event_details.json()["processing_runs"]) == 2
+
+    after = request(application, "GET", "/processing/health")
+    assert after.json() == complete.json()
+    with unit_of_work_factory() as unit_of_work:
+        assert len(
+            unit_of_work.processing_runs.find_by_event_id("health-event-3")
+        ) == 2
+        assert len(unit_of_work.ledger.find_by_event_id("health-event-3")) == 1
+    assert "raw_payload" not in complete.text
+    assert "phase_results" not in complete.text
     engine.dispose()

@@ -18,6 +18,8 @@ from supervisor_ai.application.persistence import (
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    ProcessingHealthCount,
+    ProcessingHealthRecord,
     ProcessingRun,
 )
 from supervisor_ai.application.ports import (
@@ -45,6 +47,8 @@ __all__ = [
     "LedgerConflict",
     "PaymentFacts",
     "ProcessingRun",
+    "ProcessingHealthCount",
+    "ProcessingHealthRecord",
     "ProcessingRunNotFound",
     "ProcessingRunIdGenerator",
     "ProcessingRunRepository",

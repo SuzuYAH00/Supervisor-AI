@@ -17,6 +17,10 @@ from supervisor_ai.api.commercial_events import (
     commercial_events_router,
 )
 from supervisor_ai.api.errors import error_response
+from supervisor_ai.api.processing import (
+    ProcessingHealthServiceContract,
+    processing_router,
+)
 from supervisor_ai.api.processing_runs import (
     ProcessingRunDetailsServiceContract,
     processing_runs_router,
@@ -74,6 +78,7 @@ class HttpApplicationServices:
     commercial_event_list: CommercialEventListServiceContract
     collaborator_financial_timeline: CollaboratorFinancialTimelineServiceContract
     processing_run_details: ProcessingRunDetailsServiceContract
+    processing_health: ProcessingHealthServiceContract
 
 
 def create_http_application(
@@ -243,6 +248,7 @@ def create_http_application(
         collaborators_router(services.collaborator_financial_timeline)
     )
     app.include_router(processing_runs_router(services.processing_run_details))
+    app.include_router(processing_router(services.processing_health))
     return app
 
 

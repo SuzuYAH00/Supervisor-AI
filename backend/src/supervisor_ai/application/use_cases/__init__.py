@@ -21,6 +21,13 @@ from supervisor_ai.application.use_cases.get_financial_summary import (
     GetFinancialSummaryResult,
     GetFinancialSummaryUseCase,
 )
+from supervisor_ai.application.use_cases.get_processing_health import (
+    CommercialEventProcessingHealth,
+    GetProcessingHealthQuery,
+    GetProcessingHealthResult,
+    GetProcessingHealthUseCase,
+    ProcessingRunHealth,
+)
 from supervisor_ai.application.use_cases.get_processing_run_details import (
     GetProcessingRunDetailsQuery,
     GetProcessingRunDetailsResult,
@@ -57,6 +64,7 @@ __all__ = [
     "CommercialEventLedgerEntry",
     "CommercialEventListItem",
     "CommercialEventProcessingRun",
+    "CommercialEventProcessingHealth",
     "CommercialEventPhase",
     "CommercialEventPhaseHandler",
     "FinancialSnapshotCurrencyTotal",
@@ -77,6 +85,9 @@ __all__ = [
     "GetProcessingRunDetailsQuery",
     "GetProcessingRunDetailsResult",
     "GetProcessingRunDetailsUseCase",
+    "GetProcessingHealthQuery",
+    "GetProcessingHealthResult",
+    "GetProcessingHealthUseCase",
     "ListCommercialEventsQuery",
     "ListCommercialEventsResult",
     "ListCommercialEventsUseCase",
@@ -90,6 +101,7 @@ __all__ = [
     "ProcessingRunCommercialEvent",
     "ProcessingRunDetails",
     "ProcessingRunPhaseDetails",
+    "ProcessingRunHealth",
     "TimelineCommercialEvent",
 ]
 from supervisor_ai.application.use_cases.get_financial_snapshot import (

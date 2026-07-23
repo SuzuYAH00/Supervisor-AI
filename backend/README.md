@@ -107,6 +107,19 @@ curl \
 São expostos somente estado persistido da execução, evento relacionado e
 `phase`, `status` e `can_continue` de cada fase, na ordem original.
 
+Para consultar métricas factuais do processamento persistido:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/processing/health?start_date=2026-07-01&end_date=2026-07-31"
+```
+
+`GET /health` continua sendo apenas liveness do processo. Já
+`GET /processing/health` consulta o banco e contabiliza execuções por status e
+versão, além de eventos com ou sem execução, reprocessamento e Ledger. As datas
+são inclusivas sobre `ProcessingRun.started_at`; não há score, diagnóstico ou
+período implícito.
+
 ## Qualidade e testes
 
 ```bash

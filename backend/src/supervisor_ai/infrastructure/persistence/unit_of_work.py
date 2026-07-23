@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
+    SqlAlchemyProcessingHealthRepository,
     SqlAlchemyProcessingRunRepository,
 )
 
@@ -23,6 +24,7 @@ class SqlAlchemyUnitOfWork:
         self._session = session
         self.events = SqlAlchemyEventRepository(session)
         self.processing_runs = SqlAlchemyProcessingRunRepository(session)
+        self.processing_health = SqlAlchemyProcessingHealthRepository(session)
         self.ledger = SqlAlchemyLedgerRepository(session)
         return self
 

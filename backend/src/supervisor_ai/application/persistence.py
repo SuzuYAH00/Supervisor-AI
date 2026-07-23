@@ -79,6 +79,24 @@ class CollaboratorFinancialTimelineRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class ProcessingHealthCount:
+    value: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessingHealthRecord:
+    processing_run_total: int
+    by_final_status: tuple[ProcessingHealthCount, ...]
+    by_rules_engine_version: tuple[ProcessingHealthCount, ...]
+    events_with_processing_runs: int
+    events_without_processing_runs: int
+    events_with_multiple_processing_runs: int
+    events_with_ledger_entries: int
+    events_without_ledger_entries: int
+
+
+@dataclass(frozen=True, slots=True)
 class ProcessingRun:
     id: str
     event_id: str

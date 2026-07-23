@@ -7,6 +7,7 @@ from supervisor_ai.application.persistence import (
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    ProcessingHealthRecord,
     ProcessingRun,
 )
 from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
@@ -39,6 +40,17 @@ class ProcessingRunRepository(Protocol):
     def get_by_id(self, run_id: str) -> ProcessingRun | None: ...
 
     def find_by_event_id(self, event_id: str) -> tuple[ProcessingRun, ...]: ...
+
+
+class ProcessingHealthRepository(Protocol):
+    def get_processing_health(
+        self,
+        *,
+        start_date: date | None,
+        end_date: date | None,
+        source: str | None,
+        rules_engine_version: str | None,
+    ) -> ProcessingHealthRecord: ...
 
 
 class LedgerRepository(Protocol):
@@ -74,6 +86,7 @@ class LedgerRepository(Protocol):
 class UnitOfWork(Protocol):
     events: EventRepository
     processing_runs: ProcessingRunRepository
+    processing_health: ProcessingHealthRepository
     ledger: LedgerRepository
 
     def __enter__(self) -> Self: ...

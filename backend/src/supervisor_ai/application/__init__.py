@@ -5,6 +5,7 @@ from supervisor_ai.application.errors import (
     CommercialEventConflict,
     CommercialEventNotFound,
     LedgerConflict,
+    ProcessingRunNotFound,
 )
 from supervisor_ai.application.financial_snapshot import (
     FinancialSnapshot,
@@ -44,6 +45,7 @@ __all__ = [
     "LedgerConflict",
     "PaymentFacts",
     "ProcessingRun",
+    "ProcessingRunNotFound",
     "ProcessingRunIdGenerator",
     "ProcessingRunRepository",
     "RemunerationFacts",

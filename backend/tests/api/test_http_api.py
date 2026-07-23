@@ -20,6 +20,7 @@ from supervisor_ai.application import (
     CollaboratorFinancialTimelineCursorPosition,
     CommercialEventCursorPosition,
     CommercialEventNotFound,
+    ProcessingRunNotFound,
 )
 from supervisor_ai.application.use_cases import (
     CollaboratorCurrencySummary,
@@ -40,8 +41,13 @@ from supervisor_ai.application.use_cases import (
     GetFinancialSnapshotResult,
     GetFinancialSummaryQuery,
     GetFinancialSummaryResult,
+    GetProcessingRunDetailsQuery,
+    GetProcessingRunDetailsResult,
     ListCommercialEventsQuery,
     ListCommercialEventsResult,
+    ProcessingRunCommercialEvent,
+    ProcessingRunDetails,
+    ProcessingRunPhaseDetails,
     TimelineCommercialEvent,
 )
 from supervisor_ai.infrastructure.importing import (
@@ -172,6 +178,20 @@ class StubCollaboratorTimelineService:
         )
 
 
+class StubProcessingRunDetailsService:
+    def __init__(self, result=None, error: Exception | None = None) -> None:
+        self.result = result
+        self.error = error
+        self.queries: list[GetProcessingRunDetailsQuery] = []
+
+    def execute(self, query: GetProcessingRunDetailsQuery):
+        self.queries.append(query)
+        if self.error is not None:
+            raise self.error
+        assert self.result is not None
+        return self.result
+
+
 def _application(
     service: StubService,
     financial_service: StubFinancialService | None = None,
@@ -179,6 +199,7 @@ def _application(
     details_service: StubCommercialEventDetailsService | None = None,
     list_service: StubCommercialEventListService | None = None,
     timeline_service: StubCollaboratorTimelineService | None = None,
+    run_service: StubProcessingRunDetailsService | None = None,
 ) -> FastAPI:
     return create_http_application(
         HttpApplicationServices(
@@ -192,6 +213,7 @@ def _application(
             collaborator_financial_timeline=(
                 timeline_service or StubCollaboratorTimelineService()
             ),
+            processing_run_details=run_service or StubProcessingRunDetailsService(),
         )
     )
 
@@ -1084,3 +1106,117 @@ def test_collaborator_timeline_maps_invalid_cursor_and_safe_failure() -> None:
     )
     for sensitive in ("password", "raw_payload", "Traceback", "SQLAlchemy"):
         assert sensitive not in failed.text
+
+
+def processing_run_details_result() -> GetProcessingRunDetailsResult:
+    return GetProcessingRunDetailsResult(
+        processing_run=ProcessingRunDetails(
+            processing_run_id="run-1",
+            event_id="event-1",
+            final_status="posted",
+            started_at=NOW,
+            completed_at=NOW + timedelta(seconds=1),
+            rules_engine_version="rules-1",
+            created_at=NOW + timedelta(seconds=1),
+        ),
+        commercial_event=ProcessingRunCommercialEvent(
+            event_id="event-1",
+            external_reference="external-1",
+            source="csv",
+            occurred_at=NOW - timedelta(minutes=1),
+        ),
+        phases=(
+            ProcessingRunPhaseDetails("contract_facts", "completed", True),
+            ProcessingRunPhaseDetails("payment_validation", "completed", True),
+        ),
+    )
+
+
+def test_processing_run_details_returns_explicit_phase_allowlist() -> None:
+    service = StubProcessingRunDetailsService(processing_run_details_result())
+    response = request(
+        _application(StubService(), run_service=service),
+        "GET",
+        "/processing-runs/run-1",
+    )
+    assert response.status_code == 200
+    assert service.queries == [GetProcessingRunDetailsQuery("run-1")]
+    body = response.json()
+    assert body["processing_run"]["processing_run_id"] == "run-1"
+    assert body["commercial_event"]["event_id"] == "event-1"
+    assert body["phases"] == [
+        {"phase": "contract_facts", "status": "completed", "can_continue": True},
+        {
+            "phase": "payment_validation",
+            "status": "completed",
+            "can_continue": True,
+        },
+    ]
+    for absent in (
+        "raw_payload",
+        "warnings",
+        "audit_references",
+        "output",
+        "Traceback",
+        "SQLAlchemy",
+    ):
+        assert absent not in response.text
+
+
+def test_processing_run_without_phases_is_200() -> None:
+    original = processing_run_details_result()
+    service = StubProcessingRunDetailsService(
+        GetProcessingRunDetailsResult(
+            original.processing_run, original.commercial_event, ()
+        )
+    )
+    response = request(
+        _application(StubService(), run_service=service),
+        "GET",
+        "/processing-runs/run-1",
+    )
+    assert response.status_code == 200
+    assert response.json()["phases"] == []
+
+
+def test_processing_run_not_found_and_invalid_id_are_mapped() -> None:
+    missing = request(
+        _application(
+            StubService(),
+            run_service=StubProcessingRunDetailsService(
+                error=ProcessingRunNotFound("missing")
+            ),
+        ),
+        "GET",
+        "/processing-runs/missing",
+    )
+    blank = request(
+        _application(StubService()),
+        "GET",
+        "/processing-runs/%20%20",
+    )
+    too_long = request(
+        _application(StubService()),
+        "GET",
+        f"/processing-runs/{'x' * 129}",
+    )
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "processing_run_not_found"
+    assert blank.status_code == too_long.status_code == 422
+
+
+def test_processing_run_failure_returns_safe_500() -> None:
+    service = StubProcessingRunDetailsService(
+        error=RuntimeError("postgresql password raw_payload Traceback SQLAlchemy")
+    )
+    response = request(
+        _application(StubService(), run_service=service),
+        "GET",
+        "/processing-runs/run-1",
+    )
+    assert response.status_code == 500
+    assert response.json()["error"]["message"] == (
+        "Processing run details could not be retrieved"
+    )
+    for sensitive in ("password", "raw_payload", "Traceback", "SQLAlchemy"):
+        assert sensitive not in response.text

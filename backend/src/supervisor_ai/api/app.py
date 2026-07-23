@@ -17,6 +17,10 @@ from supervisor_ai.api.commercial_events import (
     commercial_events_router,
 )
 from supervisor_ai.api.errors import error_response
+from supervisor_ai.api.processing_runs import (
+    ProcessingRunDetailsServiceContract,
+    processing_runs_router,
+)
 from supervisor_ai.api.projections import decimal_string
 from supervisor_ai.api.schemas import (
     CollaboratorCurrencySummaryResponse,
@@ -69,6 +73,7 @@ class HttpApplicationServices:
     commercial_event_details: CommercialEventDetailsServiceContract
     commercial_event_list: CommercialEventListServiceContract
     collaborator_financial_timeline: CollaboratorFinancialTimelineServiceContract
+    processing_run_details: ProcessingRunDetailsServiceContract
 
 
 def create_http_application(
@@ -237,6 +242,7 @@ def create_http_application(
     app.include_router(
         collaborators_router(services.collaborator_financial_timeline)
     )
+    app.include_router(processing_runs_router(services.processing_run_details))
     return app
 
 

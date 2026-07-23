@@ -346,6 +346,16 @@ curl \
 Ela aceita período, `entry_type`, `currency` e cursor. Cada lançamento aponta
 para o evento que pode ser aberto em `/commercial-events/{event_id}`.
 
+No drill-down do evento, abra uma execução persistida pelo identificador:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/processing-runs/processing-run-id"
+```
+
+O endpoint mostra a execução, o evento relacionado e metadados allowlisted das
+fases. Ele não reexecuta regras, não cria lançamentos e não expõe JSON interno.
+
 Para validar o projeto:
 
 ```bash

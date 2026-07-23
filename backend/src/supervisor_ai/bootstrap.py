@@ -14,6 +14,7 @@ from supervisor_ai.application.use_cases import (
     GetCommercialEventDetailsUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
+    GetProcessingRunDetailsUseCase,
     ListCommercialEventsUseCase,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
@@ -194,6 +195,7 @@ def build_http_application(database_url: str) -> FastAPI:
             collaborator_financial_timeline=(
                 build_collaborator_financial_timeline_service(database_url)
             ),
+            processing_run_details=build_processing_run_details_service(database_url),
         )
     )
 
@@ -231,5 +233,14 @@ def build_collaborator_financial_timeline_service(
 ) -> GetCollaboratorFinancialTimelineUseCase:
     session_factory = build_session_factory(database_url)
     return GetCollaboratorFinancialTimelineUseCase(
+        build_unit_of_work_factory(session_factory)
+    )
+
+
+def build_processing_run_details_service(
+    database_url: str,
+) -> GetProcessingRunDetailsUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetProcessingRunDetailsUseCase(
         build_unit_of_work_factory(session_factory)
     )

@@ -12,3 +12,7 @@ class LedgerConflict(ApplicationConflict):
 
 class CommercialEventNotFound(Exception):
     """O evento comercial solicitado não existe na persistência."""
+
+
+class ProcessingRunNotFound(Exception):
+    """A execução de processamento solicitada não existe na persistência."""

@@ -1221,3 +1221,54 @@ inválidos retornam `422`.
 `api/collaborators.py` contém exclusivamente transporte e projeção da timeline.
 O serviço é uma dependência explícita de `HttpApplicationServices` e é montado
 pelo Composition Root. Nenhuma migration ou modelo ORM persistido foi criado.
+
+---
+
+# 25. Drill-down de ProcessingRun
+
+`GET /commercial-events/{id}` continua sendo o resumo das tentativas de um
+evento. `GET /processing-runs/{processing_run_id}` abre uma tentativa específica
+sem reexecutar o Rules Engine:
+
+```text
+/commercial-events/{event_id}
+    → processing_run_id
+        → /processing-runs/{processing_run_id}
+```
+
+`GetProcessingRunDetailsUseCase` usa uma única Unit of Work. Primeiro consulta
+`ProcessingRunRepository.get_by_id()`; se existir, consulta o evento relacionado
+por `EventRepository.get_by_id()`. São no máximo duas consultas, sem consulta
+por fase, Ledger ou N+1. A foreign key torna evento órfão uma violação de
+integridade, tratada como falha técnica segura.
+
+## Contrato por allowlist
+
+ProcessingRun persiste `phase_results`, `warnings` e `audit_references` em JSON.
+As fases produzidas pela Application possuem `phase`, `status`, `can_continue`,
+`warnings` e `audit_references`. A API expõe somente:
+
+- `phase`;
+- `status`;
+- `can_continue`.
+
+A ordem da lista persistida é preservada; fases não são ordenadas, deduplicadas
+ou reconstruídas. `output`, warnings e referências não atravessam a fronteira,
+pois as estruturas são livres e ainda não possuem garantia pública contra
+conteúdo técnico ou sensível. Não há sanitização por regex.
+
+O DTO da execução expõe identificadores, `final_status`, início, conclusão,
+versão das regras e criação. O evento resumido expõe identificador, referência
+externa, origem e ocorrência. Não são derivados duração, sucesso, causa raiz,
+severidade ou recomendações.
+
+## Segurança e composição
+
+`api/processing_runs.py` recebe o ID, executa o serviço e projeta schemas
+explícitos. O endpoint não retorna raw payload, JSON integral, traceback, SQL,
+configuração, mensagens técnicas ou objetos ORM.
+
+`ProcessingRunNotFound` é independente de HTTP e mapeado para `404`.
+`processing_run_details` é dependência obrigatória de
+`HttpApplicationServices`, construída pelo Composition Root. Consultas não
+chamam `commit`, não criam execução e não alteram Ledger ou evento.

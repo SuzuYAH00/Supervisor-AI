@@ -12,6 +12,7 @@ from supervisor_ai.application.use_cases import (
     GetCommercialEventDetailsUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
+    GetProcessingRunDetailsUseCase,
     ListCommercialEventsUseCase,
     ProcessAndPersistCommercialEventCommand,
     ProcessAndPersistCommercialEventUseCase,
@@ -25,6 +26,7 @@ from supervisor_ai.bootstrap import (
     build_csv_import_service,
     build_financial_snapshot_service,
     build_financial_summary_service,
+    build_processing_run_details_service,
     build_rules_engine,
     build_session_factory,
     build_transactional_processor,
@@ -216,3 +218,11 @@ def test_build_collaborator_timeline_service_uses_application_query(
     database_url = f"sqlite+pysqlite:///{tmp_path / 'timeline-bootstrap.sqlite3'}"
     service = build_collaborator_financial_timeline_service(database_url)
     assert isinstance(service, GetCollaboratorFinancialTimelineUseCase)
+
+
+def test_build_processing_run_details_service_uses_application_query(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'run-details.sqlite3'}"
+    service = build_processing_run_details_service(database_url)
+    assert isinstance(service, GetProcessingRunDetailsUseCase)

@@ -97,6 +97,16 @@ curl \
 Ela retorna lançamentos reais e metadados mínimos dos eventos relacionados,
 sem recalcular remuneração ou expor payloads.
 
+Uma execução listada no drill-down do evento pode ser auditada por:
+
+```bash
+curl \
+  "http://127.0.0.1:8000/processing-runs/processing-run-id"
+```
+
+São expostos somente estado persistido da execução, evento relacionado e
+`phase`, `status` e `can_continue` de cada fase, na ordem original.
+
 ## Qualidade e testes
 
 ```bash

@@ -589,3 +589,70 @@ def test_collaborator_financial_timeline_pages_filters_and_drills_down(
     )
     assert "raw_payload" not in debit.text
     engine.dispose()
+
+
+def test_processing_run_drill_down_is_allowlisted_and_read_only(
+    tmp_path: Path,
+) -> None:
+    application, _, engine = prepared_application(
+        tmp_path, "http-processing-run-details.sqlite3"
+    )
+    content = csv_text([csv_row(1)])
+    first_import = post_csv(application, content)
+    second_import = post_csv(application, content)
+    event_details_before = request(
+        application, "GET", "/commercial-events/event-csv-1"
+    )
+    run_ids = [
+        run["processing_run_id"]
+        for run in event_details_before.json()["processing_runs"]
+    ]
+
+    first_run = request(
+        application, "GET", f"/processing-runs/{run_ids[0]}"
+    )
+    second_run = request(
+        application, "GET", f"/processing-runs/{run_ids[1]}"
+    )
+    event_details_after = request(
+        application, "GET", "/commercial-events/event-csv-1"
+    )
+    missing = request(
+        application, "GET", "/processing-runs/run-does-not-exist"
+    )
+    invalid = request(application, "GET", "/processing-runs/%20%20")
+
+    assert first_import.status_code == second_import.status_code == 200
+    assert second_import.json()["processing"]["ledger_entries_created"] == 0
+    assert len(run_ids) == 2
+    assert first_run.status_code == second_run.status_code == 200
+    assert first_run.json()["processing_run"]["event_id"] == "event-csv-1"
+    assert second_run.json()["processing_run"]["event_id"] == "event-csv-1"
+    assert first_run.json()["commercial_event"]["event_id"] == "event-csv-1"
+    assert [phase["phase"] for phase in first_run.json()["phases"]] == [
+        "contract_facts",
+        "commercial_classification",
+        "operational_context",
+        "remuneration_eligibility",
+        "payment_validation",
+        "remuneration_amount",
+        "ledger_posting",
+    ]
+    assert len(event_details_after.json()["processing_runs"]) == 2
+    assert len(event_details_after.json()["ledger_entries"]) == 1
+    assert event_details_after.json()["processing_runs"] == (
+        event_details_before.json()["processing_runs"]
+    )
+    for response in (first_run, second_run):
+        for absent in (
+            "raw_payload",
+            "warnings",
+            "audit_references",
+            "output",
+            "Traceback",
+            "SQLAlchemy",
+        ):
+            assert absent not in response.text
+    assert missing.status_code == 404
+    assert invalid.status_code == 422
+    engine.dispose()

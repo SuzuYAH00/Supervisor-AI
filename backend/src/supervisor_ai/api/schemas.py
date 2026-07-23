@@ -196,6 +196,35 @@ class CollaboratorFinancialTimelineResponse(BaseModel):
     items: list[CollaboratorFinancialTimelineItemResponse]
 
 
+class ProcessingRunResponse(BaseModel):
+    processing_run_id: str
+    event_id: str
+    final_status: str
+    started_at: datetime
+    completed_at: datetime
+    rules_engine_version: str
+    created_at: datetime
+
+
+class ProcessingRunCommercialEventResponse(BaseModel):
+    event_id: str
+    external_reference: str
+    source: str
+    occurred_at: datetime
+
+
+class ProcessingRunPhaseResponse(BaseModel):
+    phase: str
+    status: str
+    can_continue: bool
+
+
+class ProcessingRunDetailsResponse(BaseModel):
+    processing_run: ProcessingRunResponse
+    commercial_event: ProcessingRunCommercialEventResponse
+    phases: list[ProcessingRunPhaseResponse]
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

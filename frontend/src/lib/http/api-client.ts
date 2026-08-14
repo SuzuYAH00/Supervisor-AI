@@ -8,6 +8,8 @@ type JsonParser<T> = (value: unknown) => T;
 interface ApiRequestOptions<T> {
   readonly signal?: AbortSignal;
   readonly parse: JsonParser<T>;
+  readonly method?: "GET" | "POST";
+  readonly body?: BodyInit;
 }
 
 function composeUrl(path: string): string {
@@ -52,6 +54,8 @@ export async function apiRequest<T>(
   try {
     response = await fetch(composeUrl(path), {
       headers: { Accept: "application/json" },
+      method: options.method ?? "GET",
+      body: options.body,
       signal: options.signal,
     });
   } catch (error: unknown) {

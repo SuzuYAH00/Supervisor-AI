@@ -419,6 +419,7 @@ A estrutura é orientada por feature:
   tabela dos eventos persistidos;
 - `features/financial-timeline/` concentra busca por colaborador, consulta do
   Ledger e paginação;
+- `features/csv-import/` concentra seleção, envio e projeção do resultado CSV;
 - `lib/http/` possui o cliente fetch independente de React;
 - `lib/config/` concentra ambiente;
 - `styles/` define a base visual responsiva.
@@ -445,6 +446,12 @@ O cliente HTTP:
 - diferencia erro conhecido, rede, cancelamento e resposta inválida;
 - devolve somente mensagens seguras;
 - não conhece React, autenticação, retry ou cache.
+
+Para upload, o cliente aceita método e corpo de forma neutra. A feature de CSV
+cria o `FormData`; o navegador define o boundary de `Content-Type`. A página
+controla seleção, envio, retry e cancelamento, enquanto o backend permanece a
+autoridade sobre estrutura e conteúdo do arquivo. O frontend valida apenas
+presença, extensão e arquivo vazio, e valida a resposta completa em runtime.
 
 Cada feature valida em runtime seu contrato (`GET /processing/health`,
 `GET /financial/summary` ou `GET /commercial-events`) e o representa com tipos
@@ -529,7 +536,7 @@ contraste constituem a base mínima de acessibilidade.
 
 ## Limites
 
-Não há autenticação, upload, detalhes dos eventos, seleção de colaboradores,
+Não há autenticação, upload em lote ou drag-and-drop, seleção de colaboradores,
 filtros editáveis, demais
 telas financeiras, gráficos avançados, estado global, polling ou deploy. Esses
 recursos devem evoluir como novas features sem acoplar componentes diretamente

@@ -24,6 +24,15 @@ export function AppLayout() {
               className={({ isActive }) =>
                 `navigation-link${isActive ? " active" : ""}`
               }
+              to="/imports/csv"
+            >
+              <span>Importar CSV</span>
+              <small>Entrada operacional</small>
+            </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                `navigation-link${isActive ? " active" : ""}`
+              }
               to="/processing-health"
             >
               <span>Visão geral</span>

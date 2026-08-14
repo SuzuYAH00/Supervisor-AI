@@ -6,6 +6,7 @@ Fundação React do frontend operacional interno. As telas disponíveis são
 `/commercial-events`, que consome `GET /commercial-events`, e
 `/financial-timeline`, que consome a timeline financeira por colaborador da API
 MVP v1, e `/processing-runs`, que consome `GET /processing-runs`.
+O fluxo `/imports/csv` envia arquivos ao pipeline por `POST /imports/csv`.
 
 ## Stack
 
@@ -78,6 +79,7 @@ npm run build
 - `src/features/commercial-events`: listagem factual e paginação por cursor;
 - `src/features/financial-timeline`: formulário, Ledger factual e paginação;
 - `src/features/processing-runs`: listagem factual das execuções e paginação;
+- `src/features/csv-import`: seleção, envio e resultado operacional do CSV;
 - `src/lib`: configuração e cliente HTTP sem dependência de React;
 - `src/styles`: estilos globais e responsivos;
 - `tests`: contratos HTTP, feature e roteamento.
@@ -96,6 +98,16 @@ valores monetários permanecem strings decimais e não são convertidos em
 - `/financial-timeline`: lançamentos financeiros de um colaborador informado.
 - `/processing-runs`: execuções persistidas do pipeline.
 - `/processing-runs/:processingRunId`: detalhe auditável de uma execução.
+- `/imports/csv`: importação síncrona de um arquivo CSV.
+
+## Importação CSV
+
+A página valida localmente apenas a presença do arquivo, a extensão `.csv` e
+seu conteúdo não vazio. A estrutura e todas as regras do documento continuam
+sob responsabilidade do backend. O envio usa `multipart/form-data`, sem
+definição manual de `Content-Type`, e a resposta completa é validada em runtime.
+Quando uma linha retorna `processing_run_id`, ela oferece navegação para o
+detalhe da execução; o histórico permanece na tela de Processing Runs.
 
 A tela financeira projeta somente os totais e agrupamentos entregues pela API.
 Ela não calcula ranking, percentual, produtividade, tendência ou conversão

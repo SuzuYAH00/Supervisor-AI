@@ -443,6 +443,13 @@ a:focus-visible {
   border-radius: 10px;
 }
 
+.csv-import-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 18px;
+}
+
 .form-field {
   display: grid;
   flex: 1;

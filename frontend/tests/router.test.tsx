@@ -5,6 +5,7 @@ import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { appRoutes } from "../src/app/routes";
 import { getCommercialEvents } from "../src/features/commercial-events/api/get-commercial-events";
 import { getCommercialEventDetail } from "../src/features/commercial-events/api/get-commercial-event-detail";
+import { importCsv } from "../src/features/csv-import/api/import-csv";
 import { getFinancialSummary } from "../src/features/financial-summary/api/get-financial-summary";
 import { getFinancialTimeline } from "../src/features/financial-timeline/api/get-financial-timeline";
 import { getProcessingHealth } from "../src/features/processing-health/api/get-processing-health";
@@ -19,6 +20,10 @@ import {
   processingRunDetail,
 } from "./fixtures";
 
+vi.mock(
+  "../src/features/csv-import/api/import-csv",
+  () => ({ importCsv: vi.fn() }),
+);
 vi.mock(
   "../src/features/processing-health/api/get-processing-health",
   () => ({ getProcessingHealth: vi.fn() }),
@@ -55,6 +60,7 @@ const getCommercialEventDetailMock = vi.mocked(getCommercialEventDetail);
 const getFinancialTimelineMock = vi.mocked(getFinancialTimeline);
 const getProcessingRunsMock = vi.mocked(getProcessingRuns);
 const getProcessingRunDetailMock = vi.mocked(getProcessingRunDetail);
+const importCsvMock = vi.mocked(importCsv);
 
 function renderRoute(path: string) {
   return render(
@@ -79,6 +85,19 @@ test("processing health route renders inside the operational layout", async () =
   expect(
     screen.getByRole("link", { name: "Supervisor AI" }),
   ).toHaveAttribute("href", "/processing-health");
+});
+
+test("CSV import navigation uses React Router and renders directly", async () => {
+  const user = userEvent.setup();
+  getProcessingHealthMock.mockResolvedValue(processingHealth());
+  renderRoute("/processing-health");
+  const link = await screen.findByRole("link", { name: /Importar CSV/ });
+  expect(link).toHaveAttribute("href", "/imports/csv");
+  await user.click(link);
+  expect(
+    screen.getByRole("heading", { name: "Importar arquivo CSV" }),
+  ).toBeInTheDocument();
+  expect(importCsvMock).not.toHaveBeenCalled();
 });
 
 test("financial navigation opens the summary through React Router", async () => {

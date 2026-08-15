@@ -140,3 +140,86 @@ class LedgerEntryRecord(Base):
             postgresql_where=text("entry_type = 'credit'"),
         ),
     )
+
+
+class CsatEvaluationRecord(Base):
+    __tablename__ = "csat_evaluations"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    collaborator_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    channel: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    score: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    evaluated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(source) > 0", name="ck_csat_evaluations_source"),
+        CheckConstraint(
+            "length(collaborator_id) > 0",
+            name="ck_csat_evaluations_collaborator_id",
+        ),
+        Index(
+            "uq_csat_evaluations_source_reference",
+            "source",
+            "external_reference",
+            unique=True,
+        ),
+        Index(
+            "ix_csat_evaluations_collaborator_evaluated_at",
+            "collaborator_id",
+            "evaluated_at",
+        ),
+        Index("ix_csat_evaluations_evaluated_at", "evaluated_at"),
+    )
+
+
+class AttendanceFactRecord(Base):
+    __tablename__ = "attendance_facts"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    customer_code: Mapped[str] = mapped_column(String(128), nullable=False)
+    operator_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    channel: Mapped[str] = mapped_column(String(100), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    process_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    process_description: Mapped[str] = mapped_column(String(255), nullable=False)
+    opening_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    opening_description: Mapped[str] = mapped_column(String(255), nullable=False)
+    closing_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    closing_description: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(source) > 0", name="ck_attendance_facts_source"),
+        CheckConstraint(
+            "length(customer_code) > 0",
+            name="ck_attendance_facts_customer_code",
+        ),
+        CheckConstraint(
+            "length(operator_id) > 0", name="ck_attendance_facts_operator_id"
+        ),
+        Index(
+            "uq_attendance_facts_source_reference",
+            "source",
+            "external_reference",
+            unique=True,
+        ),
+        Index(
+            "ix_attendance_facts_customer_occurred_at",
+            "customer_code",
+            "occurred_at",
+        ),
+        Index(
+            "ix_attendance_facts_operator_occurred_at",
+            "operator_id",
+            "occurred_at",
+        ),
+    )

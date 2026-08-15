@@ -10,6 +10,14 @@ class LedgerConflict(ApplicationConflict):
     """O crédito existente diverge daquele produzido no reprocessamento."""
 
 
+class CsatEvaluationConflict(ApplicationConflict):
+    """A identidade da avaliação CSAT diverge dos fatos persistidos."""
+
+
+class AttendanceFactConflict(ApplicationConflict):
+    """A identidade do atendimento diverge dos fatos persistidos."""
+
+
 class CommercialEventNotFound(Exception):
     """O evento comercial solicitado não existe na persistência."""
 

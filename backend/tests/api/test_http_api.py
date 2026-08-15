@@ -20,6 +20,7 @@ from supervisor_ai.application import (
     CollaboratorFinancialTimelineCursorPosition,
     CommercialEventCursorPosition,
     CommercialEventNotFound,
+    CsatFilters,
     ProcessingHealthCount,
     ProcessingRunCursorPosition,
     ProcessingRunNotFound,
@@ -40,6 +41,8 @@ from supervisor_ai.application.use_cases import (
     GetCollaboratorFinancialTimelineResult,
     GetCommercialEventDetailsQuery,
     GetCommercialEventDetailsResult,
+    GetCsatEvaluationsResult,
+    GetCsatSummaryResult,
     GetFinancialSnapshotQuery,
     GetFinancialSnapshotResult,
     GetFinancialSummaryQuery,
@@ -48,6 +51,7 @@ from supervisor_ai.application.use_cases import (
     GetProcessingHealthResult,
     GetProcessingRunDetailsQuery,
     GetProcessingRunDetailsResult,
+    ImportCsatEvaluationsResult,
     ListCommercialEventsQuery,
     ListCommercialEventsResult,
     ListProcessingRunsQuery,
@@ -239,6 +243,22 @@ class StubProcessingHealthService:
         )
 
 
+class StubCsatImporter:
+    def import_csv(self, content: str) -> ImportCsatEvaluationsResult:
+        assert content
+        return ImportCsatEvaluationsResult(0, 0, 0, ())
+
+
+class StubCsatEvaluationQuery:
+    def execute(self, query: CsatFilters) -> GetCsatEvaluationsResult:
+        return GetCsatEvaluationsResult(query, 0, ())
+
+
+class StubCsatSummary:
+    def execute(self, query: CsatFilters) -> GetCsatSummaryResult:
+        return GetCsatSummaryResult(query, 0, None, (), ())
+
+
 def _application(
     service: StubService,
     financial_service: StubFinancialService | None = None,
@@ -266,10 +286,16 @@ def _application(
             processing_run_listing=(
                 run_list_service or StubProcessingRunListService()
             ),
-            processing_health=(
-                processing_health_service or StubProcessingHealthService()
-            ),
-        )
+                processing_health=(
+                    processing_health_service or StubProcessingHealthService()
+                ),
+                csat_csv_import=StubCsatImporter(),
+                csat_evaluation_query=StubCsatEvaluationQuery(),
+                csat_summary=StubCsatSummary(),
+                attendance_csv_import=StubCsatImporter(),
+                attendance_query=StubCsatEvaluationQuery(),
+                recurrence_summary=StubCsatSummary(),
+            )
     )
 
 

@@ -285,3 +285,126 @@ class ErrorDetail(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorDetail
+
+
+class CsatImportResponse(BaseModel):
+    received_count: int
+    created_count: int
+    already_existing_count: int
+    evaluation_ids: list[str]
+
+
+class CsatFiltersResponse(BaseModel):
+    collaborator_id: str | None
+    start_date: date | None
+    end_date: date | None
+    source: str | None
+    channel: str | None
+
+
+class CsatEvaluationResponse(BaseModel):
+    evaluation_id: str
+    external_reference: str
+    source: str
+    collaborator_id: str
+    channel: str | None
+    score: str
+    evaluated_at: datetime
+    created_at: datetime
+
+
+class CsatEvaluationListResponse(BaseModel):
+    filters: CsatFiltersResponse
+    evaluation_count: int
+    items: list[CsatEvaluationResponse]
+
+
+class CsatSummaryGroupResponse(BaseModel):
+    value: str | None
+    evaluation_count: int
+    score_average: str
+
+
+class CsatSummaryResponse(BaseModel):
+    filters: CsatFiltersResponse
+    evaluation_count: int
+    score_average: str | None
+    by_collaborator: list[CsatSummaryGroupResponse]
+    by_channel: list[CsatSummaryGroupResponse]
+
+
+class AttendanceImportResponse(BaseModel):
+    received_count: int
+    created_count: int
+    already_existing_count: int
+    attendance_ids: list[str]
+
+
+class ClassificationIdentityResponse(BaseModel):
+    code: str | None
+    description: str
+
+
+class AttendanceFiltersResponse(BaseModel):
+    operator_id: str | None
+    customer_code: str | None
+    source: str | None
+    channel: str | None
+    start_date: date | None
+    end_date: date | None
+
+
+class AttendanceResponse(BaseModel):
+    attendance_id: str
+    external_reference: str
+    source: str
+    customer_code: str
+    operator_id: str
+    channel: str
+    occurred_at: datetime
+    process: ClassificationIdentityResponse
+    opening_classification: ClassificationIdentityResponse
+    closing_classification: ClassificationIdentityResponse
+    created_at: datetime
+
+
+class AttendanceListResponse(BaseModel):
+    filters: AttendanceFiltersResponse
+    attendance_count: int
+    items: list[AttendanceResponse]
+
+
+class RecurrenceCohortResponse(BaseModel):
+    reference_month: date
+    cohort_end: date
+    window_end: date
+    observed_through: date
+    operator_id: str | None
+    source: str | None
+    channel: str | None
+
+
+class RecurrenceOperatorSummaryResponse(BaseModel):
+    operator_id: str
+    eligible_attendance_count: int
+    recurrence_count: int
+    recurrence_rate: str | None
+
+
+class RecurrenceOccurrenceResponse(BaseModel):
+    original_attendance_id: str
+    recurrent_attendance_id: str
+    customer_code: str
+    attributed_operator_id: str
+    original_date: date
+    recurrent_date: date
+    days_between: int
+
+
+class RecurrenceSummaryResponse(BaseModel):
+    cohort: RecurrenceCohortResponse
+    eligible_attendance_count: int
+    recurrence_count: int
+    recurrence_rate: str | None
+    by_operator: list[RecurrenceOperatorSummaryResponse]
+    occurrences: list[RecurrenceOccurrenceResponse]

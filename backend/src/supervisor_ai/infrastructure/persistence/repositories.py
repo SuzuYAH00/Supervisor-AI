@@ -1,14 +1,19 @@
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 
 from sqlalchemy import Select, and_, case, distinct, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from supervisor_ai.application.persistence import (
+    AttendanceFact,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    CsatEvaluation,
+    CsatSummaryGroupRecord,
+    CsatSummaryRecord,
     ProcessingHealthCount,
     ProcessingHealthRecord,
     ProcessingRun,
@@ -16,15 +21,21 @@ from supervisor_ai.application.persistence import (
     ProcessingRunListRecord,
 )
 from supervisor_ai.infrastructure.persistence.mappings import (
+    attendance_to_record,
+    csat_evaluation_to_record,
     event_to_record,
     ledger_entry_to_record,
     processing_run_to_record,
+    record_to_attendance,
+    record_to_csat_evaluation,
     record_to_event,
     record_to_ledger_entry,
     record_to_processing_run,
 )
 from supervisor_ai.infrastructure.persistence.models import (
+    AttendanceFactRecord,
     CommercialEventRecord,
+    CsatEvaluationRecord,
     LedgerEntryRecord,
     ProcessingRunRecord,
 )
@@ -106,6 +117,179 @@ class SqlAlchemyEventRepository:
             ).limit(limit)
         )
         return tuple(record_to_event(record) for record in records)
+
+
+class SqlAlchemyCsatRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, evaluation: CsatEvaluation) -> None:
+        self.session.add(csat_evaluation_to_record(evaluation))
+        self.session.flush()
+
+    def get_by_id(self, evaluation_id: str) -> CsatEvaluation | None:
+        record = self.session.get(CsatEvaluationRecord, evaluation_id)
+        return None if record is None else record_to_csat_evaluation(record)
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> CsatEvaluation | None:
+        record = self.session.scalar(
+            select(CsatEvaluationRecord).where(
+                CsatEvaluationRecord.source == source,
+                CsatEvaluationRecord.external_reference == external_reference,
+            )
+        )
+        return None if record is None else record_to_csat_evaluation(record)
+
+    def search(
+        self,
+        *,
+        collaborator_id: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        source: str | None,
+        channel: str | None,
+    ) -> tuple[CsatEvaluation, ...]:
+        statement = select(CsatEvaluationRecord).where(
+            *_csat_filters(
+                collaborator_id=collaborator_id,
+                start_date=start_date,
+                end_date=end_date,
+                source=source,
+                channel=channel,
+            )
+        )
+        records = self.session.scalars(
+            statement.order_by(
+                CsatEvaluationRecord.evaluated_at,
+                CsatEvaluationRecord.id,
+            )
+        )
+        return tuple(record_to_csat_evaluation(record) for record in records)
+
+    def summarize(
+        self,
+        *,
+        collaborator_id: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        source: str | None,
+        channel: str | None,
+    ) -> CsatSummaryRecord:
+        filters = _csat_filters(
+            collaborator_id=collaborator_id,
+            start_date=start_date,
+            end_date=end_date,
+            source=source,
+            channel=channel,
+        )
+        total_count, total_score = self.session.execute(
+            select(func.count(), func.coalesce(func.sum(CsatEvaluationRecord.score), 0))
+            .select_from(CsatEvaluationRecord)
+            .where(*filters)
+        ).one()
+        collaborator_rows = self.session.execute(
+            select(
+                CsatEvaluationRecord.collaborator_id,
+                func.count(),
+                func.sum(CsatEvaluationRecord.score),
+            )
+            .where(*filters)
+            .group_by(CsatEvaluationRecord.collaborator_id)
+            .order_by(CsatEvaluationRecord.collaborator_id)
+        )
+        channel_rows = self.session.execute(
+            select(
+                CsatEvaluationRecord.channel,
+                func.count(),
+                func.sum(CsatEvaluationRecord.score),
+            )
+            .where(*filters)
+            .group_by(CsatEvaluationRecord.channel)
+            .order_by(CsatEvaluationRecord.channel)
+        )
+        return CsatSummaryRecord(
+            evaluation_count=int(total_count),
+            score_total=Decimal(total_score),
+            by_collaborator=tuple(
+                CsatSummaryGroupRecord(str(value), int(count), Decimal(score))
+                for value, count, score in collaborator_rows
+            ),
+            by_channel=tuple(
+                CsatSummaryGroupRecord(
+                    None if value is None else str(value),
+                    int(count),
+                    Decimal(score),
+                )
+                for value, count, score in channel_rows
+            ),
+        )
+
+
+class SqlAlchemyAttendanceRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, attendance: AttendanceFact) -> None:
+        self.session.add(attendance_to_record(attendance))
+        self.session.flush()
+
+    def get_by_id(self, attendance_id: str) -> AttendanceFact | None:
+        record = self.session.get(AttendanceFactRecord, attendance_id)
+        return None if record is None else record_to_attendance(record)
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> AttendanceFact | None:
+        record = self.session.scalar(
+            select(AttendanceFactRecord).where(
+                AttendanceFactRecord.source == source,
+                AttendanceFactRecord.external_reference == external_reference,
+            )
+        )
+        return None if record is None else record_to_attendance(record)
+
+    def search(
+        self,
+        *,
+        operator_id: str | None,
+        customer_code: str | None,
+        source: str | None,
+        channel: str | None,
+        start_date: date | None,
+        end_date: date | None,
+    ) -> tuple[AttendanceFact, ...]:
+        filters: list[ColumnElement[bool]] = []
+        if operator_id is not None:
+            filters.append(AttendanceFactRecord.operator_id == operator_id)
+        if customer_code is not None:
+            filters.append(AttendanceFactRecord.customer_code == customer_code)
+        if source is not None:
+            filters.append(AttendanceFactRecord.source == source)
+        if channel is not None:
+            filters.append(AttendanceFactRecord.channel == channel)
+        if start_date is not None:
+            filters.append(
+                AttendanceFactRecord.occurred_at
+                >= datetime.combine(start_date, time.min, tzinfo=UTC)
+            )
+        if end_date is not None:
+            filters.append(
+                AttendanceFactRecord.occurred_at
+                <= datetime.combine(end_date, time.max, tzinfo=UTC)
+                if end_date == date.max
+                else AttendanceFactRecord.occurred_at
+                < datetime.combine(
+                    end_date + timedelta(days=1), time.min, tzinfo=UTC
+                )
+            )
+        records = self.session.scalars(
+            select(AttendanceFactRecord)
+            .where(*filters)
+            .order_by(AttendanceFactRecord.occurred_at, AttendanceFactRecord.id)
+        )
+        return tuple(record_to_attendance(record) for record in records)
 
 
 class SqlAlchemyProcessingRunRepository:
@@ -486,6 +670,37 @@ def _apply_credit_filters(
                 < datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
             )
     return statement
+
+
+def _csat_filters(
+    *,
+    collaborator_id: str | None,
+    start_date: date | None,
+    end_date: date | None,
+    source: str | None,
+    channel: str | None,
+) -> tuple[ColumnElement[bool], ...]:
+    filters: list[ColumnElement[bool]] = []
+    if collaborator_id is not None:
+        filters.append(CsatEvaluationRecord.collaborator_id == collaborator_id)
+    if start_date is not None:
+        filters.append(
+            CsatEvaluationRecord.evaluated_at
+            >= datetime.combine(start_date, time.min, tzinfo=UTC)
+        )
+    if end_date is not None:
+        filters.append(
+            CsatEvaluationRecord.evaluated_at
+            <= datetime.combine(end_date, time.max, tzinfo=UTC)
+            if end_date == date.max
+            else CsatEvaluationRecord.evaluated_at
+            < datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
+        )
+    if source is not None:
+        filters.append(CsatEvaluationRecord.source == source)
+    if channel is not None:
+        filters.append(CsatEvaluationRecord.channel == channel)
+    return tuple(filters)
 
 
 def _processing_run_filters(

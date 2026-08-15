@@ -1,12 +1,24 @@
 from copy import deepcopy
 
-from supervisor_ai.application.persistence import CommercialEvent, ProcessingRun
+from supervisor_ai.application.persistence import (
+    AttendanceFact,
+    CommercialEvent,
+    CsatEvaluation,
+    ProcessingRun,
+)
 from supervisor_ai.infrastructure.persistence.models import (
+    AttendanceFactRecord,
     CommercialEventRecord,
+    CsatEvaluationRecord,
     LedgerEntryRecord,
     ProcessingRunRecord,
 )
-from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
+from supervisor_ai.rules_engine import (
+    ClassificationIdentity,
+    Currency,
+    LedgerEntry,
+    LedgerEntryType,
+)
 
 
 def event_to_record(event: CommercialEvent) -> CommercialEventRecord:
@@ -29,6 +41,75 @@ def record_to_event(record: CommercialEventRecord) -> CommercialEvent:
         occurred_at=record.occurred_at,
         received_at=record.received_at,
         raw_payload=deepcopy(record.raw_payload),
+        created_at=record.created_at,
+    )
+
+
+def csat_evaluation_to_record(
+    evaluation: CsatEvaluation,
+) -> CsatEvaluationRecord:
+    return CsatEvaluationRecord(
+        id=evaluation.id,
+        external_reference=evaluation.external_reference,
+        source=evaluation.source,
+        collaborator_id=evaluation.collaborator_id,
+        channel=evaluation.channel,
+        score=evaluation.score,
+        evaluated_at=evaluation.evaluated_at,
+        created_at=evaluation.created_at,
+    )
+
+
+def record_to_csat_evaluation(record: CsatEvaluationRecord) -> CsatEvaluation:
+    return CsatEvaluation(
+        id=record.id,
+        external_reference=record.external_reference,
+        source=record.source,
+        collaborator_id=record.collaborator_id,
+        channel=record.channel,
+        score=record.score,
+        evaluated_at=record.evaluated_at,
+        created_at=record.created_at,
+    )
+
+
+def attendance_to_record(attendance: AttendanceFact) -> AttendanceFactRecord:
+    return AttendanceFactRecord(
+        id=attendance.id,
+        external_reference=attendance.external_reference,
+        source=attendance.source,
+        customer_code=attendance.customer_code,
+        operator_id=attendance.operator_id,
+        channel=attendance.channel,
+        occurred_at=attendance.occurred_at,
+        process_code=attendance.process.code,
+        process_description=attendance.process.description,
+        opening_code=attendance.opening_classification.code,
+        opening_description=attendance.opening_classification.description,
+        closing_code=attendance.closing_classification.code,
+        closing_description=attendance.closing_classification.description,
+        created_at=attendance.created_at,
+    )
+
+
+def record_to_attendance(record: AttendanceFactRecord) -> AttendanceFact:
+    return AttendanceFact(
+        id=record.id,
+        external_reference=record.external_reference,
+        source=record.source,
+        customer_code=record.customer_code,
+        operator_id=record.operator_id,
+        channel=record.channel,
+        occurred_at=record.occurred_at,
+        process=ClassificationIdentity(
+            record.process_code, record.process_description
+        ),
+        opening_classification=ClassificationIdentity(
+            record.opening_code, record.opening_description
+        ),
+        closing_classification=ClassificationIdentity(
+            record.closing_code, record.closing_description
+        ),
         created_at=record.created_at,
     )
 

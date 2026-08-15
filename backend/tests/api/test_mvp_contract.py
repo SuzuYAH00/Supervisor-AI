@@ -21,6 +21,12 @@ EXPECTED_ROUTES = {
     ("GET", "/processing-runs"),
     ("GET", "/processing-runs/{processing_run_id}"),
     ("GET", "/processing/health"),
+    ("POST", "/imports/csat/csv"),
+    ("GET", "/csat/evaluations"),
+    ("GET", "/csat/summary"),
+    ("POST", "/imports/recurrence/attendances/csv"),
+    ("GET", "/recurrence/attendances"),
+    ("GET", "/recurrence/summary"),
 }
 def application(tmp_path: Path) -> tuple[FastAPI, Engine]:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'mvp-contract.sqlite3'}"
@@ -150,6 +156,7 @@ def test_empty_read_endpoints_are_stable_and_utc_serialization_is_explicit(
             "by_final_status": [],
             "by_rules_engine_version": [],
         }),
+        "/recurrence/attendances": ("items", []),
     }
     for path, (field, expected) in expected_empty.items():
         response = request(app, "GET", path)

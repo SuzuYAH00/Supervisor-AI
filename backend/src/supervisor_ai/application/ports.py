@@ -3,10 +3,13 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from supervisor_ai.application.persistence import (
+    AttendanceFact,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    CsatEvaluation,
+    CsatSummaryRecord,
     ProcessingHealthRecord,
     ProcessingRun,
     ProcessingRunCursorPosition,
@@ -68,6 +71,57 @@ class ProcessingHealthRepository(Protocol):
     ) -> ProcessingHealthRecord: ...
 
 
+class CsatRepository(Protocol):
+    def add(self, evaluation: CsatEvaluation) -> None: ...
+
+    def get_by_id(self, evaluation_id: str) -> CsatEvaluation | None: ...
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> CsatEvaluation | None: ...
+
+    def search(
+        self,
+        *,
+        collaborator_id: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        source: str | None,
+        channel: str | None,
+    ) -> tuple[CsatEvaluation, ...]: ...
+
+    def summarize(
+        self,
+        *,
+        collaborator_id: str | None,
+        start_date: date | None,
+        end_date: date | None,
+        source: str | None,
+        channel: str | None,
+    ) -> CsatSummaryRecord: ...
+
+
+class AttendanceRepository(Protocol):
+    def add(self, attendance: AttendanceFact) -> None: ...
+
+    def get_by_id(self, attendance_id: str) -> AttendanceFact | None: ...
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> AttendanceFact | None: ...
+
+    def search(
+        self,
+        *,
+        operator_id: str | None,
+        customer_code: str | None,
+        source: str | None,
+        channel: str | None,
+        start_date: date | None,
+        end_date: date | None,
+    ) -> tuple[AttendanceFact, ...]: ...
+
+
 class LedgerRepository(Protocol):
     def add(self, entry: LedgerEntry) -> None: ...
 
@@ -103,6 +157,8 @@ class UnitOfWork(Protocol):
     processing_runs: ProcessingRunRepository
     processing_health: ProcessingHealthRepository
     ledger: LedgerRepository
+    csat: CsatRepository
+    attendances: AttendanceRepository
 
     def __enter__(self) -> Self: ...
 

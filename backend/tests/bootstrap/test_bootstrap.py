@@ -8,12 +8,16 @@ from sqlalchemy import Engine
 from supervisor_ai.application import CommercialEvent
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
+    GetAttendancesUseCase,
     GetCollaboratorFinancialTimelineUseCase,
     GetCommercialEventDetailsUseCase,
+    GetCsatEvaluationsUseCase,
+    GetCsatSummaryUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
+    GetRecurrenceSummaryUseCase,
     ListCommercialEventsUseCase,
     ListProcessingRunsUseCase,
     ProcessAndPersistCommercialEventCommand,
@@ -22,22 +26,32 @@ from supervisor_ai.application.use_cases import (
     ProcessCommercialEventUseCase,
 )
 from supervisor_ai.bootstrap import (
+    build_attendance_csv_import_service,
+    build_attendance_query_service,
     build_collaborator_financial_timeline_service,
     build_commercial_event_details_service,
     build_commercial_event_list_service,
+    build_csat_csv_import_service,
+    build_csat_evaluation_query_service,
+    build_csat_summary_service,
     build_csv_import_service,
     build_financial_snapshot_service,
     build_financial_summary_service,
     build_processing_health_service,
     build_processing_run_details_service,
     build_processing_run_listing_service,
+    build_recurrence_summary_service,
     build_rules_engine,
     build_session_factory,
     build_transactional_processor,
     build_unit_of_work_factory,
 )
 from supervisor_ai.database.base import Base
-from supervisor_ai.infrastructure.importing import CsvImportService
+from supervisor_ai.infrastructure.importing import (
+    AttendanceCsvImportService,
+    CsatCsvImportService,
+    CsvImportService,
+)
 from supervisor_ai.infrastructure.runtime import (
     SystemClock,
     UuidProcessingRunIdGenerator,
@@ -182,6 +196,30 @@ def test_build_csv_import_service_reuses_complete_composition(tmp_path: Path) ->
     assert service.__class__.__module__.startswith(
         "supervisor_ai.infrastructure.importing"
     )
+
+
+def test_build_csat_services_use_established_layers(tmp_path: Path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'csat-bootstrap.sqlite3'}"
+
+    importer = build_csat_csv_import_service(database_url)
+    query = build_csat_evaluation_query_service(database_url)
+    summary = build_csat_summary_service(database_url)
+
+    assert isinstance(importer, CsatCsvImportService)
+    assert isinstance(query, GetCsatEvaluationsUseCase)
+    assert isinstance(summary, GetCsatSummaryUseCase)
+
+
+def test_build_recurrence_services_use_established_layers(tmp_path: Path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'recurrence-bootstrap.sqlite3'}"
+
+    importer = build_attendance_csv_import_service(database_url)
+    query = build_attendance_query_service(database_url)
+    summary = build_recurrence_summary_service(database_url)
+
+    assert isinstance(importer, AttendanceCsvImportService)
+    assert isinstance(query, GetAttendancesUseCase)
+    assert isinstance(summary, GetRecurrenceSummaryUseCase)
 
 
 def test_build_financial_snapshot_service_uses_application_query(

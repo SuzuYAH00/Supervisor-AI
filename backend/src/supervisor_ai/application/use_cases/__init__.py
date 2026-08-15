@@ -1,3 +1,8 @@
+from supervisor_ai.application.use_cases.get_attendances import (
+    AttendanceItem,
+    GetAttendancesResult,
+    GetAttendancesUseCase,
+)
 from supervisor_ai.application.use_cases.get_collaborator_financial_timeline import (
     CollaboratorFinancialTimelineItem,
     GetCollaboratorFinancialTimelineQuery,
@@ -12,6 +17,16 @@ from supervisor_ai.application.use_cases.get_commercial_event_details import (
     GetCommercialEventDetailsQuery,
     GetCommercialEventDetailsResult,
     GetCommercialEventDetailsUseCase,
+)
+from supervisor_ai.application.use_cases.get_csat_evaluations import (
+    CsatEvaluationItem,
+    GetCsatEvaluationsResult,
+    GetCsatEvaluationsUseCase,
+)
+from supervisor_ai.application.use_cases.get_csat_summary import (
+    CsatSummaryGroup,
+    GetCsatSummaryResult,
+    GetCsatSummaryUseCase,
 )
 from supervisor_ai.application.use_cases.get_financial_summary import (
     CollaboratorCurrencySummary,
@@ -35,6 +50,23 @@ from supervisor_ai.application.use_cases.get_processing_run_details import (
     ProcessingRunCommercialEvent,
     ProcessingRunDetails,
     ProcessingRunPhaseDetails,
+)
+from supervisor_ai.application.use_cases.get_recurrence_summary import (
+    GetRecurrenceSummaryResult,
+    GetRecurrenceSummaryUseCase,
+    RecurrenceOperatorSummary,
+)
+from supervisor_ai.application.use_cases.import_attendances import (
+    AttendanceInput,
+    ImportAttendancesCommand,
+    ImportAttendancesResult,
+    ImportAttendancesUseCase,
+)
+from supervisor_ai.application.use_cases.import_csat_evaluations import (
+    CsatEvaluationInput,
+    ImportCsatEvaluationsCommand,
+    ImportCsatEvaluationsResult,
+    ImportCsatEvaluationsUseCase,
 )
 from supervisor_ai.application.use_cases.list_commercial_events import (
     CommercialEventListItem,
@@ -63,6 +95,8 @@ from supervisor_ai.application.use_cases.process_commercial_event import (
 )
 
 __all__ = [
+    "AttendanceInput",
+    "AttendanceItem",
     "CollaboratorCurrencySummary",
     "CollaboratorFinancialSummary",
     "CollaboratorFinancialTimelineItem",
@@ -73,12 +107,21 @@ __all__ = [
     "CommercialEventProcessingHealth",
     "CommercialEventPhase",
     "CommercialEventPhaseHandler",
+    "CsatEvaluationInput",
+    "CsatEvaluationItem",
+    "CsatSummaryGroup",
     "FinancialSnapshotCurrencyTotal",
     "FinancialSnapshotItem",
     "FinancialSummaryCurrencyTotal",
     "GetCommercialEventDetailsQuery",
     "GetCommercialEventDetailsResult",
     "GetCommercialEventDetailsUseCase",
+    "GetCsatEvaluationsResult",
+    "GetCsatEvaluationsUseCase",
+    "GetCsatSummaryResult",
+    "GetCsatSummaryUseCase",
+    "GetAttendancesResult",
+    "GetAttendancesUseCase",
     "GetCollaboratorFinancialTimelineQuery",
     "GetCollaboratorFinancialTimelineResult",
     "GetCollaboratorFinancialTimelineUseCase",
@@ -94,12 +137,20 @@ __all__ = [
     "GetProcessingHealthQuery",
     "GetProcessingHealthResult",
     "GetProcessingHealthUseCase",
+    "GetRecurrenceSummaryResult",
+    "GetRecurrenceSummaryUseCase",
     "ListCommercialEventsQuery",
     "ListCommercialEventsResult",
     "ListCommercialEventsUseCase",
     "ListProcessingRunsQuery",
     "ListProcessingRunsResult",
     "ListProcessingRunsUseCase",
+    "ImportCsatEvaluationsCommand",
+    "ImportCsatEvaluationsResult",
+    "ImportCsatEvaluationsUseCase",
+    "ImportAttendancesCommand",
+    "ImportAttendancesResult",
+    "ImportAttendancesUseCase",
     "PhaseResult",
     "ProcessAndPersistCommercialEventCommand",
     "ProcessAndPersistCommercialEventResult",
@@ -112,6 +163,7 @@ __all__ = [
     "ProcessingRunPhaseDetails",
     "ProcessingRunHealth",
     "ProcessingRunListItem",
+    "RecurrenceOperatorSummary",
     "TimelineCommercialEvent",
 ]
 from supervisor_ai.application.use_cases.get_financial_snapshot import (

@@ -284,6 +284,44 @@ parciais, diferenciadas pelo campo `status`. Estrutura CSV inválida retorna
 `400`; upload ausente, vazio ou fora de UTF-8 retorna `422`; falhas fatais
 retornam `500` com mensagem segura.
 
+Importe fatos CSAT por um contrato CSV local independente do evento comercial:
+
+```bash
+curl -X POST \
+  -F "file=@docs/exemplos/importacao_csat.csv;type=text/csv" \
+  http://127.0.0.1:8000/imports/csat/csv
+```
+
+Consulte as avaliações e seu resumo factual:
+
+```bash
+curl "http://127.0.0.1:8000/csat/evaluations?collaborator_id=collaborator-1"
+curl "http://127.0.0.1:8000/csat/summary?source=npx-export"
+```
+
+As datas filtram `evaluated_at` em UTC de forma inclusiva. A API preserva notas
+e médias como strings decimais. Não existe escala, meta, classificação, RV ou
+integração direta com NPX/MKBot nesta versão.
+
+Importe fatos de atendimento para o cálculo determinístico de reincidência:
+
+```bash
+curl -X POST \
+  -F "file=@docs/exemplos/importacao_reincidencia.csv;type=text/csv" \
+  http://127.0.0.1:8000/imports/recurrence/attendances/csv
+```
+
+Consulte fatos ou uma coorte mensal cuja janela de 30 dias esteja coberta:
+
+```bash
+curl "http://127.0.0.1:8000/recurrence/attendances?customer_code=customer-1"
+curl "http://127.0.0.1:8000/recurrence/summary?reference_month=2026-07&observed_through=2026-08-30"
+```
+
+A taxa usa somente atendimentos técnicos elegíveis. Canal não impede o
+pareamento, e a ocorrência pertence ao operador e ao mês do atendimento
+original. Classificações preservam conjuntamente código e descrição.
+
 Consulte os créditos financeiros consolidados:
 
 ```bash

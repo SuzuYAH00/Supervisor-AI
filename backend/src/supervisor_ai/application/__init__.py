@@ -1,9 +1,12 @@
 """Casos de uso e portas da camada Application."""
 
+from supervisor_ai.application.csat import CsatFilters
 from supervisor_ai.application.errors import (
     ApplicationConflict,
+    AttendanceFactConflict,
     CommercialEventConflict,
     CommercialEventNotFound,
+    CsatEvaluationConflict,
     LedgerConflict,
     ProcessingRunNotFound,
 )
@@ -14,10 +17,14 @@ from supervisor_ai.application.financial_snapshot import (
     RemunerationPostingFacts,
 )
 from supervisor_ai.application.persistence import (
+    AttendanceFact,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    CsatEvaluation,
+    CsatSummaryGroupRecord,
+    CsatSummaryRecord,
     ProcessingHealthCount,
     ProcessingHealthRecord,
     ProcessingRun,
@@ -25,7 +32,9 @@ from supervisor_ai.application.persistence import (
     ProcessingRunListRecord,
 )
 from supervisor_ai.application.ports import (
+    AttendanceRepository,
     Clock,
+    CsatRepository,
     EventRepository,
     LedgerRepository,
     ProcessingRunIdGenerator,
@@ -33,8 +42,16 @@ from supervisor_ai.application.ports import (
     UnitOfWork,
     UnitOfWorkFactory,
 )
+from supervisor_ai.application.recurrence import (
+    AttendanceFilters,
+    RecurrenceCohortQuery,
+)
 
 __all__ = [
+    "AttendanceFact",
+    "AttendanceFactConflict",
+    "AttendanceFilters",
+    "AttendanceRepository",
     "ApplicationConflict",
     "CommercialEvent",
     "CommercialEventConflict",
@@ -42,6 +59,12 @@ __all__ = [
     "CollaboratorFinancialTimelineCursorPosition",
     "CollaboratorFinancialTimelineRecord",
     "CommercialEventNotFound",
+    "CsatEvaluation",
+    "CsatEvaluationConflict",
+    "CsatFilters",
+    "CsatRepository",
+    "CsatSummaryGroupRecord",
+    "CsatSummaryRecord",
     "Clock",
     "EventRepository",
     "FinancialSnapshot",
@@ -58,6 +81,7 @@ __all__ = [
     "ProcessingRunRepository",
     "RemunerationFacts",
     "RemunerationPostingFacts",
+    "RecurrenceCohortQuery",
     "UnitOfWork",
     "UnitOfWorkFactory",
 ]

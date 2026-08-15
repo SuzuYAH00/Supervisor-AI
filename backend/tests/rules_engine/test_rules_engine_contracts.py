@@ -147,6 +147,7 @@ def test_rule_supports_structural_typing_without_inheritance() -> None:
 def test_public_api_exports_only_the_contract_surface() -> None:
     assert set(rules_engine.__all__) == {
         "CandidateDomainEvent",
+        "ClassificationIdentity",
         "AdministrativeNatureRule",
         "AuthorshipConflictRule",
         "CommercialClassificationName",
@@ -164,6 +165,9 @@ def test_public_api_exports_only_the_contract_surface() -> None:
         "EvaluationContext",
         "EvaluationResult",
         "ExistingLedgerEntryReference",
+        "ELIGIBLE_CLOSING_CLASSIFICATIONS",
+        "ELIGIBLE_OPENING_CLASSIFICATIONS",
+        "ELIGIBLE_PROCESS",
         "Evidence",
         "EvidenceValue",
         "Justification",
@@ -191,6 +195,9 @@ def test_public_api_exports_only_the_contract_surface() -> None:
         "PaymentValidationStatus",
         "RecurringRevenueClassificationRule",
         "RecurringValueComparisonRule",
+        "RECURRENCE_WINDOW_DAYS",
+        "RecurrenceAttendance",
+        "RecurrenceOccurrence",
         "RemunerationAmountEvaluator",
         "RemunerationAmountInput",
         "RemunerationAmountReason",
@@ -209,4 +216,7 @@ def test_public_api_exports_only_the_contract_surface() -> None:
         "TicketPurposeRule",
         "TicketSupportRule",
         "build_credit_entry_id",
+        "find_recurrences",
+        "is_recurrence_eligible",
+        "recurrence_rate",
     }

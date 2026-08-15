@@ -3,6 +3,8 @@ from types import TracebackType
 from sqlalchemy.orm import Session, sessionmaker
 
 from supervisor_ai.infrastructure.persistence.repositories import (
+    SqlAlchemyAttendanceRepository,
+    SqlAlchemyCsatRepository,
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
     SqlAlchemyProcessingHealthRepository,
@@ -26,6 +28,8 @@ class SqlAlchemyUnitOfWork:
         self.processing_runs = SqlAlchemyProcessingRunRepository(session)
         self.processing_health = SqlAlchemyProcessingHealthRepository(session)
         self.ledger = SqlAlchemyLedgerRepository(session)
+        self.csat = SqlAlchemyCsatRepository(session)
+        self.attendances = SqlAlchemyAttendanceRepository(session)
         return self
 
     def __exit__(

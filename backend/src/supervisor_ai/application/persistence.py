@@ -2,7 +2,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from supervisor_ai.rules_engine import Currency, LedgerEntryType
+from supervisor_ai.rules_engine import (
+    ClassificationIdentity,
+    Currency,
+    LedgerEntryType,
+)
 
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
@@ -33,6 +37,118 @@ class CommercialEvent:
         _require_aware(self.occurred_at, "occurred_at")
         _require_aware(self.received_at, "received_at")
         _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class CsatEvaluation:
+    id: str
+    external_reference: str
+    source: str
+    collaborator_id: str
+    channel: str | None
+    score: Decimal
+    evaluated_at: datetime
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        required = {
+            "id": self.id,
+            "external_reference": self.external_reference,
+            "source": self.source,
+            "collaborator_id": self.collaborator_id,
+        }
+        for name, value in required.items():
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+        limits = {
+            "id": (self.id, 128),
+            "external_reference": (self.external_reference, 255),
+            "source": (self.source, 100),
+            "collaborator_id": (self.collaborator_id, 128),
+        }
+        for name, (value, maximum) in limits.items():
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
+        if self.channel is not None and not self.channel.strip():
+            raise ValueError("channel must not be blank when provided")
+        if self.channel is not None and len(self.channel) > 100:
+            raise ValueError("channel must not exceed 100 characters")
+        if not self.score.is_finite():
+            raise ValueError("score must be finite")
+        _, digits, exponent = self.score.as_tuple()
+        decimal_places = max(-exponent, 0)
+        integer_places = max(len(digits) + exponent, 0)
+        if decimal_places > 6 or integer_places > 14:
+            raise ValueError("score exceeds persisted numeric precision")
+        _require_aware(self.evaluated_at, "evaluated_at")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class AttendanceFact:
+    id: str
+    external_reference: str
+    source: str
+    customer_code: str
+    operator_id: str
+    channel: str
+    occurred_at: datetime
+    process: ClassificationIdentity
+    opening_classification: ClassificationIdentity
+    closing_classification: ClassificationIdentity
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        required = {
+            "id": self.id,
+            "external_reference": self.external_reference,
+            "source": self.source,
+            "customer_code": self.customer_code,
+            "operator_id": self.operator_id,
+            "channel": self.channel,
+        }
+        for name, value in required.items():
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+        limits = {
+            "id": (self.id, 128),
+            "external_reference": (self.external_reference, 255),
+            "source": (self.source, 100),
+            "customer_code": (self.customer_code, 128),
+            "operator_id": (self.operator_id, 128),
+            "channel": (self.channel, 100),
+        }
+        for name, (value, maximum) in limits.items():
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
+        for identity, name in (
+            (self.process, "process"),
+            (self.opening_classification, "opening classification"),
+            (self.closing_classification, "closing classification"),
+        ):
+            if identity.code is not None and len(identity.code) > 20:
+                raise ValueError(f"{name} code must not exceed 20 characters")
+            if len(identity.description) > 255:
+                raise ValueError(
+                    f"{name} description must not exceed 255 characters"
+                )
+        _require_aware(self.occurred_at, "occurred_at")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class CsatSummaryGroupRecord:
+    value: str | None
+    evaluation_count: int
+    score_total: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class CsatSummaryRecord:
+    evaluation_count: int
+    score_total: Decimal
+    by_collaborator: tuple[CsatSummaryGroupRecord, ...]
+    by_channel: tuple[CsatSummaryGroupRecord, ...]
 
 
 @dataclass(frozen=True, slots=True)

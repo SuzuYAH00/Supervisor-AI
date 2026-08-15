@@ -2,12 +2,16 @@ import ast
 from pathlib import Path
 
 from supervisor_ai.application import (
+    AttendanceRepository,
+    CsatRepository,
     EventRepository,
     LedgerRepository,
     ProcessingRunRepository,
     UnitOfWork,
 )
 from supervisor_ai.infrastructure.persistence.repositories import (
+    SqlAlchemyAttendanceRepository,
+    SqlAlchemyCsatRepository,
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
     SqlAlchemyProcessingRunRepository,
@@ -46,10 +50,14 @@ def test_rules_engine_and_application_do_not_import_orm() -> None:
 
 def test_concrete_repositories_and_uow_implement_application_protocols() -> None:
     assert isinstance(SqlAlchemyEventRepository, type)
+    assert isinstance(SqlAlchemyAttendanceRepository, type)
+    assert isinstance(SqlAlchemyCsatRepository, type)
     assert isinstance(SqlAlchemyLedgerRepository, type)
     assert isinstance(SqlAlchemyProcessingRunRepository, type)
     assert isinstance(SqlAlchemyUnitOfWork, type)
     assert EventRepository is not SqlAlchemyEventRepository
+    assert AttendanceRepository is not SqlAlchemyAttendanceRepository
+    assert CsatRepository is not SqlAlchemyCsatRepository
     assert LedgerRepository is not SqlAlchemyLedgerRepository
     assert ProcessingRunRepository is not SqlAlchemyProcessingRunRepository
     assert UnitOfWork is not SqlAlchemyUnitOfWork

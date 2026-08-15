@@ -38,6 +38,18 @@ from supervisor_ai.rules_engine.payment_validation import (
     PaymentValidationResult,
     PaymentValidationStatus,
 )
+from supervisor_ai.rules_engine.recurrence import (
+    ELIGIBLE_CLOSING_CLASSIFICATIONS,
+    ELIGIBLE_OPENING_CLASSIFICATIONS,
+    ELIGIBLE_PROCESS,
+    RECURRENCE_WINDOW_DAYS,
+    ClassificationIdentity,
+    RecurrenceAttendance,
+    RecurrenceOccurrence,
+    find_recurrences,
+    is_recurrence_eligible,
+    recurrence_rate,
+)
 from supervisor_ai.rules_engine.remuneration_amount import (
     CommercialEventType,
     Currency,
@@ -82,6 +94,7 @@ from supervisor_ai.rules_engine.types import (
 
 __all__ = [
     "CandidateDomainEvent",
+    "ClassificationIdentity",
     "AdministrativeNatureRule",
     "AuthorshipConflictRule",
     "CommercialClassificationName",
@@ -99,6 +112,9 @@ __all__ = [
     "EvaluationContext",
     "EvaluationResult",
     "ExistingLedgerEntryReference",
+    "ELIGIBLE_CLOSING_CLASSIFICATIONS",
+    "ELIGIBLE_OPENING_CLASSIFICATIONS",
+    "ELIGIBLE_PROCESS",
     "Evidence",
     "EvidenceValue",
     "Justification",
@@ -125,6 +141,9 @@ __all__ = [
     "PaymentValidationResult",
     "PaymentValidationStatus",
     "RecurringRevenueClassificationRule",
+    "RECURRENCE_WINDOW_DAYS",
+    "RecurrenceAttendance",
+    "RecurrenceOccurrence",
     "RecurringValueComparisonRule",
     "RemunerationAmountEvaluator",
     "RemunerationAmountInput",
@@ -144,4 +163,7 @@ __all__ = [
     "TicketPurposeRule",
     "TicketSupportRule",
     "build_credit_entry_id",
+    "find_recurrences",
+    "is_recurrence_eligible",
+    "recurrence_rate",
 ]

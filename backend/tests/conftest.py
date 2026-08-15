@@ -12,6 +12,7 @@ from supervisor_ai.infrastructure.persistence.database import (
 )
 from supervisor_ai.infrastructure.persistence.models import (  # noqa: F401
     CommercialEventRecord,
+    CsatEvaluationRecord,
     LedgerEntryRecord,
     ProcessingRunRecord,
 )

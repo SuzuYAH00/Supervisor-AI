@@ -1,3 +1,9 @@
+from supervisor_ai.infrastructure.importing.attendance_csv import (
+    ATTENDANCE_CSV_COLUMNS,
+    AttendanceCsvImportService,
+    AttendanceCsvStructureError,
+    AttendanceCsvValidationError,
+)
 from supervisor_ai.infrastructure.importing.batch import (
     BatchDocument,
     BatchDocumentResult,
@@ -6,6 +12,12 @@ from supervisor_ai.infrastructure.importing.batch import (
     BatchImportResult,
     BatchStatistics,
     DocumentImporter,
+)
+from supervisor_ai.infrastructure.importing.csat_csv import (
+    CSAT_CSV_COLUMNS,
+    CsatCsvImportService,
+    CsatCsvStructureError,
+    CsatCsvValidationError,
 )
 from supervisor_ai.infrastructure.importing.csv_adapter import (
     CSV_COLUMNS,
@@ -37,6 +49,14 @@ from supervisor_ai.infrastructure.importing.reporting import (
 )
 
 __all__ = [
+    "ATTENDANCE_CSV_COLUMNS",
+    "AttendanceCsvImportService",
+    "AttendanceCsvStructureError",
+    "AttendanceCsvValidationError",
+    "CSAT_CSV_COLUMNS",
+    "CsatCsvImportService",
+    "CsatCsvStructureError",
+    "CsatCsvValidationError",
     "BatchDocument",
     "BatchDocumentResult",
     "BatchDocumentStatus",

@@ -17,6 +17,12 @@ from supervisor_ai.api.commercial_events import (
     CommercialEventListServiceContract,
     commercial_events_router,
 )
+from supervisor_ai.api.csat import (
+    CsatCsvImportServiceContract,
+    CsatEvaluationQueryServiceContract,
+    CsatSummaryServiceContract,
+    csat_router,
+)
 from supervisor_ai.api.errors import error_response
 from supervisor_ai.api.processing import (
     ProcessingHealthServiceContract,
@@ -28,6 +34,12 @@ from supervisor_ai.api.processing_runs import (
     processing_runs_router,
 )
 from supervisor_ai.api.projections import decimal_string
+from supervisor_ai.api.recurrence import (
+    AttendanceCsvImportServiceContract,
+    AttendanceQueryServiceContract,
+    RecurrenceSummaryServiceContract,
+    recurrence_router,
+)
 from supervisor_ai.api.schemas import (
     CollaboratorCurrencySummaryResponse,
     CollaboratorFinancialSummaryResponse,
@@ -82,6 +94,12 @@ class HttpApplicationServices:
     processing_run_details: ProcessingRunDetailsServiceContract
     processing_run_listing: ProcessingRunListServiceContract
     processing_health: ProcessingHealthServiceContract
+    csat_csv_import: CsatCsvImportServiceContract
+    csat_evaluation_query: CsatEvaluationQueryServiceContract
+    csat_summary: CsatSummaryServiceContract
+    attendance_csv_import: AttendanceCsvImportServiceContract
+    attendance_query: AttendanceQueryServiceContract
+    recurrence_summary: RecurrenceSummaryServiceContract
 
 
 def create_http_application(
@@ -132,6 +150,18 @@ def create_http_application(
                 422,
                 "upload_validation_error",
                 "A CSV file is required in multipart field 'file'",
+            )
+        if request.url.path == "/imports/csat/csv":
+            return error_response(
+                422,
+                "csat_upload_validation_error",
+                "A CSAT CSV file is required in multipart field 'file'",
+            )
+        if request.url.path == "/imports/recurrence/attendances/csv":
+            return error_response(
+                422,
+                "attendance_upload_validation_error",
+                "An attendance CSV file is required in multipart field 'file'",
             )
         return error_response(
             422,
@@ -287,6 +317,20 @@ def create_http_application(
         )
     )
     app.include_router(processing_router(services.processing_health))
+    app.include_router(
+        csat_router(
+            services.csat_csv_import,
+            services.csat_evaluation_query,
+            services.csat_summary,
+        )
+    )
+    app.include_router(
+        recurrence_router(
+            services.attendance_csv_import,
+            services.attendance_query,
+            services.recurrence_summary,
+        )
+    )
     return app
 
 

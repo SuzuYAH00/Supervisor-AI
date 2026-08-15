@@ -10,19 +10,27 @@ from supervisor_ai.application import (
 )
 from supervisor_ai.application.use_cases import (
     CommercialEventPhase,
+    GetAttendancesUseCase,
     GetCollaboratorFinancialTimelineUseCase,
     GetCommercialEventDetailsUseCase,
+    GetCsatEvaluationsUseCase,
+    GetCsatSummaryUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
+    GetRecurrenceSummaryUseCase,
+    ImportAttendancesUseCase,
+    ImportCsatEvaluationsUseCase,
     ListCommercialEventsUseCase,
     ListProcessingRunsUseCase,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
 )
 from supervisor_ai.infrastructure.importing import (
+    AttendanceCsvImportService,
     BatchImportProcessor,
+    CsatCsvImportService,
     CsvImportAdapter,
     CsvImportService,
     JsonCommercialEventImporter,
@@ -200,6 +208,12 @@ def build_http_application(database_url: str) -> FastAPI:
             processing_run_details=build_processing_run_details_service(database_url),
             processing_run_listing=build_processing_run_listing_service(database_url),
             processing_health=build_processing_health_service(database_url),
+            csat_csv_import=build_csat_csv_import_service(database_url),
+            csat_evaluation_query=build_csat_evaluation_query_service(database_url),
+            csat_summary=build_csat_summary_service(database_url),
+            attendance_csv_import=build_attendance_csv_import_service(database_url),
+            attendance_query=build_attendance_query_service(database_url),
+            recurrence_summary=build_recurrence_summary_service(database_url),
         )
     )
 
@@ -262,3 +276,48 @@ def build_processing_health_service(
 ) -> GetProcessingHealthUseCase:
     session_factory = build_session_factory(database_url)
     return GetProcessingHealthUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_csat_csv_import_service(database_url: str) -> CsatCsvImportService:
+    session_factory = build_session_factory(database_url)
+    return CsatCsvImportService(
+        ImportCsatEvaluationsUseCase(
+            build_unit_of_work_factory(session_factory),
+            SystemClock(),
+        )
+    )
+
+
+def build_csat_evaluation_query_service(
+    database_url: str,
+) -> GetCsatEvaluationsUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetCsatEvaluationsUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_csat_summary_service(database_url: str) -> GetCsatSummaryUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetCsatSummaryUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_attendance_csv_import_service(
+    database_url: str,
+) -> AttendanceCsvImportService:
+    session_factory = build_session_factory(database_url)
+    return AttendanceCsvImportService(
+        ImportAttendancesUseCase(
+            build_unit_of_work_factory(session_factory), SystemClock()
+        )
+    )
+
+
+def build_attendance_query_service(database_url: str) -> GetAttendancesUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetAttendancesUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_recurrence_summary_service(
+    database_url: str,
+) -> GetRecurrenceSummaryUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetRecurrenceSummaryUseCase(build_unit_of_work_factory(session_factory))

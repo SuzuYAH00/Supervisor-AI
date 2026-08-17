@@ -4,6 +4,7 @@ from supervisor_ai.application.persistence import (
     AttendanceFact,
     CommercialEvent,
     CsatEvaluation,
+    OperationalCollaboratorProfile,
     ProcessingRun,
 )
 from supervisor_ai.infrastructure.persistence.models import (
@@ -11,10 +12,12 @@ from supervisor_ai.infrastructure.persistence.models import (
     CommercialEventRecord,
     CsatEvaluationRecord,
     LedgerEntryRecord,
+    OperationalCollaboratorProfileRecord,
     ProcessingRunRecord,
 )
 from supervisor_ai.rules_engine import (
     ClassificationIdentity,
+    CsatCompetitiveChannel,
     Currency,
     LedgerEntry,
     LedgerEntryType,
@@ -69,6 +72,26 @@ def record_to_csat_evaluation(record: CsatEvaluationRecord) -> CsatEvaluation:
         channel=record.channel,
         score=record.score,
         evaluated_at=record.evaluated_at,
+        created_at=record.created_at,
+    )
+
+
+def operational_collaborator_profile_to_record(
+    profile: OperationalCollaboratorProfile,
+) -> OperationalCollaboratorProfileRecord:
+    return OperationalCollaboratorProfileRecord(
+        collaborator_id=profile.collaborator_id,
+        competitive_channel=profile.competitive_channel.value,
+        created_at=profile.created_at,
+    )
+
+
+def record_to_operational_collaborator_profile(
+    record: OperationalCollaboratorProfileRecord,
+) -> OperationalCollaboratorProfile:
+    return OperationalCollaboratorProfile(
+        collaborator_id=record.collaborator_id,
+        competitive_channel=CsatCompetitiveChannel(record.competitive_channel),
         created_at=record.created_at,
     )
 

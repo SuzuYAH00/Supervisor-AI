@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from supervisor_ai.rules_engine import (
     ClassificationIdentity,
+    CsatCompetitiveChannel,
     Currency,
     LedgerEntryType,
 )
@@ -81,6 +82,22 @@ class CsatEvaluation:
         if decimal_places > 6 or integer_places > 14:
             raise ValueError("score exceeds persisted numeric precision")
         _require_aware(self.evaluated_at, "evaluated_at")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalCollaboratorProfile:
+    collaborator_id: str
+    competitive_channel: CsatCompetitiveChannel
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        if not self.collaborator_id.strip():
+            raise ValueError("collaborator_id must not be blank")
+        if len(self.collaborator_id) > 128:
+            raise ValueError("collaborator_id must not exceed 128 characters")
+        if not isinstance(self.competitive_channel, CsatCompetitiveChannel):
+            raise ValueError("competitive_channel must be chat or phone")
         _require_aware(self.created_at, "created_at")
 
 

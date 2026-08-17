@@ -10,6 +10,7 @@ from supervisor_ai.application.persistence import (
     CommercialEventCursorPosition,
     CsatEvaluation,
     CsatSummaryRecord,
+    OperationalCollaboratorProfile,
     ProcessingHealthRecord,
     ProcessingRun,
     ProcessingRunCursorPosition,
@@ -122,6 +123,14 @@ class AttendanceRepository(Protocol):
     ) -> tuple[AttendanceFact, ...]: ...
 
 
+class OperationalCollaboratorProfileRepository(Protocol):
+    def add(self, profile: OperationalCollaboratorProfile) -> None: ...
+
+    def get_by_id(
+        self, collaborator_id: str
+    ) -> OperationalCollaboratorProfile | None: ...
+
+
 class LedgerRepository(Protocol):
     def add(self, entry: LedgerEntry) -> None: ...
 
@@ -159,6 +168,7 @@ class UnitOfWork(Protocol):
     ledger: LedgerRepository
     csat: CsatRepository
     attendances: AttendanceRepository
+    operational_collaborators: OperationalCollaboratorProfileRepository
 
     def __enter__(self) -> Self: ...
 

@@ -18,6 +18,10 @@ class AttendanceFactConflict(ApplicationConflict):
     """A identidade do atendimento diverge dos fatos persistidos."""
 
 
+class OperationalCollaboratorProfileConflict(ApplicationConflict):
+    """O perfil existente possui outra modalidade competitiva."""
+
+
 class CommercialEventNotFound(Exception):
     """O evento comercial solicitado não existe na persistência."""
 

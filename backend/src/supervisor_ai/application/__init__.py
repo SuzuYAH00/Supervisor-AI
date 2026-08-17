@@ -8,6 +8,7 @@ from supervisor_ai.application.errors import (
     CommercialEventNotFound,
     CsatEvaluationConflict,
     LedgerConflict,
+    OperationalCollaboratorProfileConflict,
     ProcessingRunNotFound,
 )
 from supervisor_ai.application.financial_snapshot import (
@@ -25,6 +26,7 @@ from supervisor_ai.application.persistence import (
     CsatEvaluation,
     CsatSummaryGroupRecord,
     CsatSummaryRecord,
+    OperationalCollaboratorProfile,
     ProcessingHealthCount,
     ProcessingHealthRecord,
     ProcessingRun,
@@ -37,6 +39,7 @@ from supervisor_ai.application.ports import (
     CsatRepository,
     EventRepository,
     LedgerRepository,
+    OperationalCollaboratorProfileRepository,
     ProcessingRunIdGenerator,
     ProcessingRunRepository,
     UnitOfWork,
@@ -70,6 +73,9 @@ __all__ = [
     "FinancialSnapshot",
     "LedgerRepository",
     "LedgerConflict",
+    "OperationalCollaboratorProfile",
+    "OperationalCollaboratorProfileConflict",
+    "OperationalCollaboratorProfileRepository",
     "PaymentFacts",
     "ProcessingRun",
     "ProcessingHealthCount",

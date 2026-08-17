@@ -177,6 +177,27 @@ class CsatEvaluationRecord(Base):
     )
 
 
+class OperationalCollaboratorProfileRecord(Base):
+    __tablename__ = "operational_collaborator_profiles"
+
+    collaborator_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    competitive_channel: Mapped[str] = mapped_column(String(10), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(collaborator_id) > 0",
+            name="ck_operational_collaborator_profiles_id",
+        ),
+        CheckConstraint(
+            "competitive_channel IN ('chat', 'phone')",
+            name="ck_operational_collaborator_profiles_channel",
+        ),
+    )
+
+
 class AttendanceFactRecord(Base):
     __tablename__ = "attendance_facts"
 

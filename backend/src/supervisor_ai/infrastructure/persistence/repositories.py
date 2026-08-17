@@ -14,6 +14,7 @@ from supervisor_ai.application.persistence import (
     CsatEvaluation,
     CsatSummaryGroupRecord,
     CsatSummaryRecord,
+    OperationalCollaboratorProfile,
     ProcessingHealthCount,
     ProcessingHealthRecord,
     ProcessingRun,
@@ -25,11 +26,13 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     csat_evaluation_to_record,
     event_to_record,
     ledger_entry_to_record,
+    operational_collaborator_profile_to_record,
     processing_run_to_record,
     record_to_attendance,
     record_to_csat_evaluation,
     record_to_event,
     record_to_ledger_entry,
+    record_to_operational_collaborator_profile,
     record_to_processing_run,
 )
 from supervisor_ai.infrastructure.persistence.models import (
@@ -37,6 +40,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     CommercialEventRecord,
     CsatEvaluationRecord,
     LedgerEntryRecord,
+    OperationalCollaboratorProfileRecord,
     ProcessingRunRecord,
 )
 from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
@@ -225,6 +229,25 @@ class SqlAlchemyCsatRepository:
                 for value, count, score in channel_rows
             ),
         )
+
+
+class SqlAlchemyOperationalCollaboratorProfileRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, profile: OperationalCollaboratorProfile) -> None:
+        self.session.add(operational_collaborator_profile_to_record(profile))
+        self.session.flush()
+
+    def get_by_id(
+        self, collaborator_id: str
+    ) -> OperationalCollaboratorProfile | None:
+        record = self.session.get(
+            OperationalCollaboratorProfileRecord, collaborator_id
+        )
+        if record is None:
+            return None
+        return record_to_operational_collaborator_profile(record)
 
 
 class SqlAlchemyAttendanceRepository:

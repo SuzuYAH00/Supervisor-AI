@@ -94,6 +94,12 @@ from supervisor_ai.application.use_cases.process_commercial_event import (
     ProcessCommercialEventUseCase,
 )
 
+from .register_operational_collaborator_profile import (
+    RegisterOperationalCollaboratorProfileCommand,
+    RegisterOperationalCollaboratorProfileResult,
+    RegisterOperationalCollaboratorProfileUseCase,
+)
+
 __all__ = [
     "AttendanceInput",
     "AttendanceItem",
@@ -164,6 +170,9 @@ __all__ = [
     "ProcessingRunHealth",
     "ProcessingRunListItem",
     "RecurrenceOperatorSummary",
+    "RegisterOperationalCollaboratorProfileCommand",
+    "RegisterOperationalCollaboratorProfileResult",
+    "RegisterOperationalCollaboratorProfileUseCase",
     "TimelineCommercialEvent",
 ]
 from supervisor_ai.application.use_cases.get_financial_snapshot import (

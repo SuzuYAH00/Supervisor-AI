@@ -61,9 +61,34 @@ atingiu faixa e recebeu R$ 0,00. Se algum componente necessário estiver
 
 ## CSAT
 
-Cada operador compete em exatamente um canal: `chat` ou `phone` (ligação). Não
-se somam os dois canais. A nota do operador e a média normativa recebidas pelo
-cálculo devem pertencer ao canal competitivo informado.
+`collaborator_id`, usado pelo CSAT, e `operator_id`, usado pela Reincidência,
+representam a mesma identidade operacional canônica. Não existe tradução entre
+essas identidades.
+
+Cada operador compete em exatamente uma modalidade: `chat` ou `phone`
+(ligação). A modalidade é atributo factual do perfil operacional do colaborador,
+determinado por sua função. Ela não é inferida do canal de uma avaliação ou de
+um atendimento ocasional. Não se somam as modalidades.
+
+O perfil mínimo atual persiste `collaborator_id` e `competitive_channel`. A
+modalidade é estável no MVP; não há vigência nem atualização implícita. Uma
+mudança futura deverá ocorrer por operação controlada e poderá evoluir o modelo
+sem alterar a identidade canônica.
+
+As avaliações de Chat usam originalmente escala de 0 a 5 e as de Ligação,
+escala de 1 a 5. Para competição, calcula-se primeiro a média bruta individual
+do operador e multiplica-se esse resultado por 2. Assim, por exemplo, `4.6 × 2`
+produz `9.2`, e a comparação da RV ocorre na escala final de 0 a 10.
+
+A média competitiva de cada modalidade é calculada em três passos:
+
+1. média bruta individual de cada operador participante;
+2. normalização de cada média individual por `× 2`;
+3. média aritmética das médias normalizadas dos operadores.
+
+Cada operador possui peso 1. Não se usa média ponderada pela quantidade de
+avaliações. A nota do operador e a média normativa recebidas pelo cálculo devem
+pertencer à modalidade competitiva registrada em seu perfil.
 
 O componente exige ao menos 20 dias trabalhados na competência. Com 20 dias ou
 mais, inclusive quando parte das férias foi vendida, a participação é integral.
@@ -85,14 +110,15 @@ Apenas a maior faixa atingida é aplicada.
 
 | Faixa | Regra | Valor |
 |---|---|---:|
-| Ouro | nota igual à nota máxima factual do canal/escala | R$ 800,00 |
+| Ouro | média final igual a `10.00` | R$ 800,00 |
 | Prata | nota maior ou igual à média do canal mais `0.10` | R$ 200,00 |
 | Bronze | nota maior ou igual à média do canal mais `0.05` | R$ 100,00 |
 
-Apenas a maior faixa atingida é aplicada. Como o contrato factual de CSAT atual
-não informa a nota máxima da escala de ligação, o Rules Engine exige esse valor
-como fato explícito. Sem ele, o componente fica `not_evaluable`; nenhuma
-constante de escala é presumida.
+Apenas a maior faixa atingida é aplicada. A escala original confirmada de
+Ligação é 1 a 5 e sua normalização produz máximo competitivo `10.00`. O Rules
+Engine puro continua recebendo o máximo como entrada explícita; a futura
+composição factual deverá fornecer `10.00` a partir desta regra normativa, sem
+inferi-lo das avaliações observadas.
 
 ## Reincidência
 
@@ -115,15 +141,23 @@ percentuais, e faixa Bronze. Não se aplica redução relativa de 3% sobre a mé
 
 Apenas a maior faixa atingida é aplicada.
 
+A média normativa usada pela RV é a média aritmética das taxas individuais dos
+participantes, com peso 1 por operador. Por exemplo, taxas de `10%`, `14%` e
+`18%` produzem média normativa de `14%`. O agregado operacional
+`total_occurrences / total_eligible_attendances` possui outra semântica e não é
+a referência competitiva da RV.
+
 ## Elegibilidade por componente
 
-A referência de 20 dias é aplicada ao CSAT da competência atual. Um operador
-com menos de 20 dias fica `not_eligible` nesse componente.
+A referência de 20 dias do CSAT é aplicada aos dias trabalhados no próprio mês
+da competência. Um operador com menos de 20 dias fica `not_eligible` nesse
+componente.
 
-Reincidência é baseada na coorte do mês anterior e recebe elegibilidade própria.
-Assim, um operador de férias no mês atual pode não participar do CSAT e ainda
-receber integralmente Reincidência por atendimentos elegíveis da coorte
-anterior.
+Reincidência é baseada na coorte do mês anterior e sua elegibilidade usa os dias
+trabalhados nesse mês anterior. Assim, na RV de julho um operador pode receber
+Reincidência da coorte de junho mesmo estando de férias em julho. Já a RV de
+agosto usa a coorte de julho; se o operador não atingiu 20 dias trabalhados em
+julho, ele não participa desse componente em agosto.
 
 Não há regra global que zere a RV inteira pela indisponibilidade de um único
 componente, nem proporcionalidade pelo número de dias trabalhados.
@@ -200,10 +234,8 @@ de qualquer postagem.
 O cálculo puro está fechado, mas o sistema ainda não possui todos os fatos
 necessários para executá-lo automaticamente:
 
-- atribuição comprovada de um único canal competitivo a cada operador;
-- nota máxima factual da escala de ligação;
-- média normativa de CSAT por canal e regra da população correspondente;
-- média normativa da população de Reincidência a ser usada pela RV;
+- população de participantes necessária para produzir as médias normativas de
+  CSAT e Reincidência;
 - fonte factual de dias trabalhados, atrasos e ausências/atestados;
 - elegibilidade factual de Reincidência para a competência de RV.
 

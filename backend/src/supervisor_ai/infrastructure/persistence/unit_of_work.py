@@ -7,6 +7,7 @@ from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyCsatRepository,
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
+    SqlAlchemyOperationalCollaboratorProfileRepository,
     SqlAlchemyProcessingHealthRepository,
     SqlAlchemyProcessingRunRepository,
 )
@@ -30,6 +31,9 @@ class SqlAlchemyUnitOfWork:
         self.ledger = SqlAlchemyLedgerRepository(session)
         self.csat = SqlAlchemyCsatRepository(session)
         self.attendances = SqlAlchemyAttendanceRepository(session)
+        self.operational_collaborators = (
+            SqlAlchemyOperationalCollaboratorProfileRepository(session)
+        )
         return self
 
     def __exit__(

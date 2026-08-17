@@ -6,6 +6,7 @@ from supervisor_ai.application import (
     CsatRepository,
     EventRepository,
     LedgerRepository,
+    OperationalCollaboratorProfileRepository,
     ProcessingRunRepository,
     UnitOfWork,
 )
@@ -14,6 +15,7 @@ from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyCsatRepository,
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
+    SqlAlchemyOperationalCollaboratorProfileRepository,
     SqlAlchemyProcessingRunRepository,
 )
 from supervisor_ai.infrastructure.persistence.unit_of_work import (
@@ -53,12 +55,17 @@ def test_concrete_repositories_and_uow_implement_application_protocols() -> None
     assert isinstance(SqlAlchemyAttendanceRepository, type)
     assert isinstance(SqlAlchemyCsatRepository, type)
     assert isinstance(SqlAlchemyLedgerRepository, type)
+    assert isinstance(SqlAlchemyOperationalCollaboratorProfileRepository, type)
     assert isinstance(SqlAlchemyProcessingRunRepository, type)
     assert isinstance(SqlAlchemyUnitOfWork, type)
     assert EventRepository is not SqlAlchemyEventRepository
     assert AttendanceRepository is not SqlAlchemyAttendanceRepository
     assert CsatRepository is not SqlAlchemyCsatRepository
     assert LedgerRepository is not SqlAlchemyLedgerRepository
+    assert (
+        OperationalCollaboratorProfileRepository
+        is not SqlAlchemyOperationalCollaboratorProfileRepository
+    )
     assert ProcessingRunRepository is not SqlAlchemyProcessingRunRepository
     assert UnitOfWork is not SqlAlchemyUnitOfWork
 

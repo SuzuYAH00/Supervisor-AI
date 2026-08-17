@@ -36,6 +36,11 @@ def test_migrations_create_csat_schema_from_zero(
     }
     assert "uq_csat_evaluations_source_reference" in index_names
     assert "attendance_facts" in inspector.get_table_names()
+    assert "operational_collaborator_profiles" in inspector.get_table_names()
+    assert {
+        column["name"]
+        for column in inspector.get_columns("operational_collaborator_profiles")
+    } == {"collaborator_id", "competitive_channel", "created_at"}
     assert {
         column["name"] for column in inspector.get_columns("attendance_facts")
     } == {

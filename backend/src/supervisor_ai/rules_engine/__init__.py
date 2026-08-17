@@ -113,6 +113,14 @@ from supervisor_ai.rules_engine.types import (
     Justification,
     RulePhase,
 )
+from supervisor_ai.rules_engine.workforce_presence import (
+    MINIMUM_MONTHLY_WORKED_DAYS,
+    MonthlyPresenceResult,
+    PresenceDay,
+    PresenceDayCategory,
+    classify_presence_code,
+    summarize_monthly_presence,
+)
 
 __all__ = [
     "CandidateDomainEvent",
@@ -162,6 +170,8 @@ __all__ = [
     "NonLoyaltyAdditionalType",
     "DuplicateAuthorRule",
     "ManualReviewRule",
+    "MINIMUM_MONTHLY_WORKED_DAYS",
+    "MonthlyPresenceResult",
     "OperationalDecisionName",
     "OperationalFactName",
     "OperationalContextEligibilityRule",
@@ -173,6 +183,8 @@ __all__ = [
     "PaymentValidationReason",
     "PaymentValidationResult",
     "PaymentValidationStatus",
+    "PresenceDay",
+    "PresenceDayCategory",
     "RecurringRevenueClassificationRule",
     "RECURRENCE_WINDOW_DAYS",
     "RecurrenceAttendance",
@@ -206,6 +218,8 @@ __all__ = [
     "VariableCompensationTier",
     "build_credit_entry_id",
     "find_recurrences",
+    "classify_presence_code",
     "is_recurrence_eligible",
     "recurrence_rate",
+    "summarize_monthly_presence",
 ]

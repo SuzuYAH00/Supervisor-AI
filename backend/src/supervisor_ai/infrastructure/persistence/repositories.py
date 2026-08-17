@@ -15,6 +15,7 @@ from supervisor_ai.application.persistence import (
     CsatEvaluation,
     CsatSummaryGroupRecord,
     CsatSummaryRecord,
+    DailyWorkStatusFact,
     OperationalCollaboratorProfile,
     ProcessingHealthCount,
     ProcessingHealthRecord,
@@ -26,6 +27,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     attendance_to_record,
     collaborator_external_identity_to_record,
     csat_evaluation_to_record,
+    daily_work_status_to_record,
     event_to_record,
     ledger_entry_to_record,
     operational_collaborator_profile_to_record,
@@ -33,6 +35,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     record_to_attendance,
     record_to_collaborator_external_identity,
     record_to_csat_evaluation,
+    record_to_daily_work_status,
     record_to_event,
     record_to_ledger_entry,
     record_to_operational_collaborator_profile,
@@ -43,6 +46,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     CollaboratorExternalIdentityRecord,
     CommercialEventRecord,
     CsatEvaluationRecord,
+    DailyWorkStatusRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
     ProcessingRunRecord,
@@ -337,6 +341,54 @@ class SqlAlchemyAttendanceRepository:
             .order_by(AttendanceFactRecord.occurred_at, AttendanceFactRecord.id)
         )
         return tuple(record_to_attendance(record) for record in records)
+
+
+class SqlAlchemyDailyWorkStatusRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, fact: DailyWorkStatusFact) -> None:
+        self.session.add(daily_work_status_to_record(fact))
+        self.session.flush()
+
+    def get_by_id(self, fact_id: str) -> DailyWorkStatusFact | None:
+        record = self.session.get(DailyWorkStatusRecord, fact_id)
+        return None if record is None else record_to_daily_work_status(record)
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> DailyWorkStatusFact | None:
+        record = self.session.scalar(
+            select(DailyWorkStatusRecord).where(
+                DailyWorkStatusRecord.source == source,
+                DailyWorkStatusRecord.external_reference == external_reference,
+            )
+        )
+        return None if record is None else record_to_daily_work_status(record)
+
+    def get_by_collaborator_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> DailyWorkStatusFact | None:
+        record = self.session.scalar(
+            select(DailyWorkStatusRecord).where(
+                DailyWorkStatusRecord.collaborator_id == collaborator_id,
+                DailyWorkStatusRecord.work_date == work_date,
+            )
+        )
+        return None if record is None else record_to_daily_work_status(record)
+
+    def search_month(
+        self, *, collaborator_id: str, competence_month: date
+    ) -> tuple[DailyWorkStatusFact, ...]:
+        records = self.session.scalars(
+            select(DailyWorkStatusRecord)
+            .where(
+                DailyWorkStatusRecord.collaborator_id == collaborator_id,
+                DailyWorkStatusRecord.competence_month == competence_month,
+            )
+            .order_by(DailyWorkStatusRecord.work_date)
+        )
+        return tuple(record_to_daily_work_status(record) for record in records)
 
 
 class SqlAlchemyProcessingRunRepository:

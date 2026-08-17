@@ -47,9 +47,16 @@ from supervisor_ai.infrastructure.importing.reporting import (
     has_csv_import_failures,
     project_csv_import_report,
 )
+from supervisor_ai.infrastructure.importing.workforce_schedule_xlsx import (
+    ATTENDANCE_SHEET_SOURCE,
+    WorkforceScheduleXlsxError,
+    WorkforceScheduleXlsxImportService,
+    parse_workforce_schedule_xlsx,
+)
 
 __all__ = [
     "ATTENDANCE_CSV_COLUMNS",
+    "ATTENDANCE_SHEET_SOURCE",
     "AttendanceCsvImportService",
     "AttendanceCsvStructureError",
     "AttendanceCsvValidationError",
@@ -81,7 +88,10 @@ __all__ = [
     "JsonCommercialEventImporter",
     "JsonImportResult",
     "JsonSyntaxError",
+    "WorkforceScheduleXlsxError",
+    "WorkforceScheduleXlsxImportService",
     "correlate_csv_rows",
     "has_csv_import_failures",
     "project_csv_import_report",
+    "parse_workforce_schedule_xlsx",
 ]

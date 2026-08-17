@@ -17,11 +17,13 @@ from supervisor_ai.application.use_cases import (
     GetCsatSummaryUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
+    GetMonthlyPresenceUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
     GetRecurrenceSummaryUseCase,
     ImportAttendancesUseCase,
     ImportCsatEvaluationsUseCase,
+    ImportDailyWorkStatusesUseCase,
     ListCommercialEventsUseCase,
     ListProcessingRunsUseCase,
     ProcessAndPersistCommercialEventUseCase,
@@ -34,6 +36,7 @@ from supervisor_ai.infrastructure.importing import (
     CsvImportAdapter,
     CsvImportService,
     JsonCommercialEventImporter,
+    WorkforceScheduleXlsxImportService,
 )
 from supervisor_ai.infrastructure.persistence.database import (
     create_database_engine,
@@ -321,3 +324,21 @@ def build_recurrence_summary_service(
 ) -> GetRecurrenceSummaryUseCase:
     session_factory = build_session_factory(database_url)
     return GetRecurrenceSummaryUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_workforce_schedule_import_service(
+    database_url: str,
+) -> WorkforceScheduleXlsxImportService:
+    session_factory = build_session_factory(database_url)
+    return WorkforceScheduleXlsxImportService(
+        ImportDailyWorkStatusesUseCase(
+            build_unit_of_work_factory(session_factory), SystemClock()
+        )
+    )
+
+
+def build_monthly_presence_service(
+    database_url: str,
+) -> GetMonthlyPresenceUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetMonthlyPresenceUseCase(build_unit_of_work_factory(session_factory))

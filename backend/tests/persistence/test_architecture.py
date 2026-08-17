@@ -4,6 +4,7 @@ from pathlib import Path
 from supervisor_ai.application import (
     AttendanceRepository,
     CsatRepository,
+    DailyWorkStatusRepository,
     EventRepository,
     LedgerRepository,
     OperationalCollaboratorProfileRepository,
@@ -13,6 +14,7 @@ from supervisor_ai.application import (
 from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyAttendanceRepository,
     SqlAlchemyCsatRepository,
+    SqlAlchemyDailyWorkStatusRepository,
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
     SqlAlchemyOperationalCollaboratorProfileRepository,
@@ -54,6 +56,7 @@ def test_concrete_repositories_and_uow_implement_application_protocols() -> None
     assert isinstance(SqlAlchemyEventRepository, type)
     assert isinstance(SqlAlchemyAttendanceRepository, type)
     assert isinstance(SqlAlchemyCsatRepository, type)
+    assert isinstance(SqlAlchemyDailyWorkStatusRepository, type)
     assert isinstance(SqlAlchemyLedgerRepository, type)
     assert isinstance(SqlAlchemyOperationalCollaboratorProfileRepository, type)
     assert isinstance(SqlAlchemyProcessingRunRepository, type)
@@ -61,6 +64,7 @@ def test_concrete_repositories_and_uow_implement_application_protocols() -> None
     assert EventRepository is not SqlAlchemyEventRepository
     assert AttendanceRepository is not SqlAlchemyAttendanceRepository
     assert CsatRepository is not SqlAlchemyCsatRepository
+    assert DailyWorkStatusRepository is not SqlAlchemyDailyWorkStatusRepository
     assert LedgerRepository is not SqlAlchemyLedgerRepository
     assert (
         OperationalCollaboratorProfileRepository

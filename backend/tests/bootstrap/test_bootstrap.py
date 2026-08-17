@@ -15,6 +15,7 @@ from supervisor_ai.application.use_cases import (
     GetCsatSummaryUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
+    GetMonthlyPresenceUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
     GetRecurrenceSummaryUseCase,
@@ -37,6 +38,7 @@ from supervisor_ai.bootstrap import (
     build_csv_import_service,
     build_financial_snapshot_service,
     build_financial_summary_service,
+    build_monthly_presence_service,
     build_processing_health_service,
     build_processing_run_details_service,
     build_processing_run_listing_service,
@@ -45,12 +47,14 @@ from supervisor_ai.bootstrap import (
     build_session_factory,
     build_transactional_processor,
     build_unit_of_work_factory,
+    build_workforce_schedule_import_service,
 )
 from supervisor_ai.database.base import Base
 from supervisor_ai.infrastructure.importing import (
     AttendanceCsvImportService,
     CsatCsvImportService,
     CsvImportService,
+    WorkforceScheduleXlsxImportService,
 )
 from supervisor_ai.infrastructure.runtime import (
     SystemClock,
@@ -220,6 +224,16 @@ def test_build_recurrence_services_use_established_layers(tmp_path: Path) -> Non
     assert isinstance(importer, AttendanceCsvImportService)
     assert isinstance(query, GetAttendancesUseCase)
     assert isinstance(summary, GetRecurrenceSummaryUseCase)
+
+
+def test_build_presence_services_use_established_layers(tmp_path: Path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'presence-bootstrap.sqlite3'}"
+
+    importer = build_workforce_schedule_import_service(database_url)
+    query = build_monthly_presence_service(database_url)
+
+    assert isinstance(importer, WorkforceScheduleXlsxImportService)
+    assert isinstance(query, GetMonthlyPresenceUseCase)
 
 
 def test_build_financial_snapshot_service_uses_application_query(

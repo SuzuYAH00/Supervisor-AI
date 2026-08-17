@@ -18,6 +18,10 @@ class AttendanceFactConflict(ApplicationConflict):
     """A identidade do atendimento diverge dos fatos persistidos."""
 
 
+class DailyWorkStatusConflict(ApplicationConflict):
+    """A mesma origem ou dia de trabalho diverge do fato persistido."""
+
+
 class OperationalCollaboratorProfileConflict(ApplicationConflict):
     """O perfil existente possui outra modalidade competitiva."""
 

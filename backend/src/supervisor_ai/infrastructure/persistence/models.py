@@ -1,10 +1,11 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -267,5 +268,51 @@ class AttendanceFactRecord(Base):
             "ix_attendance_facts_operator_occurred_at",
             "operator_id",
             "occurred_at",
+        ),
+    )
+
+
+class DailyWorkStatusRecord(Base):
+    __tablename__ = "daily_work_statuses"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"),
+        nullable=False,
+    )
+    work_date: Mapped[date] = mapped_column(Date(), nullable=False)
+    competence_month: Mapped[date] = mapped_column(Date(), nullable=False)
+    raw_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_sheet: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_cell: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(raw_code) > 0", name="ck_daily_work_status_code"),
+        CheckConstraint("length(source) > 0", name="ck_daily_work_status_source"),
+        CheckConstraint(
+            "length(external_reference) > 0",
+            name="ck_daily_work_status_external_reference",
+        ),
+        Index(
+            "uq_daily_work_status_source_reference",
+            "source",
+            "external_reference",
+            unique=True,
+        ),
+        Index(
+            "uq_daily_work_status_collaborator_date",
+            "collaborator_id",
+            "work_date",
+            unique=True,
+        ),
+        Index(
+            "ix_daily_work_status_collaborator_competence",
+            "collaborator_id",
+            "competence_month",
         ),
     )

@@ -247,12 +247,14 @@ de qualquer postagem.
 
 ## Bloqueios de integração
 
-O cálculo puro está fechado, mas o sistema ainda não possui todos os fatos
-necessários para executá-lo automaticamente:
+O cálculo puro está fechado. O slice de presença já persiste os códigos diários
+da escala, resolve a identidade canônica e deriva `worked_days`, o limiar de 20
+dias e ausências penalizáveis (`A`, `F`, `OF`) separadas de ausências não
+penalizáveis (`B.H`). Ainda faltam fatos e composição para execução automática:
 
 - população de participantes necessária para produzir as médias normativas de
   CSAT e Reincidência;
-- fonte factual de dias trabalhados, atrasos e ausências/atestados;
+- fonte factual de atrasos;
 - elegibilidade factual de Reincidência para a competência de RV.
 
 Esses dados são entradas explícitas da regra e não são inventados pelo Rules

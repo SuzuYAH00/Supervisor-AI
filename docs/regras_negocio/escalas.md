@@ -1,0 +1,60 @@
+# Presença e escala operacional
+
+## Fonte e recorte suportado
+
+O formato normativo inicial é o workbook de escala utilizado a partir de
+abril de 2026. Formatos anteriores não são aceitos. A fonte interna estável é
+`attendance_sheet`; o nome encontrado na planilha é resolvido exatamente por
+`CollaboratorExternalIdentity` antes de qualquer fato ser atribuído ao
+`collaborator_id` canônico. Não existe associação aproximada ou por
+similaridade.
+
+A data da célula diária determina a competência. Uma célula cuja data esteja
+fora do mês indicado pela aba é ignorada. Fórmulas e consolidações legadas não
+são fonte normativa: os resultados são derivados novamente dos códigos das
+células diárias.
+
+## Fato diário
+
+Cada célula diária não vazia produz um fato rastreável com colaborador, data,
+competência, código bruto, fonte, aba, célula e referência externa. A
+reimportação do mesmo conteúdo é idempotente. A mesma referência ou o mesmo
+par colaborador/data com conteúdo divergente produz conflito e não sobrescreve
+o histórico silenciosamente.
+
+## Classificação dos códigos
+
+| Categoria | Códigos |
+|---|---|
+| dia trabalhado | `P`, `PS`, `PD`, `PF`, `FT`, `EX`, `PL` |
+| ausência penalizável para RV | `A`, `F`, `OF` |
+| ausência não penalizável | `B.H` |
+| dia não trabalhado sem penalização definida | `FE`, `D`, `D.O`, `DF` |
+
+Códigos presentes na origem sem semântica normativa confirmada são preservados
+como não classificados. Eles não recebem significado monetário por inferência.
+
+“Ausência para fins de presença” não significa necessariamente “ausência
+penalizável para RV”. `B.H` é o principal exemplo: representa descanso por
+horas previamente trabalhadas, não conta para os 20 dias e não aumenta
+`absence_days` da RV.
+
+## Consolidação mensal
+
+`worked_days` é a quantidade de fatos classificados como dia trabalhado. A
+regra factual mínima é:
+
+```text
+meets_minimum_worked_days = worked_days >= 20
+```
+
+Não existe proporcionalidade. A consolidação também informa separadamente os
+dias de ausência penalizável e não penalizável. Ela não conclui sozinha a
+elegibilidade de CSAT ou Reincidência: cada componente da RV aplica sua própria
+referência temporal sobre o mês de presença correspondente.
+
+## Limites atuais
+
+A escala não é fonte confirmada de atrasos; atrasos não fazem parte deste
+slice. Também não há endpoint, frontend ou postagem no Ledger. A integração
+automática com a composição mensal de RV permanece posterior.

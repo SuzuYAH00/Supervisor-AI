@@ -11,6 +11,7 @@ from supervisor_ai.application.persistence import (
     CommercialEventCursorPosition,
     CsatEvaluation,
     CsatSummaryRecord,
+    DailyWorkStatusFact,
     OperationalCollaboratorProfile,
     ProcessingHealthRecord,
     ProcessingRun,
@@ -124,6 +125,24 @@ class AttendanceRepository(Protocol):
     ) -> tuple[AttendanceFact, ...]: ...
 
 
+class DailyWorkStatusRepository(Protocol):
+    def add(self, fact: DailyWorkStatusFact) -> None: ...
+
+    def get_by_id(self, fact_id: str) -> DailyWorkStatusFact | None: ...
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> DailyWorkStatusFact | None: ...
+
+    def get_by_collaborator_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> DailyWorkStatusFact | None: ...
+
+    def search_month(
+        self, *, collaborator_id: str, competence_month: date
+    ) -> tuple[DailyWorkStatusFact, ...]: ...
+
+
 class OperationalCollaboratorProfileRepository(Protocol):
     def add(self, profile: OperationalCollaboratorProfile) -> None: ...
 
@@ -177,6 +196,7 @@ class UnitOfWork(Protocol):
     ledger: LedgerRepository
     csat: CsatRepository
     attendances: AttendanceRepository
+    daily_work_statuses: DailyWorkStatusRepository
     operational_collaborators: OperationalCollaboratorProfileRepository
     collaborator_external_identities: CollaboratorExternalIdentityRepository
 

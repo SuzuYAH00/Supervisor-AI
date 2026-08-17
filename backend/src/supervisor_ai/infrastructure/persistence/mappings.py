@@ -5,6 +5,7 @@ from supervisor_ai.application.persistence import (
     CollaboratorExternalIdentity,
     CommercialEvent,
     CsatEvaluation,
+    DailyWorkStatusFact,
     OperationalCollaboratorProfile,
     ProcessingRun,
 )
@@ -13,6 +14,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     CollaboratorExternalIdentityRecord,
     CommercialEventRecord,
     CsatEvaluationRecord,
+    DailyWorkStatusRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
     ProcessingRunRecord,
@@ -157,6 +159,40 @@ def record_to_attendance(record: AttendanceFactRecord) -> AttendanceFact:
         closing_classification=ClassificationIdentity(
             record.closing_code, record.closing_description
         ),
+        created_at=record.created_at,
+    )
+
+
+def daily_work_status_to_record(
+    fact: DailyWorkStatusFact,
+) -> DailyWorkStatusRecord:
+    return DailyWorkStatusRecord(
+        id=fact.id,
+        collaborator_id=fact.collaborator_id,
+        work_date=fact.work_date,
+        competence_month=fact.competence_month,
+        raw_code=fact.raw_code,
+        source=fact.source,
+        external_reference=fact.external_reference,
+        source_sheet=fact.source_sheet,
+        source_cell=fact.source_cell,
+        created_at=fact.created_at,
+    )
+
+
+def record_to_daily_work_status(
+    record: DailyWorkStatusRecord,
+) -> DailyWorkStatusFact:
+    return DailyWorkStatusFact(
+        id=record.id,
+        collaborator_id=record.collaborator_id,
+        work_date=record.work_date,
+        competence_month=record.competence_month,
+        raw_code=record.raw_code,
+        source=record.source,
+        external_reference=record.external_reference,
+        source_sheet=record.source_sheet,
+        source_cell=record.source_cell,
         created_at=record.created_at,
     )
 

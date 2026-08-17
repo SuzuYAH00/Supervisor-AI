@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from supervisor_ai.rules_engine import (
@@ -171,6 +171,46 @@ class AttendanceFact:
                     f"{name} description must not exceed 255 characters"
                 )
         _require_aware(self.occurred_at, "occurred_at")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class DailyWorkStatusFact:
+    id: str
+    collaborator_id: str
+    work_date: date
+    competence_month: date
+    raw_code: str
+    source: str
+    external_reference: str
+    source_sheet: str
+    source_cell: str
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        values = {
+            "id": (self.id, 128),
+            "collaborator_id": (self.collaborator_id, 128),
+            "raw_code": (self.raw_code, 20),
+            "source": (self.source, 100),
+            "external_reference": (self.external_reference, 255),
+            "source_sheet": (self.source_sheet, 100),
+            "source_cell": (self.source_cell, 20),
+        }
+        for name, (value, maximum) in values.items():
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
+        if self.raw_code != self.raw_code.strip():
+            raise ValueError("raw_code must be trimmed")
+        if self.competence_month.day != 1:
+            raise ValueError("competence_month must be the first day of a month")
+        if (
+            self.work_date.year,
+            self.work_date.month,
+        ) != (self.competence_month.year, self.competence_month.month):
+            raise ValueError("work_date must belong to competence_month")
         _require_aware(self.created_at, "created_at")
 
 

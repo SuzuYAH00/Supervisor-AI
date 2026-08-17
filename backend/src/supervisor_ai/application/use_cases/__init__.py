@@ -36,6 +36,11 @@ from supervisor_ai.application.use_cases.get_financial_summary import (
     GetFinancialSummaryResult,
     GetFinancialSummaryUseCase,
 )
+from supervisor_ai.application.use_cases.get_monthly_presence import (
+    GetMonthlyPresenceQuery,
+    GetMonthlyPresenceResult,
+    GetMonthlyPresenceUseCase,
+)
 from supervisor_ai.application.use_cases.get_processing_health import (
     CommercialEventProcessingHealth,
     GetProcessingHealthQuery,
@@ -67,6 +72,12 @@ from supervisor_ai.application.use_cases.import_csat_evaluations import (
     ImportCsatEvaluationsCommand,
     ImportCsatEvaluationsResult,
     ImportCsatEvaluationsUseCase,
+)
+from supervisor_ai.application.use_cases.import_daily_work_statuses import (
+    DailyWorkStatusInput,
+    ImportDailyWorkStatusesCommand,
+    ImportDailyWorkStatusesResult,
+    ImportDailyWorkStatusesUseCase,
 )
 from supervisor_ai.application.use_cases.list_commercial_events import (
     CommercialEventListItem,
@@ -144,6 +155,9 @@ __all__ = [
     "GetFinancialSummaryQuery",
     "GetFinancialSummaryResult",
     "GetFinancialSummaryUseCase",
+    "GetMonthlyPresenceQuery",
+    "GetMonthlyPresenceResult",
+    "GetMonthlyPresenceUseCase",
     "GetFinancialSnapshotQuery",
     "GetFinancialSnapshotResult",
     "GetFinancialSnapshotUseCase",
@@ -167,6 +181,10 @@ __all__ = [
     "ImportAttendancesCommand",
     "ImportAttendancesResult",
     "ImportAttendancesUseCase",
+    "DailyWorkStatusInput",
+    "ImportDailyWorkStatusesCommand",
+    "ImportDailyWorkStatusesResult",
+    "ImportDailyWorkStatusesUseCase",
     "PhaseResult",
     "ProcessAndPersistCommercialEventCommand",
     "ProcessAndPersistCommercialEventResult",

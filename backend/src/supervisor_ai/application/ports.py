@@ -4,6 +4,7 @@ from typing import Protocol, Self
 
 from supervisor_ai.application.persistence import (
     AttendanceFact,
+    CollaboratorExternalIdentity,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
@@ -131,6 +132,14 @@ class OperationalCollaboratorProfileRepository(Protocol):
     ) -> OperationalCollaboratorProfile | None: ...
 
 
+class CollaboratorExternalIdentityRepository(Protocol):
+    def add(self, identity: CollaboratorExternalIdentity) -> None: ...
+
+    def get_by_source_identity(
+        self, *, source: str, external_identity: str
+    ) -> CollaboratorExternalIdentity | None: ...
+
+
 class LedgerRepository(Protocol):
     def add(self, entry: LedgerEntry) -> None: ...
 
@@ -169,6 +178,7 @@ class UnitOfWork(Protocol):
     csat: CsatRepository
     attendances: AttendanceRepository
     operational_collaborators: OperationalCollaboratorProfileRepository
+    collaborator_external_identities: CollaboratorExternalIdentityRepository
 
     def __enter__(self) -> Self: ...
 

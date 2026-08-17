@@ -198,6 +198,31 @@ class OperationalCollaboratorProfileRecord(Base):
     )
 
 
+class CollaboratorExternalIdentityRecord(Base):
+    __tablename__ = "collaborator_external_identities"
+
+    source: Mapped[str] = mapped_column(String(100), primary_key=True)
+    external_identity: Mapped[str] = mapped_column(String(255), primary_key=True)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(source) > 0",
+            name="ck_collaborator_external_identities_source",
+        ),
+        CheckConstraint(
+            "length(external_identity) > 0",
+            name="ck_collaborator_external_identities_value",
+        ),
+    )
+
+
 class AttendanceFactRecord(Base):
     __tablename__ = "attendance_facts"
 

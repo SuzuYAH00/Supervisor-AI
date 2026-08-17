@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyAttendanceRepository,
+    SqlAlchemyCollaboratorExternalIdentityRepository,
     SqlAlchemyCsatRepository,
     SqlAlchemyEventRepository,
     SqlAlchemyLedgerRepository,
@@ -33,6 +34,9 @@ class SqlAlchemyUnitOfWork:
         self.attendances = SqlAlchemyAttendanceRepository(session)
         self.operational_collaborators = (
             SqlAlchemyOperationalCollaboratorProfileRepository(session)
+        )
+        self.collaborator_external_identities = (
+            SqlAlchemyCollaboratorExternalIdentityRepository(session)
         )
         return self
 

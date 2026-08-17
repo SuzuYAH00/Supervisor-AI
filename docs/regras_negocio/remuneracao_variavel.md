@@ -75,6 +75,22 @@ modalidade é estável no MVP; não há vigência nem atualização implícita. 
 mudança futura deverá ocorrer por operação controlada e poderá evoluir o modelo
 sem alterar a identidade canônica.
 
+### Identidades externas do colaborador
+
+`collaborator_id` permanece a identidade canônica interna. Identificadores ou
+nomenclaturas fornecidos por sistemas externos são associados por meio do par
+`(source, external_identity)`, que identifica exatamente um perfil operacional.
+Um perfil pode possuir várias associações e o mesmo texto externo pode existir
+em origens diferentes.
+
+A associação preserva `source` e `external_identity` exatamente como recebidos:
+não altera caixa, não remove espaços e não aplica busca aproximada. Integrações
+futuras com MK, NPX, planilha de escala ou outras fontes deverão resolver essa
+identidade antes de atribuir fatos ao colaborador. Uma associação ausente ou
+ambígua falha explicitamente; não existe correspondência automática nem
+sobrescrita silenciosa. O cadastro e a eventual alteração administrativa dessas
+associações não possuem endpoint público nesta etapa.
+
 As avaliações de Chat usam originalmente escala de 0 a 5 e as de Ligação,
 escala de 1 a 5. Para competição, calcula-se primeiro a média bruta individual
 do operador e multiplica-se esse resultado por 2. Assim, por exemplo, `4.6 × 2`

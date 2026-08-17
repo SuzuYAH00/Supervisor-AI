@@ -22,6 +22,18 @@ class OperationalCollaboratorProfileConflict(ApplicationConflict):
     """O perfil existente possui outra modalidade competitiva."""
 
 
+class CollaboratorExternalIdentityConflict(ApplicationConflict):
+    """A identidade externa já aponta para outro colaborador."""
+
+
+class OperationalCollaboratorProfileNotFound(Exception):
+    """O perfil canônico necessário para a associação não existe."""
+
+
+class CollaboratorExternalIdentityNotFound(Exception):
+    """A identidade externa não possui associação canônica."""
+
+
 class CommercialEventNotFound(Exception):
     """O evento comercial solicitado não existe na persistência."""
 

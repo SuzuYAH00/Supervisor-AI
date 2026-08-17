@@ -102,6 +102,27 @@ class OperationalCollaboratorProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class CollaboratorExternalIdentity:
+    collaborator_id: str
+    source: str
+    external_identity: str
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        values = {
+            "collaborator_id": (self.collaborator_id, 128),
+            "source": (self.source, 100),
+            "external_identity": (self.external_identity, 255),
+        }
+        for name, (value, maximum) in values.items():
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
 class AttendanceFact:
     id: str
     external_reference: str

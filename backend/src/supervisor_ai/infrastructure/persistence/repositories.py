@@ -7,6 +7,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from supervisor_ai.application.persistence import (
     AttendanceFact,
+    CollaboratorExternalIdentity,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
@@ -23,12 +24,14 @@ from supervisor_ai.application.persistence import (
 )
 from supervisor_ai.infrastructure.persistence.mappings import (
     attendance_to_record,
+    collaborator_external_identity_to_record,
     csat_evaluation_to_record,
     event_to_record,
     ledger_entry_to_record,
     operational_collaborator_profile_to_record,
     processing_run_to_record,
     record_to_attendance,
+    record_to_collaborator_external_identity,
     record_to_csat_evaluation,
     record_to_event,
     record_to_ledger_entry,
@@ -37,6 +40,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
 )
 from supervisor_ai.infrastructure.persistence.models import (
     AttendanceFactRecord,
+    CollaboratorExternalIdentityRecord,
     CommercialEventRecord,
     CsatEvaluationRecord,
     LedgerEntryRecord,
@@ -248,6 +252,26 @@ class SqlAlchemyOperationalCollaboratorProfileRepository:
         if record is None:
             return None
         return record_to_operational_collaborator_profile(record)
+
+
+class SqlAlchemyCollaboratorExternalIdentityRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, identity: CollaboratorExternalIdentity) -> None:
+        self.session.add(collaborator_external_identity_to_record(identity))
+        self.session.flush()
+
+    def get_by_source_identity(
+        self, *, source: str, external_identity: str
+    ) -> CollaboratorExternalIdentity | None:
+        record = self.session.get(
+            CollaboratorExternalIdentityRecord,
+            (source, external_identity),
+        )
+        if record is None:
+            return None
+        return record_to_collaborator_external_identity(record)
 
 
 class SqlAlchemyAttendanceRepository:

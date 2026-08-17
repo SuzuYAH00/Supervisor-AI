@@ -2,6 +2,7 @@ from copy import deepcopy
 
 from supervisor_ai.application.persistence import (
     AttendanceFact,
+    CollaboratorExternalIdentity,
     CommercialEvent,
     CsatEvaluation,
     OperationalCollaboratorProfile,
@@ -9,6 +10,7 @@ from supervisor_ai.application.persistence import (
 )
 from supervisor_ai.infrastructure.persistence.models import (
     AttendanceFactRecord,
+    CollaboratorExternalIdentityRecord,
     CommercialEventRecord,
     CsatEvaluationRecord,
     LedgerEntryRecord,
@@ -92,6 +94,28 @@ def record_to_operational_collaborator_profile(
     return OperationalCollaboratorProfile(
         collaborator_id=record.collaborator_id,
         competitive_channel=CsatCompetitiveChannel(record.competitive_channel),
+        created_at=record.created_at,
+    )
+
+
+def collaborator_external_identity_to_record(
+    identity: CollaboratorExternalIdentity,
+) -> CollaboratorExternalIdentityRecord:
+    return CollaboratorExternalIdentityRecord(
+        collaborator_id=identity.collaborator_id,
+        source=identity.source,
+        external_identity=identity.external_identity,
+        created_at=identity.created_at,
+    )
+
+
+def record_to_collaborator_external_identity(
+    record: CollaboratorExternalIdentityRecord,
+) -> CollaboratorExternalIdentity:
+    return CollaboratorExternalIdentity(
+        collaborator_id=record.collaborator_id,
+        source=record.source,
+        external_identity=record.external_identity,
         created_at=record.created_at,
     )
 

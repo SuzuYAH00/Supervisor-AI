@@ -94,10 +94,20 @@ from supervisor_ai.application.use_cases.process_commercial_event import (
     ProcessCommercialEventUseCase,
 )
 
+from .register_collaborator_external_identity import (
+    RegisterCollaboratorExternalIdentityCommand,
+    RegisterCollaboratorExternalIdentityResult,
+    RegisterCollaboratorExternalIdentityUseCase,
+)
 from .register_operational_collaborator_profile import (
     RegisterOperationalCollaboratorProfileCommand,
     RegisterOperationalCollaboratorProfileResult,
     RegisterOperationalCollaboratorProfileUseCase,
+)
+from .resolve_collaborator_external_identity import (
+    ResolveCollaboratorExternalIdentityQuery,
+    ResolveCollaboratorExternalIdentityResult,
+    ResolveCollaboratorExternalIdentityUseCase,
 )
 
 __all__ = [
@@ -170,9 +180,15 @@ __all__ = [
     "ProcessingRunHealth",
     "ProcessingRunListItem",
     "RecurrenceOperatorSummary",
+    "RegisterCollaboratorExternalIdentityCommand",
+    "RegisterCollaboratorExternalIdentityResult",
+    "RegisterCollaboratorExternalIdentityUseCase",
     "RegisterOperationalCollaboratorProfileCommand",
     "RegisterOperationalCollaboratorProfileResult",
     "RegisterOperationalCollaboratorProfileUseCase",
+    "ResolveCollaboratorExternalIdentityQuery",
+    "ResolveCollaboratorExternalIdentityResult",
+    "ResolveCollaboratorExternalIdentityUseCase",
     "TimelineCommercialEvent",
 ]
 from supervisor_ai.application.use_cases.get_financial_snapshot import (

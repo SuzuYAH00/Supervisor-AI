@@ -4,11 +4,14 @@ from supervisor_ai.application.csat import CsatFilters
 from supervisor_ai.application.errors import (
     ApplicationConflict,
     AttendanceFactConflict,
+    CollaboratorExternalIdentityConflict,
+    CollaboratorExternalIdentityNotFound,
     CommercialEventConflict,
     CommercialEventNotFound,
     CsatEvaluationConflict,
     LedgerConflict,
     OperationalCollaboratorProfileConflict,
+    OperationalCollaboratorProfileNotFound,
     ProcessingRunNotFound,
 )
 from supervisor_ai.application.financial_snapshot import (
@@ -19,6 +22,7 @@ from supervisor_ai.application.financial_snapshot import (
 )
 from supervisor_ai.application.persistence import (
     AttendanceFact,
+    CollaboratorExternalIdentity,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
@@ -36,6 +40,7 @@ from supervisor_ai.application.persistence import (
 from supervisor_ai.application.ports import (
     AttendanceRepository,
     Clock,
+    CollaboratorExternalIdentityRepository,
     CsatRepository,
     EventRepository,
     LedgerRepository,
@@ -56,6 +61,10 @@ __all__ = [
     "AttendanceFilters",
     "AttendanceRepository",
     "ApplicationConflict",
+    "CollaboratorExternalIdentity",
+    "CollaboratorExternalIdentityConflict",
+    "CollaboratorExternalIdentityNotFound",
+    "CollaboratorExternalIdentityRepository",
     "CommercialEvent",
     "CommercialEventConflict",
     "CommercialEventCursorPosition",
@@ -75,6 +84,7 @@ __all__ = [
     "LedgerConflict",
     "OperationalCollaboratorProfile",
     "OperationalCollaboratorProfileConflict",
+    "OperationalCollaboratorProfileNotFound",
     "OperationalCollaboratorProfileRepository",
     "PaymentFacts",
     "ProcessingRun",

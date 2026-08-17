@@ -41,6 +41,19 @@ def test_migrations_create_csat_schema_from_zero(
         column["name"]
         for column in inspector.get_columns("operational_collaborator_profiles")
     } == {"collaborator_id", "competitive_channel", "created_at"}
+    assert "collaborator_external_identities" in inspector.get_table_names()
+    assert {
+        column["name"]
+        for column in inspector.get_columns("collaborator_external_identities")
+    } == {"source", "external_identity", "collaborator_id", "created_at"}
+    assert set(
+        inspector.get_pk_constraint("collaborator_external_identities")[
+            "constrained_columns"
+        ]
+    ) == {"source", "external_identity"}
+    assert inspector.get_foreign_keys("collaborator_external_identities")[0][
+        "referred_table"
+    ] == "operational_collaborator_profiles"
     assert {
         column["name"] for column in inspector.get_columns("attendance_facts")
     } == {

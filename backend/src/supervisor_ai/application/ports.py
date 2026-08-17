@@ -142,6 +142,10 @@ class DailyWorkStatusRepository(Protocol):
         self, *, collaborator_id: str, competence_month: date
     ) -> tuple[DailyWorkStatusFact, ...]: ...
 
+    def search_competence(
+        self, *, competence_month: date, collaborator_ids: tuple[str, ...]
+    ) -> tuple[DailyWorkStatusFact, ...]: ...
+
 
 class OperationalCollaboratorProfileRepository(Protocol):
     def add(self, profile: OperationalCollaboratorProfile) -> None: ...
@@ -149,6 +153,10 @@ class OperationalCollaboratorProfileRepository(Protocol):
     def get_by_id(
         self, collaborator_id: str
     ) -> OperationalCollaboratorProfile | None: ...
+
+    def get_by_ids(
+        self, collaborator_ids: tuple[str, ...]
+    ) -> tuple[OperationalCollaboratorProfile, ...]: ...
 
 
 class CollaboratorExternalIdentityRepository(Protocol):

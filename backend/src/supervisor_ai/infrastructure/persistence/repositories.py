@@ -257,6 +257,25 @@ class SqlAlchemyOperationalCollaboratorProfileRepository:
             return None
         return record_to_operational_collaborator_profile(record)
 
+    def get_by_ids(
+        self, collaborator_ids: tuple[str, ...]
+    ) -> tuple[OperationalCollaboratorProfile, ...]:
+        if not collaborator_ids:
+            return ()
+        records = self.session.scalars(
+            select(OperationalCollaboratorProfileRecord)
+            .where(
+                OperationalCollaboratorProfileRecord.collaborator_id.in_(
+                    collaborator_ids
+                )
+            )
+            .order_by(OperationalCollaboratorProfileRecord.collaborator_id)
+        )
+        return tuple(
+            record_to_operational_collaborator_profile(record)
+            for record in records
+        )
+
 
 class SqlAlchemyCollaboratorExternalIdentityRepository:
     def __init__(self, session: Session) -> None:
@@ -387,6 +406,24 @@ class SqlAlchemyDailyWorkStatusRepository:
                 DailyWorkStatusRecord.competence_month == competence_month,
             )
             .order_by(DailyWorkStatusRecord.work_date)
+        )
+        return tuple(record_to_daily_work_status(record) for record in records)
+
+    def search_competence(
+        self, *, competence_month: date, collaborator_ids: tuple[str, ...]
+    ) -> tuple[DailyWorkStatusFact, ...]:
+        if not collaborator_ids:
+            return ()
+        records = self.session.scalars(
+            select(DailyWorkStatusRecord)
+            .where(
+                DailyWorkStatusRecord.competence_month == competence_month,
+                DailyWorkStatusRecord.collaborator_id.in_(collaborator_ids),
+            )
+            .order_by(
+                DailyWorkStatusRecord.collaborator_id,
+                DailyWorkStatusRecord.work_date,
+            )
         )
         return tuple(record_to_daily_work_status(record) for record in records)
 

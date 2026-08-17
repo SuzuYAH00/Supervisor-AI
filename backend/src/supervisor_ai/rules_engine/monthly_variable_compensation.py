@@ -11,6 +11,10 @@ RECURRENCE_GOLD_AMOUNT = Decimal("800.00")
 RECURRENCE_SILVER_AMOUNT = Decimal("200.00")
 RECURRENCE_BRONZE_AMOUNT = Decimal("100.00")
 MAXIMUM_POSITIVE_AMOUNT = Decimal("1600.00")
+CHAT_MINIMUM_RESPONSE_RATE = Decimal("0.40")
+PHONE_MINIMUM_RESPONSE_RATE = Decimal("0.50")
+PHONE_COMPETITIVE_MAXIMUM_SCORE = Decimal("10.00")
+RECURRENCE_MAXIMUM_POPULATION_AVERAGE = Decimal("0.20")
 
 
 class CsatCompetitiveChannel(StrEnum):
@@ -69,6 +73,7 @@ class VariableCompensationCompetence:
 class CsatVariableCompensationFacts:
     worked_days: int
     channel: CsatCompetitiveChannel | None = None
+    response_rate: Decimal | None = None
     operator_score: Decimal | None = None
     channel_average: Decimal | None = None
     channel_maximum_score: Decimal | None = None
@@ -76,6 +81,7 @@ class CsatVariableCompensationFacts:
     def __post_init__(self) -> None:
         if self.worked_days < 0:
             raise ValueError("worked_days must not be negative")
+        _validate_optional_rate(self.response_rate, "response_rate")
         _validate_optional_decimal(self.operator_score, "operator_score")
         _validate_optional_decimal(self.channel_average, "channel_average")
         _validate_optional_decimal(
@@ -188,11 +194,20 @@ def _evaluate_csat(
         return _component_result(
             reference_month, VariableCompensationComponentStatus.NOT_ELIGIBLE
         )
-    if (
-        facts.channel is None
-        or facts.operator_score is None
-        or facts.channel_average is None
-    ):
+    if facts.channel is None or facts.response_rate is None:
+        return _component_result(
+            reference_month, VariableCompensationComponentStatus.NOT_EVALUABLE
+        )
+    minimum_response_rate = (
+        CHAT_MINIMUM_RESPONSE_RATE
+        if facts.channel is CsatCompetitiveChannel.CHAT
+        else PHONE_MINIMUM_RESPONSE_RATE
+    )
+    if facts.response_rate < minimum_response_rate:
+        return _component_result(
+            reference_month, VariableCompensationComponentStatus.NOT_ELIGIBLE
+        )
+    if facts.operator_score is None or facts.channel_average is None:
         return _component_result(
             reference_month, VariableCompensationComponentStatus.NOT_EVALUABLE
         )
@@ -229,6 +244,15 @@ def _evaluate_recurrence(
     if facts.operator_rate is None or facts.population_average_rate is None:
         return _component_result(
             reference_month, VariableCompensationComponentStatus.NOT_EVALUABLE
+        )
+    if (
+        facts.population_average_rate
+        > RECURRENCE_MAXIMUM_POPULATION_AVERAGE
+    ):
+        return _component_result(
+            reference_month,
+            VariableCompensationComponentStatus.ELIGIBLE,
+            amount=Decimal("0.00"),
         )
     difference = facts.population_average_rate - facts.operator_rate
     if difference >= Decimal("0.12"):

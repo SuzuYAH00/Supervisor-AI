@@ -7,6 +7,7 @@ from sqlalchemy import Engine
 
 from supervisor_ai.application import CommercialEvent
 from supervisor_ai.application.use_cases import (
+    CalculateMonthlyVariableCompensationUseCase,
     CommercialEventPhase,
     GetAttendancesUseCase,
     GetCollaboratorFinancialTimelineUseCase,
@@ -39,6 +40,7 @@ from supervisor_ai.bootstrap import (
     build_financial_snapshot_service,
     build_financial_summary_service,
     build_monthly_presence_service,
+    build_monthly_variable_compensation_service,
     build_processing_health_service,
     build_processing_run_details_service,
     build_processing_run_listing_service,
@@ -234,6 +236,16 @@ def test_build_presence_services_use_established_layers(tmp_path: Path) -> None:
 
     assert isinstance(importer, WorkforceScheduleXlsxImportService)
     assert isinstance(query, GetMonthlyPresenceUseCase)
+
+
+def test_build_monthly_variable_compensation_uses_application_and_rules_engine(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'rv-bootstrap.sqlite3'}"
+
+    service = build_monthly_variable_compensation_service(database_url)
+
+    assert isinstance(service, CalculateMonthlyVariableCompensationUseCase)
 
 
 def test_build_financial_snapshot_service_uses_application_query(

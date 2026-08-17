@@ -43,6 +43,7 @@ def csat(
     return CsatVariableCompensationFacts(
         worked_days=worked_days,
         channel=channel,
+        response_rate=Decimal("1.00"),
         operator_score=Decimal(score),
         channel_average=Decimal(average),
         channel_maximum_score=None if maximum is None else Decimal(maximum),
@@ -155,6 +156,38 @@ def test_phone_without_factual_maximum_is_not_evaluable() -> None:
     assert result.flag is None
 
 
+@pytest.mark.parametrize(
+    ("channel", "response_rate", "expected_status"),
+    (
+        (CsatCompetitiveChannel.CHAT, "0.39", "not_eligible"),
+        (CsatCompetitiveChannel.CHAT, "0.40", "eligible"),
+        (CsatCompetitiveChannel.PHONE, "0.49", "not_eligible"),
+        (CsatCompetitiveChannel.PHONE, "0.50", "eligible"),
+    ),
+)
+def test_csat_preserves_minimum_response_rate_by_competitive_channel(
+    channel: CsatCompetitiveChannel,
+    response_rate: str,
+    expected_status: str,
+) -> None:
+    facts = csat(
+        "9.00",
+        "9.00",
+        channel=channel,
+        maximum="10.00" if channel is CsatCompetitiveChannel.PHONE else None,
+    )
+    facts = CsatVariableCompensationFacts(
+        worked_days=facts.worked_days,
+        channel=facts.channel,
+        response_rate=Decimal(response_rate),
+        operator_score=facts.operator_score,
+        channel_average=facts.channel_average,
+        channel_maximum_score=facts.channel_maximum_score,
+    )
+
+    assert evaluate(csat_facts=facts).csat.status.value == expected_status
+
+
 def test_csat_has_exactly_one_competitive_channel() -> None:
     facts = csat("9.50", "9.00", channel=CsatCompetitiveChannel.CHAT)
 
@@ -191,6 +224,16 @@ def test_recurrence_does_not_use_relative_reduction() -> None:
         recurrence_facts=recurrence("0.188", "0.20")
     ).recurrence
 
+    assert result.tier is None
+    assert result.amount == Decimal("0.00")
+
+
+def test_recurrence_population_average_above_twenty_percent_blocks_awards() -> None:
+    result = evaluate(
+        recurrence_facts=recurrence("0.01", "0.201")
+    ).recurrence
+
+    assert result.status is VariableCompensationComponentStatus.ELIGIBLE
     assert result.tier is None
     assert result.amount == Decimal("0.00")
 

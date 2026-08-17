@@ -49,12 +49,11 @@ meets_minimum_worked_days = worked_days >= 20
 ```
 
 Não existe proporcionalidade. A consolidação também informa separadamente os
-dias de ausência penalizável e não penalizável. Ela não conclui sozinha a
-elegibilidade de CSAT ou Reincidência: cada componente da RV aplica sua própria
-referência temporal sobre o mês de presença correspondente.
+dias de ausência penalizável e não penalizável. A composição da RV usa o mês da
+competência para CSAT e descontos por ausência, e `M-1` para a elegibilidade de
+Reincidência. Ela ainda respeita os demais requisitos próprios dos indicadores.
 
 ## Limites atuais
 
 A escala não é fonte confirmada de atrasos; atrasos não fazem parte deste
-slice. Também não há endpoint, frontend ou postagem no Ledger. A integração
-automática com a composição mensal de RV permanece posterior.
+slice. Também não há endpoint, frontend ou postagem no Ledger.

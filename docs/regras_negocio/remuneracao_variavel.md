@@ -108,7 +108,9 @@ pertencer à modalidade competitiva registrada em seu perfil.
 
 O componente exige ao menos 20 dias trabalhados na competência. Com 20 dias ou
 mais, inclusive quando parte das férias foi vendida, a participação é integral.
-Não existe proporcionalidade monetária.
+Não existe proporcionalidade monetária. Além da presença, Chat exige taxa de
+respostas de ao menos `40%` e Ligação exige ao menos `50%`. Quem não satisfaz
+presença ou cobertura mínima não participa da média competitiva da modalidade.
 
 ### Chat
 
@@ -163,6 +165,11 @@ participantes, com peso 1 por operador. Por exemplo, taxas de `10%`, `14%` e
 `total_occurrences / total_eligible_attendances` possui outra semântica e não é
 a referência competitiva da RV.
 
+Somente operadores com ao menos 20 dias trabalhados na coorte entram nessa
+média. Quando a média normativa dos participantes fica acima de `20%`, a trava
+coletiva impede premiação de Reincidência para todos, ainda que uma diferença
+individual alcançasse faixa.
+
 ## Elegibilidade por componente
 
 A referência de 20 dias do CSAT é aplicada aos dias trabalhados no próprio mês
@@ -200,6 +207,11 @@ componente, nem proporcionalidade pelo número de dias trabalhados.
 
 As faixas não são cumulativas dentro da mesma categoria. Descontos de
 categorias diferentes são somados ao resultado.
+
+A composição usa diretamente `penalizable_absence_days` do slice de presença.
+Atualmente `A`, `F` e `OF` alimentam esse total. `B.H` reduz a quantidade
+potencial de dias trabalhados, mas é ausência não penalizável e não gera esse
+desconto.
 
 ## Resultado e flags
 
@@ -245,23 +257,29 @@ salarial. Uma integração financeira futura deverá definir identidade
 idempotente da competência, referência da política e origem não comercial antes
 de qualquer postagem.
 
-## Bloqueios de integração
+## Composição factual atual
 
-O cálculo puro está fechado. O slice de presença já persiste os códigos diários
-da escala, resolve a identidade canônica e deriva `worked_days`, o limiar de 20
-dias e ausências penalizáveis (`A`, `F`, `OF`) separadas de ausências não
-penalizáveis (`B.H`). Ainda faltam fatos e composição para execução automática:
+O caso de uso de composição recebe a competência e fatos competitivos já
+resolvidos de CSAT, Reincidência e atrasos. Ele consulta automaticamente:
 
-- população de participantes necessária para produzir as médias normativas de
-  CSAT e Reincidência;
-- fonte factual de atrasos;
-- elegibilidade factual de Reincidência para a competência de RV.
+- perfil/modalidade competitiva do colaborador;
+- presença da competência para CSAT e ausências;
+- presença de `M-1` para Reincidência.
+
+As médias são calculadas somente entre participantes elegíveis. A composição
+não lê XLSX nem reinterpreta códigos: consome a consolidação canônica de
+presença. Resultado negativo continua preservado.
+
+Ainda não existe fonte factual persistida para taxa de respostas do CSAT,
+resultado competitivo de CSAT, taxa competitiva de Reincidência ou atrasos.
+Esses valores permanecem entradas mensais explícitas; não são inferidos ou
+fabricados para executar o cálculo.
 
 Esses dados são entradas explícitas da regra e não são inventados pelo Rules
 Engine.
 
 ## Fora do escopo atual
 
-Não estão implementados persistência de RV, endpoint, frontend, integração com
-folha, postagem no Ledger, penalização de Red Flag, Qualidade, scheduler, fila,
-autenticação ou recomendação por IA.
+Não estão implementados persistência do resultado de RV, endpoint, frontend,
+fonte de atrasos, integração com folha, postagem no Ledger, penalização de Red
+Flag, Qualidade, scheduler, fila, autenticação ou recomendação por IA.

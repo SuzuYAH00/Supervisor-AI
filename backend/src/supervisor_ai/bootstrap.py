@@ -9,6 +9,7 @@ from supervisor_ai.application import (
     UnitOfWorkFactory,
 )
 from supervisor_ai.application.use_cases import (
+    CalculateMonthlyVariableCompensationUseCase,
     CommercialEventPhase,
     GetAttendancesUseCase,
     GetCollaboratorFinancialTimelineUseCase,
@@ -67,6 +68,7 @@ from supervisor_ai.rules_engine import (
     DuplicateAuthorRule,
     ManualReviewRule,
     MeshComparisonRule,
+    MonthlyVariableCompensationEvaluator,
     OperationalContextEligibilityRule,
     OperationScopeClassificationRule,
     PaymentValidationEvaluator,
@@ -342,3 +344,13 @@ def build_monthly_presence_service(
 ) -> GetMonthlyPresenceUseCase:
     session_factory = build_session_factory(database_url)
     return GetMonthlyPresenceUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_monthly_variable_compensation_service(
+    database_url: str,
+) -> CalculateMonthlyVariableCompensationUseCase:
+    session_factory = build_session_factory(database_url)
+    return CalculateMonthlyVariableCompensationUseCase(
+        build_unit_of_work_factory(session_factory),
+        MonthlyVariableCompensationEvaluator(),
+    )

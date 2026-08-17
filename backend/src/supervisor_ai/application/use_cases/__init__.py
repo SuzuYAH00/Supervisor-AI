@@ -105,6 +105,14 @@ from supervisor_ai.application.use_cases.process_commercial_event import (
     ProcessCommercialEventUseCase,
 )
 
+from .calculate_monthly_variable_compensation import (
+    CalculateMonthlyVariableCompensationCommand,
+    CalculateMonthlyVariableCompensationResult,
+    CalculateMonthlyVariableCompensationUseCase,
+    CsatCompetitiveFact,
+    MonthlyDelayCountFact,
+    RecurrenceCompetitiveFact,
+)
 from .register_collaborator_external_identity import (
     RegisterCollaboratorExternalIdentityCommand,
     RegisterCollaboratorExternalIdentityResult,
@@ -124,6 +132,9 @@ from .resolve_collaborator_external_identity import (
 __all__ = [
     "AttendanceInput",
     "AttendanceItem",
+    "CalculateMonthlyVariableCompensationCommand",
+    "CalculateMonthlyVariableCompensationResult",
+    "CalculateMonthlyVariableCompensationUseCase",
     "CollaboratorCurrencySummary",
     "CollaboratorFinancialSummary",
     "CollaboratorFinancialTimelineItem",
@@ -135,6 +146,7 @@ __all__ = [
     "CommercialEventPhase",
     "CommercialEventPhaseHandler",
     "CsatEvaluationInput",
+    "CsatCompetitiveFact",
     "CsatEvaluationItem",
     "CsatSummaryGroup",
     "FinancialSnapshotCurrencyTotal",
@@ -175,6 +187,7 @@ __all__ = [
     "ListProcessingRunsQuery",
     "ListProcessingRunsResult",
     "ListProcessingRunsUseCase",
+    "MonthlyDelayCountFact",
     "ImportCsatEvaluationsCommand",
     "ImportCsatEvaluationsResult",
     "ImportCsatEvaluationsUseCase",
@@ -198,6 +211,7 @@ __all__ = [
     "ProcessingRunHealth",
     "ProcessingRunListItem",
     "RecurrenceOperatorSummary",
+    "RecurrenceCompetitiveFact",
     "RegisterCollaboratorExternalIdentityCommand",
     "RegisterCollaboratorExternalIdentityResult",
     "RegisterCollaboratorExternalIdentityUseCase",

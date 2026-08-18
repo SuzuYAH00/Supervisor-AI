@@ -39,8 +39,10 @@ from supervisor_ai.bootstrap import (
     build_csv_import_service,
     build_financial_snapshot_service,
     build_financial_summary_service,
+    build_mk_csat_xlsx_import_service,
     build_monthly_presence_service,
     build_monthly_variable_compensation_service,
+    build_npx_csat_xlsx_import_service,
     build_processing_health_service,
     build_processing_run_details_service,
     build_processing_run_listing_service,
@@ -56,6 +58,8 @@ from supervisor_ai.infrastructure.importing import (
     AttendanceCsvImportService,
     CsatCsvImportService,
     CsvImportService,
+    MkCsatXlsxImportService,
+    NpxCsatXlsxImportService,
     WorkforceScheduleXlsxImportService,
 )
 from supervisor_ai.infrastructure.runtime import (
@@ -210,10 +214,14 @@ def test_build_csat_services_use_established_layers(tmp_path: Path) -> None:
     importer = build_csat_csv_import_service(database_url)
     query = build_csat_evaluation_query_service(database_url)
     summary = build_csat_summary_service(database_url)
+    mk_contacts = build_mk_csat_xlsx_import_service(database_url)
+    npx_contacts = build_npx_csat_xlsx_import_service(database_url)
 
     assert isinstance(importer, CsatCsvImportService)
     assert isinstance(query, GetCsatEvaluationsUseCase)
     assert isinstance(summary, GetCsatSummaryUseCase)
+    assert isinstance(mk_contacts, MkCsatXlsxImportService)
+    assert isinstance(npx_contacts, NpxCsatXlsxImportService)
 
 
 def test_build_recurrence_services_use_established_layers(tmp_path: Path) -> None:

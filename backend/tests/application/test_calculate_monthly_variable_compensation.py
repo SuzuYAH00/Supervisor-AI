@@ -155,6 +155,32 @@ def test_csat_population_excludes_presence_ineligible_operator(
     )
 
 
+def test_csat_team_average_is_truncated_to_two_decimal_places(
+    session_factory: sessionmaker[Session],
+) -> None:
+    collaborators = ("operator-a", "operator-b")
+    for collaborator_id in collaborators:
+        _profile(session_factory, collaborator_id)
+        _presence(
+            session_factory,
+            collaborator_id,
+            date(2026, 8, 1),
+            ("P",) * 20,
+        )
+
+    result = _calculate(
+        session_factory,
+        competence=date(2026, 8, 1),
+        collaborators=collaborators,
+        scores={"operator-a": "8.88", "operator-b": "8.798"},
+        response_rates={item: "0.40" for item in collaborators},
+        recurrence_rates={item: None for item in collaborators},
+    )
+
+    # Média exata 8.839 vira 8.83; 8.88 fica exatamente 0.05 acima.
+    assert result["operator-a"].csat.tier is VariableCompensationTier.BRONZE
+
+
 def test_csat_response_requirement_and_profile_channel_are_preserved(
     session_factory: sessionmaker[Session],
 ) -> None:

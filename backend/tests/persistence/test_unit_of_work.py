@@ -45,6 +45,7 @@ def test_repositories_share_session_and_session_is_released(
         assert unit_of_work.events.session is unit_of_work.ledger.session
         assert unit_of_work.events.session is unit_of_work.processing_runs.session
         assert unit_of_work.events.session is unit_of_work.csat.session
+        assert unit_of_work.events.session is unit_of_work.csat_contacts.session
         assert unit_of_work.events.session is unit_of_work.attendances.session
         assert (
             unit_of_work.events.session

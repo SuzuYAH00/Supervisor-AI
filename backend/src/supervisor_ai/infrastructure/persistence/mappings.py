@@ -4,6 +4,7 @@ from supervisor_ai.application.persistence import (
     AttendanceFact,
     CollaboratorExternalIdentity,
     CommercialEvent,
+    CsatContact,
     CsatEvaluation,
     DailyWorkStatusFact,
     OperationalCollaboratorProfile,
@@ -13,6 +14,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     AttendanceFactRecord,
     CollaboratorExternalIdentityRecord,
     CommercialEventRecord,
+    CsatContactRecord,
     CsatEvaluationRecord,
     DailyWorkStatusRecord,
     LedgerEntryRecord,
@@ -76,6 +78,36 @@ def record_to_csat_evaluation(record: CsatEvaluationRecord) -> CsatEvaluation:
         channel=record.channel,
         score=record.score,
         evaluated_at=record.evaluated_at,
+        created_at=record.created_at,
+    )
+
+
+def csat_contact_to_record(contact: CsatContact) -> CsatContactRecord:
+    return CsatContactRecord(
+        id=contact.id,
+        external_reference=contact.external_reference,
+        source=contact.source,
+        collaborator_id=contact.collaborator_id,
+        external_operator_identity=contact.external_operator_identity,
+        occurred_on=contact.occurred_on,
+        source_channel=contact.source_channel.value,
+        score=contact.score,
+        source_context=contact.source_context,
+        created_at=contact.created_at,
+    )
+
+
+def record_to_csat_contact(record: CsatContactRecord) -> CsatContact:
+    return CsatContact(
+        id=record.id,
+        external_reference=record.external_reference,
+        source=record.source,
+        collaborator_id=record.collaborator_id,
+        external_operator_identity=record.external_operator_identity,
+        occurred_on=record.occurred_on,
+        source_channel=CsatCompetitiveChannel(record.source_channel),
+        score=record.score,
+        source_context=record.source_context,
         created_at=record.created_at,
     )
 

@@ -86,6 +86,57 @@ class CsatEvaluation:
 
 
 @dataclass(frozen=True, slots=True)
+class CsatContact:
+    id: str
+    external_reference: str
+    source: str
+    collaborator_id: str
+    external_operator_identity: str
+    occurred_on: date
+    source_channel: CsatCompetitiveChannel
+    score: Decimal | None
+    source_context: str | None = None
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        values = {
+            "id": (self.id, 128),
+            "external_reference": (self.external_reference, 255),
+            "source": (self.source, 100),
+            "collaborator_id": (self.collaborator_id, 128),
+            "external_operator_identity": (self.external_operator_identity, 255),
+        }
+        for name, (value, maximum) in values.items():
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
+        if not isinstance(self.source_channel, CsatCompetitiveChannel):
+            raise ValueError("source_channel must be chat or phone")
+        if self.source_context is not None:
+            if not self.source_context.strip():
+                raise ValueError("source_context must not be blank when provided")
+            if len(self.source_context) > 255:
+                raise ValueError("source_context must not exceed 255 characters")
+        if self.score is not None:
+            if not self.score.is_finite():
+                raise ValueError("score must be finite")
+            _, digits, exponent = self.score.as_tuple()
+            decimal_places = max(-exponent, 0)
+            integer_places = max(len(digits) + exponent, 0)
+            if decimal_places > 6 or integer_places > 14:
+                raise ValueError("score exceeds persisted numeric precision")
+            minimum = (
+                Decimal("0")
+                if self.source_channel is CsatCompetitiveChannel.CHAT
+                else Decimal("1")
+            )
+            if self.score < minimum or self.score > Decimal("5"):
+                raise ValueError("score is outside the source scale")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
 class OperationalCollaboratorProfile:
     collaborator_id: str
     competitive_channel: CsatCompetitiveChannel

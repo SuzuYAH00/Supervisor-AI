@@ -9,6 +9,7 @@ from supervisor_ai.application.persistence import (
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    CsatContact,
     CsatEvaluation,
     CsatSummaryRecord,
     DailyWorkStatusFact,
@@ -102,6 +103,18 @@ class CsatRepository(Protocol):
         source: str | None,
         channel: str | None,
     ) -> CsatSummaryRecord: ...
+
+
+class CsatContactRepository(Protocol):
+    def add(self, contact: CsatContact) -> None: ...
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> CsatContact | None: ...
+
+    def search_competence(
+        self, *, competence_month: date, collaborator_ids: tuple[str, ...]
+    ) -> tuple[CsatContact, ...]: ...
 
 
 class AttendanceRepository(Protocol):
@@ -203,6 +216,7 @@ class UnitOfWork(Protocol):
     processing_health: ProcessingHealthRepository
     ledger: LedgerRepository
     csat: CsatRepository
+    csat_contacts: CsatContactRepository
     attendances: AttendanceRepository
     daily_work_statuses: DailyWorkStatusRepository
     operational_collaborators: OperationalCollaboratorProfileRepository

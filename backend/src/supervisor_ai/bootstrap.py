@@ -18,11 +18,13 @@ from supervisor_ai.application.use_cases import (
     GetCsatSummaryUseCase,
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
+    GetMonthlyCsatFactsUseCase,
     GetMonthlyPresenceUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
     GetRecurrenceSummaryUseCase,
     ImportAttendancesUseCase,
+    ImportCsatContactsUseCase,
     ImportCsatEvaluationsUseCase,
     ImportDailyWorkStatusesUseCase,
     ListCommercialEventsUseCase,
@@ -37,6 +39,8 @@ from supervisor_ai.infrastructure.importing import (
     CsvImportAdapter,
     CsvImportService,
     JsonCommercialEventImporter,
+    MkCsatXlsxImportService,
+    NpxCsatXlsxImportService,
     WorkforceScheduleXlsxImportService,
 )
 from supervisor_ai.infrastructure.persistence.database import (
@@ -305,6 +309,28 @@ def build_csat_summary_service(database_url: str) -> GetCsatSummaryUseCase:
     return GetCsatSummaryUseCase(build_unit_of_work_factory(session_factory))
 
 
+def build_mk_csat_xlsx_import_service(
+    database_url: str,
+) -> MkCsatXlsxImportService:
+    session_factory = build_session_factory(database_url)
+    return MkCsatXlsxImportService(
+        ImportCsatContactsUseCase(
+            build_unit_of_work_factory(session_factory), SystemClock()
+        )
+    )
+
+
+def build_npx_csat_xlsx_import_service(
+    database_url: str,
+) -> NpxCsatXlsxImportService:
+    session_factory = build_session_factory(database_url)
+    return NpxCsatXlsxImportService(
+        ImportCsatContactsUseCase(
+            build_unit_of_work_factory(session_factory), SystemClock()
+        )
+    )
+
+
 def build_attendance_csv_import_service(
     database_url: str,
 ) -> AttendanceCsvImportService:
@@ -353,4 +379,5 @@ def build_monthly_variable_compensation_service(
     return CalculateMonthlyVariableCompensationUseCase(
         build_unit_of_work_factory(session_factory),
         MonthlyVariableCompensationEvaluator(),
+        GetMonthlyCsatFactsUseCase(build_unit_of_work_factory(session_factory)),
     )

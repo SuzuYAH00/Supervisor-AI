@@ -178,6 +178,52 @@ class CsatEvaluationRecord(Base):
     )
 
 
+class CsatContactRecord(Base):
+    __tablename__ = "csat_contacts"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"),
+        nullable=False,
+    )
+    external_operator_identity: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
+    occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
+    source_channel: Mapped[str] = mapped_column(String(10), nullable=False)
+    score: Mapped[Decimal | None] = mapped_column(Numeric(20, 6), nullable=True)
+    source_context: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(source) > 0", name="ck_csat_contacts_source"),
+        CheckConstraint(
+            "source_channel IN ('chat', 'phone')",
+            name="ck_csat_contacts_source_channel",
+        ),
+        CheckConstraint(
+            "score IS NULL OR (source_channel = 'chat' AND score >= 0 AND score <= 5) "
+            "OR (source_channel = 'phone' AND score >= 1 AND score <= 5)",
+            name="ck_csat_contacts_score_scale",
+        ),
+        Index(
+            "uq_csat_contacts_source_reference",
+            "source",
+            "external_reference",
+            unique=True,
+        ),
+        Index(
+            "ix_csat_contacts_collaborator_occurred_on",
+            "collaborator_id",
+            "occurred_on",
+        ),
+    )
+
+
 class OperationalCollaboratorProfileRecord(Base):
     __tablename__ = "operational_collaborator_profiles"
 

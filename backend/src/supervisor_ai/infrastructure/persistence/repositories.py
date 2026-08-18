@@ -12,6 +12,7 @@ from supervisor_ai.application.persistence import (
     CollaboratorFinancialTimelineRecord,
     CommercialEvent,
     CommercialEventCursorPosition,
+    CsatContact,
     CsatEvaluation,
     CsatSummaryGroupRecord,
     CsatSummaryRecord,
@@ -26,6 +27,7 @@ from supervisor_ai.application.persistence import (
 from supervisor_ai.infrastructure.persistence.mappings import (
     attendance_to_record,
     collaborator_external_identity_to_record,
+    csat_contact_to_record,
     csat_evaluation_to_record,
     daily_work_status_to_record,
     event_to_record,
@@ -34,6 +36,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     processing_run_to_record,
     record_to_attendance,
     record_to_collaborator_external_identity,
+    record_to_csat_contact,
     record_to_csat_evaluation,
     record_to_daily_work_status,
     record_to_event,
@@ -45,6 +48,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     AttendanceFactRecord,
     CollaboratorExternalIdentityRecord,
     CommercialEventRecord,
+    CsatContactRecord,
     CsatEvaluationRecord,
     DailyWorkStatusRecord,
     LedgerEntryRecord,
@@ -237,6 +241,53 @@ class SqlAlchemyCsatRepository:
                 for value, count, score in channel_rows
             ),
         )
+
+
+class SqlAlchemyCsatContactRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, contact: CsatContact) -> None:
+        self.session.add(csat_contact_to_record(contact))
+        self.session.flush()
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> CsatContact | None:
+        record = self.session.scalar(
+            select(CsatContactRecord).where(
+                CsatContactRecord.source == source,
+                CsatContactRecord.external_reference == external_reference,
+            )
+        )
+        return None if record is None else record_to_csat_contact(record)
+
+    def search_competence(
+        self, *, competence_month: date, collaborator_ids: tuple[str, ...]
+    ) -> tuple[CsatContact, ...]:
+        if competence_month.day != 1:
+            raise ValueError("competence_month must be the first day of a month")
+        if not collaborator_ids:
+            return ()
+        next_month = (
+            date(competence_month.year + 1, 1, 1)
+            if competence_month.month == 12
+            else date(competence_month.year, competence_month.month + 1, 1)
+        )
+        records = self.session.scalars(
+            select(CsatContactRecord)
+            .where(
+                CsatContactRecord.collaborator_id.in_(collaborator_ids),
+                CsatContactRecord.occurred_on >= competence_month,
+                CsatContactRecord.occurred_on < next_month,
+            )
+            .order_by(
+                CsatContactRecord.collaborator_id,
+                CsatContactRecord.occurred_on,
+                CsatContactRecord.id,
+            )
+        )
+        return tuple(record_to_csat_contact(record) for record in records)
 
 
 class SqlAlchemyOperationalCollaboratorProfileRepository:

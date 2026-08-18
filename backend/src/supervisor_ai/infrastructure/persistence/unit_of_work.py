@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyAttendanceRepository,
     SqlAlchemyCollaboratorExternalIdentityRepository,
+    SqlAlchemyCsatContactRepository,
     SqlAlchemyCsatRepository,
     SqlAlchemyDailyWorkStatusRepository,
     SqlAlchemyEventRepository,
@@ -32,6 +33,7 @@ class SqlAlchemyUnitOfWork:
         self.processing_health = SqlAlchemyProcessingHealthRepository(session)
         self.ledger = SqlAlchemyLedgerRepository(session)
         self.csat = SqlAlchemyCsatRepository(session)
+        self.csat_contacts = SqlAlchemyCsatContactRepository(session)
         self.attendances = SqlAlchemyAttendanceRepository(session)
         self.daily_work_statuses = SqlAlchemyDailyWorkStatusRepository(session)
         self.operational_collaborators = (

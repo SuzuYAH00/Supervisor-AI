@@ -180,6 +180,14 @@ Sistema utilizado para atendimento via ligação e controle de algumas informaç
 - RV;
 - Atrasos.
 
+## Exportação factual de CSAT Phone
+
+O adapter local auditado de NPX trata cada `Linkedid` como uma ligação elegível.
+`x/x/x` em P1/P2/P3 indica ausência de resposta; quando a tripleta está
+preenchida, somente P2 é usado como nota CSAT. O nome em `Agente` é resolvido
+por alias explícito `source=npx`. P1 e P3 não possuem semântica adotada pelo
+Supervisor AI.
+
 ---
 
 # 5. MKBot
@@ -205,6 +213,19 @@ Sistema responsável pelos atendimentos realizados via WhatsApp.
 O atendimento permanece disponível por aproximadamente 70 dias para consulta.
 
 A avaliação pode ocorrer até 30 minutos após o encerramento da conversa.
+
+## Exportação factual de CSAT Chat
+
+As exportações de assuntos Financeiros e Técnicos são divisões operacionais da
+mesma população Chat, impostas pela interface web. Ambas usam `Protocolo` como
+referência, `Operador final` como identidade externa com `source=mk` e
+`Nota=-1` para contato sem resposta. Notas de 0 a 5 são respostas válidas.
+Atendimentos atribuídos ao `MKBOT assistant` não pertencem à população
+individual dos operadores.
+
+O XLSX não permite verificar avaliações realizadas além dos 30 minutos. Essa
+validação dependerá de automação futura sobre a conversa e não é simulada pelo
+adapter atual.
 
 ---
 

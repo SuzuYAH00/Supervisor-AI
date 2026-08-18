@@ -14,6 +14,10 @@ class CsatEvaluationConflict(ApplicationConflict):
     """A identidade da avaliação CSAT diverge dos fatos persistidos."""
 
 
+class CsatContactConflict(ApplicationConflict):
+    """A identidade do contato CSAT diverge dos fatos persistidos."""
+
+
 class AttendanceFactConflict(ApplicationConflict):
     """A identidade do atendimento diverge dos fatos persistidos."""
 

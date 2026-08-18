@@ -36,6 +36,12 @@ from supervisor_ai.application.use_cases.get_financial_summary import (
     GetFinancialSummaryResult,
     GetFinancialSummaryUseCase,
 )
+from supervisor_ai.application.use_cases.get_monthly_csat_facts import (
+    GetMonthlyCsatFactsQuery,
+    GetMonthlyCsatFactsResult,
+    GetMonthlyCsatFactsUseCase,
+    MonthlyCsatFact,
+)
 from supervisor_ai.application.use_cases.get_monthly_presence import (
     GetMonthlyPresenceQuery,
     GetMonthlyPresenceResult,
@@ -66,6 +72,12 @@ from supervisor_ai.application.use_cases.import_attendances import (
     ImportAttendancesCommand,
     ImportAttendancesResult,
     ImportAttendancesUseCase,
+)
+from supervisor_ai.application.use_cases.import_csat_contacts import (
+    CsatContactInput,
+    ImportCsatContactsCommand,
+    ImportCsatContactsResult,
+    ImportCsatContactsUseCase,
 )
 from supervisor_ai.application.use_cases.import_csat_evaluations import (
     CsatEvaluationInput,
@@ -146,6 +158,7 @@ __all__ = [
     "CommercialEventPhase",
     "CommercialEventPhaseHandler",
     "CsatEvaluationInput",
+    "CsatContactInput",
     "CsatCompetitiveFact",
     "CsatEvaluationItem",
     "CsatSummaryGroup",
@@ -159,6 +172,9 @@ __all__ = [
     "GetCsatEvaluationsUseCase",
     "GetCsatSummaryResult",
     "GetCsatSummaryUseCase",
+    "GetMonthlyCsatFactsQuery",
+    "GetMonthlyCsatFactsResult",
+    "GetMonthlyCsatFactsUseCase",
     "GetAttendancesResult",
     "GetAttendancesUseCase",
     "GetCollaboratorFinancialTimelineQuery",
@@ -188,6 +204,10 @@ __all__ = [
     "ListProcessingRunsResult",
     "ListProcessingRunsUseCase",
     "MonthlyDelayCountFact",
+    "MonthlyCsatFact",
+    "ImportCsatContactsCommand",
+    "ImportCsatContactsResult",
+    "ImportCsatContactsUseCase",
     "ImportCsatEvaluationsCommand",
     "ImportCsatEvaluationsResult",
     "ImportCsatEvaluationsUseCase",

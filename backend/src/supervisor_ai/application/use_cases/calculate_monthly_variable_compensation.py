@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
+from typing import Protocol
 
 from supervisor_ai.application.errors import OperationalCollaboratorProfileNotFound
 from supervisor_ai.application.persistence import (
@@ -8,6 +9,10 @@ from supervisor_ai.application.persistence import (
     OperationalCollaboratorProfile,
 )
 from supervisor_ai.application.ports import UnitOfWorkFactory
+from supervisor_ai.application.use_cases.get_monthly_csat_facts import (
+    GetMonthlyCsatFactsQuery,
+    GetMonthlyCsatFactsResult,
+)
 from supervisor_ai.rules_engine import (
     CHAT_MINIMUM_RESPONSE_RATE,
     MINIMUM_WORKED_DAYS,
@@ -66,9 +71,9 @@ class MonthlyDelayCountFact:
 class CalculateMonthlyVariableCompensationCommand:
     competence_month: date
     collaborator_ids: tuple[str, ...]
-    csat_facts: tuple[CsatCompetitiveFact, ...]
     recurrence_facts: tuple[RecurrenceCompetitiveFact, ...]
     delay_facts: tuple[MonthlyDelayCountFact, ...]
+    csat_facts: tuple[CsatCompetitiveFact, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.competence_month.day != 1:
@@ -76,13 +81,14 @@ class CalculateMonthlyVariableCompensationCommand:
         _validate_unique_identities(self.collaborator_ids, "collaborator_ids")
         if any(not value.strip() for value in self.collaborator_ids):
             raise ValueError("collaborator_ids must not contain blank values")
-        _validate_fact_set(self.csat_facts, self.collaborator_ids, "CSAT")
+        if self.csat_facts is not None:
+            _validate_fact_set(self.csat_facts, self.collaborator_ids, "CSAT")
         _validate_fact_set(
             self.recurrence_facts, self.collaborator_ids, "recurrence"
         )
         _validate_fact_set(self.delay_facts, self.collaborator_ids, "delay")
         previous_month = _previous_month(self.competence_month)
-        if any(
+        if self.csat_facts is not None and any(
             item.reference_month != self.competence_month
             for item in self.csat_facts
         ):
@@ -104,6 +110,10 @@ class CalculateMonthlyVariableCompensationResult:
     items: tuple[MonthlyVariableCompensationResult, ...]
 
 
+class MonthlyCsatFactsProvider(Protocol):
+    def execute(self, query: GetMonthlyCsatFactsQuery) -> GetMonthlyCsatFactsResult: ...
+
+
 class CalculateMonthlyVariableCompensationUseCase:
     """Compõe fatos mensais resolvidos sem conhecer planilha ou ORM."""
 
@@ -111,14 +121,17 @@ class CalculateMonthlyVariableCompensationUseCase:
         self,
         unit_of_work_factory: UnitOfWorkFactory,
         evaluator: MonthlyVariableCompensationEvaluator,
+        monthly_csat_facts: MonthlyCsatFactsProvider | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._evaluator = evaluator
+        self._monthly_csat_facts = monthly_csat_facts
 
     def execute(
         self, command: CalculateMonthlyVariableCompensationCommand
     ) -> CalculateMonthlyVariableCompensationResult:
         previous_month = _previous_month(command.competence_month)
+        csat_facts = self._resolve_csat_facts(command)
         with self._unit_of_work_factory() as unit_of_work:
             profiles = unit_of_work.operational_collaborators.get_by_ids(
                 command.collaborator_ids
@@ -143,7 +156,7 @@ class CalculateMonthlyVariableCompensationUseCase:
         previous_by_id = _presence_by_collaborator(
             previous_presence, command.collaborator_ids
         )
-        csat_by_id = {item.collaborator_id: item for item in command.csat_facts}
+        csat_by_id = {item.collaborator_id: item for item in csat_facts}
         recurrence_by_id = {
             item.collaborator_id: item for item in command.recurrence_facts
         }
@@ -200,6 +213,31 @@ class CalculateMonthlyVariableCompensationUseCase:
             items=results,
         )
 
+    def _resolve_csat_facts(
+        self, command: CalculateMonthlyVariableCompensationCommand
+    ) -> tuple[CsatCompetitiveFact, ...]:
+        if command.csat_facts is not None:
+            return command.csat_facts
+        if self._monthly_csat_facts is None:
+            raise ValueError(
+                "monthly_csat_facts is required when CSAT facts are not provided"
+            )
+        result = self._monthly_csat_facts.execute(
+            GetMonthlyCsatFactsQuery(
+                command.competence_month,
+                command.collaborator_ids,
+            )
+        )
+        return tuple(
+            CsatCompetitiveFact(
+                collaborator_id=item.collaborator_id,
+                reference_month=item.reference_month,
+                competitive_score=item.competitive_score,
+                response_rate=item.response_rate,
+            )
+            for item in result.items
+        )
+
 
 def _csat_input(
     collaborator_id: str,
@@ -253,7 +291,9 @@ def _csat_averages(
         channel: (
             None
             if not values
-            else sum(values, start=Decimal("0")) / Decimal(len(values))
+            else (
+                sum(values, start=Decimal("0")) / Decimal(len(values))
+            ).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
         )
         for channel, values in scores.items()
     }

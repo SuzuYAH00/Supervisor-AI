@@ -19,6 +19,16 @@ from supervisor_ai.infrastructure.importing.csat_csv import (
     CsatCsvStructureError,
     CsatCsvValidationError,
 )
+from supervisor_ai.infrastructure.importing.csat_source_xlsx import (
+    MK_CSAT_SOURCE,
+    NPX_CSAT_SOURCE,
+    CsatSourceXlsxStructureError,
+    CsatSourceXlsxValidationError,
+    MkCsatXlsxImportService,
+    NpxCsatXlsxImportService,
+    parse_mk_csat_xlsx,
+    parse_npx_csat_xlsx,
+)
 from supervisor_ai.infrastructure.importing.csv_adapter import (
     CSV_COLUMNS,
     CsvBatchImportResult,
@@ -64,6 +74,8 @@ __all__ = [
     "CsatCsvImportService",
     "CsatCsvStructureError",
     "CsatCsvValidationError",
+    "CsatSourceXlsxStructureError",
+    "CsatSourceXlsxValidationError",
     "BatchDocument",
     "BatchDocumentResult",
     "BatchDocumentStatus",
@@ -88,10 +100,16 @@ __all__ = [
     "JsonCommercialEventImporter",
     "JsonImportResult",
     "JsonSyntaxError",
+    "MK_CSAT_SOURCE",
+    "MkCsatXlsxImportService",
+    "NPX_CSAT_SOURCE",
+    "NpxCsatXlsxImportService",
     "WorkforceScheduleXlsxError",
     "WorkforceScheduleXlsxImportService",
     "correlate_csv_rows",
     "has_csv_import_failures",
     "project_csv_import_report",
     "parse_workforce_schedule_xlsx",
+    "parse_mk_csat_xlsx",
+    "parse_npx_csat_xlsx",
 ]

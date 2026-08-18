@@ -20,8 +20,10 @@ from supervisor_ai.application.use_cases import (
     GetFinancialSummaryUseCase,
     GetMonthlyCsatFactsUseCase,
     GetMonthlyPresenceUseCase,
+    GetMonthlyRecurrenceFactsUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
+    GetRecurrenceSummaryFromCoverageUseCase,
     GetRecurrenceSummaryUseCase,
     ImportAttendancesUseCase,
     ImportCsatContactsUseCase,
@@ -376,8 +378,15 @@ def build_monthly_variable_compensation_service(
     database_url: str,
 ) -> CalculateMonthlyVariableCompensationUseCase:
     session_factory = build_session_factory(database_url)
+    unit_of_work_factory = build_unit_of_work_factory(session_factory)
     return CalculateMonthlyVariableCompensationUseCase(
-        build_unit_of_work_factory(session_factory),
+        unit_of_work_factory,
         MonthlyVariableCompensationEvaluator(),
-        GetMonthlyCsatFactsUseCase(build_unit_of_work_factory(session_factory)),
+        GetMonthlyCsatFactsUseCase(unit_of_work_factory),
+        GetMonthlyRecurrenceFactsUseCase(
+            GetRecurrenceSummaryFromCoverageUseCase(
+                unit_of_work_factory,
+                GetRecurrenceSummaryUseCase(unit_of_work_factory),
+            )
+        ),
     )

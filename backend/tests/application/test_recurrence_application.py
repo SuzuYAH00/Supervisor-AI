@@ -16,6 +16,8 @@ from supervisor_ai.application.use_cases import (
     AttendanceCoverageDeclaration,
     AttendanceInput,
     GetAttendancesUseCase,
+    GetMonthlyRecurrenceFactsQuery,
+    GetMonthlyRecurrenceFactsUseCase,
     GetRecurrenceSummaryFromCoverageQuery,
     GetRecurrenceSummaryFromCoverageUseCase,
     GetRecurrenceSummaryUseCase,
@@ -37,11 +39,12 @@ def attendance_input(
     operator: str = "operator-1",
     occurred_at: datetime = NOW,
     process: ClassificationIdentity = PROCESS,
+    source: str = "local-export",
 ) -> AttendanceInput:
     return AttendanceInput(
         attendance_id=attendance_id,
         external_reference=f"external-{attendance_id}",
-        source="local-export",
+        source=source,
         customer_code=customer,
         operator_id=operator,
         channel="phone",
@@ -381,3 +384,73 @@ def test_covered_summary_recomputes_window_when_cohort_month_changes() -> None:
     )
 
     assert service.execute(query).query.window_end == date(2026, 9, 30)
+
+
+def test_monthly_recurrence_facts_use_only_mk_coverage(
+) -> None:
+    unit_of_work = FakeUnitOfWork()
+    importer = ImportAttendancesUseCase(lambda: unit_of_work, lambda: NOW)
+    importer.execute(
+        ImportAttendancesCommand(
+            (
+                attendance_input(
+                    "original",
+                    operator="operator-a",
+                    source="mk",
+                    occurred_at=datetime(2026, 7, 31, 23, tzinfo=UTC),
+                ),
+                attendance_input(
+                    "return",
+                    operator="operator-b",
+                    source="mk",
+                    occurred_at=datetime(2026, 8, 1, 1, tzinfo=UTC),
+                ),
+            ),
+            AttendanceCoverageDeclaration(
+                "mk", date(2026, 8, 30), "mk-export-complete"
+            ),
+        )
+    )
+    covered_summary = GetRecurrenceSummaryFromCoverageUseCase(
+        lambda: unit_of_work,
+        GetRecurrenceSummaryUseCase(lambda: unit_of_work),
+    )
+
+    result = GetMonthlyRecurrenceFactsUseCase(covered_summary).execute(
+        GetMonthlyRecurrenceFactsQuery(
+            date(2026, 7, 1),
+            ("operator-a", "operator-without-population"),
+        )
+    )
+
+    assert result.items[0].eligible_attendance_count == 1
+    assert result.items[0].recurrence_count == 1
+    assert result.items[0].recurrence_rate == 1
+    assert result.items[1].eligible_attendance_count == 0
+    assert result.items[1].recurrence_count == 0
+    assert result.items[1].recurrence_rate is None
+
+
+def test_other_source_coverage_does_not_satisfy_monthly_mk_provider() -> None:
+    unit_of_work = FakeUnitOfWork()
+    ImportAttendancesUseCase(lambda: unit_of_work, lambda: NOW).execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "other-source", date(2026, 8, 30), "other-complete"
+            ),
+        )
+    )
+    provider = GetMonthlyRecurrenceFactsUseCase(
+        GetRecurrenceSummaryFromCoverageUseCase(
+            lambda: unit_of_work,
+            GetRecurrenceSummaryUseCase(lambda: unit_of_work),
+        )
+    )
+
+    with pytest.raises(IngestionCoverageUnknown):
+        provider.execute(
+            GetMonthlyRecurrenceFactsQuery(
+                date(2026, 7, 1), ("operator-a",)
+            )
+        )

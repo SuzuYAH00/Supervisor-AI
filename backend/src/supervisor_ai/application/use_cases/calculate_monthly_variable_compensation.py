@@ -13,6 +13,10 @@ from supervisor_ai.application.use_cases.get_monthly_csat_facts import (
     GetMonthlyCsatFactsQuery,
     GetMonthlyCsatFactsResult,
 )
+from supervisor_ai.application.use_cases.get_monthly_recurrence_facts import (
+    GetMonthlyRecurrenceFactsQuery,
+    GetMonthlyRecurrenceFactsResult,
+)
 from supervisor_ai.rules_engine import (
     CHAT_MINIMUM_RESPONSE_RATE,
     MINIMUM_WORKED_DAYS,
@@ -71,9 +75,9 @@ class MonthlyDelayCountFact:
 class CalculateMonthlyVariableCompensationCommand:
     competence_month: date
     collaborator_ids: tuple[str, ...]
-    recurrence_facts: tuple[RecurrenceCompetitiveFact, ...]
     delay_facts: tuple[MonthlyDelayCountFact, ...]
     csat_facts: tuple[CsatCompetitiveFact, ...] | None = None
+    recurrence_facts: tuple[RecurrenceCompetitiveFact, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.competence_month.day != 1:
@@ -83,9 +87,10 @@ class CalculateMonthlyVariableCompensationCommand:
             raise ValueError("collaborator_ids must not contain blank values")
         if self.csat_facts is not None:
             _validate_fact_set(self.csat_facts, self.collaborator_ids, "CSAT")
-        _validate_fact_set(
-            self.recurrence_facts, self.collaborator_ids, "recurrence"
-        )
+        if self.recurrence_facts is not None:
+            _validate_fact_set(
+                self.recurrence_facts, self.collaborator_ids, "recurrence"
+            )
         _validate_fact_set(self.delay_facts, self.collaborator_ids, "delay")
         previous_month = _previous_month(self.competence_month)
         if self.csat_facts is not None and any(
@@ -93,7 +98,7 @@ class CalculateMonthlyVariableCompensationCommand:
             for item in self.csat_facts
         ):
             raise ValueError("CSAT facts must match competence_month")
-        if any(
+        if self.recurrence_facts is not None and any(
             item.cohort_month != previous_month for item in self.recurrence_facts
         ):
             raise ValueError("recurrence facts must match the previous month")
@@ -114,6 +119,12 @@ class MonthlyCsatFactsProvider(Protocol):
     def execute(self, query: GetMonthlyCsatFactsQuery) -> GetMonthlyCsatFactsResult: ...
 
 
+class MonthlyRecurrenceFactsProvider(Protocol):
+    def execute(
+        self, query: GetMonthlyRecurrenceFactsQuery
+    ) -> GetMonthlyRecurrenceFactsResult: ...
+
+
 class CalculateMonthlyVariableCompensationUseCase:
     """Compõe fatos mensais resolvidos sem conhecer planilha ou ORM."""
 
@@ -122,16 +133,19 @@ class CalculateMonthlyVariableCompensationUseCase:
         unit_of_work_factory: UnitOfWorkFactory,
         evaluator: MonthlyVariableCompensationEvaluator,
         monthly_csat_facts: MonthlyCsatFactsProvider | None = None,
+        monthly_recurrence_facts: MonthlyRecurrenceFactsProvider | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._evaluator = evaluator
         self._monthly_csat_facts = monthly_csat_facts
+        self._monthly_recurrence_facts = monthly_recurrence_facts
 
     def execute(
         self, command: CalculateMonthlyVariableCompensationCommand
     ) -> CalculateMonthlyVariableCompensationResult:
         previous_month = _previous_month(command.competence_month)
         csat_facts = self._resolve_csat_facts(command)
+        recurrence_facts = self._resolve_recurrence_facts(command, previous_month)
         with self._unit_of_work_factory() as unit_of_work:
             profiles = unit_of_work.operational_collaborators.get_by_ids(
                 command.collaborator_ids
@@ -158,7 +172,7 @@ class CalculateMonthlyVariableCompensationUseCase:
         )
         csat_by_id = {item.collaborator_id: item for item in csat_facts}
         recurrence_by_id = {
-            item.collaborator_id: item for item in command.recurrence_facts
+            item.collaborator_id: item for item in recurrence_facts
         }
         delay_by_id = {item.collaborator_id: item for item in command.delay_facts}
         csat_averages = _csat_averages(
@@ -234,6 +248,33 @@ class CalculateMonthlyVariableCompensationUseCase:
                 reference_month=item.reference_month,
                 competitive_score=item.competitive_score,
                 response_rate=item.response_rate,
+            )
+            for item in result.items
+        )
+
+    def _resolve_recurrence_facts(
+        self,
+        command: CalculateMonthlyVariableCompensationCommand,
+        cohort_month: date,
+    ) -> tuple[RecurrenceCompetitiveFact, ...]:
+        if command.recurrence_facts is not None:
+            return command.recurrence_facts
+        if self._monthly_recurrence_facts is None:
+            raise ValueError(
+                "monthly_recurrence_facts is required when recurrence facts "
+                "are not provided"
+            )
+        result = self._monthly_recurrence_facts.execute(
+            GetMonthlyRecurrenceFactsQuery(
+                cohort_month=cohort_month,
+                collaborator_ids=command.collaborator_ids,
+            )
+        )
+        return tuple(
+            RecurrenceCompetitiveFact(
+                collaborator_id=item.collaborator_id,
+                cohort_month=item.cohort_month,
+                recurrence_rate=item.recurrence_rate,
             )
             for item in result.items
         )

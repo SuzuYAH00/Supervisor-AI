@@ -47,6 +47,12 @@ from supervisor_ai.application.use_cases.get_monthly_presence import (
     GetMonthlyPresenceResult,
     GetMonthlyPresenceUseCase,
 )
+from supervisor_ai.application.use_cases.get_monthly_recurrence_facts import (
+    GetMonthlyRecurrenceFactsQuery,
+    GetMonthlyRecurrenceFactsResult,
+    GetMonthlyRecurrenceFactsUseCase,
+    MonthlyRecurrenceFact,
+)
 from supervisor_ai.application.use_cases.get_processing_health import (
     CommercialEventProcessingHealth,
     GetProcessingHealthQuery,
@@ -192,6 +198,9 @@ __all__ = [
     "GetMonthlyPresenceQuery",
     "GetMonthlyPresenceResult",
     "GetMonthlyPresenceUseCase",
+    "GetMonthlyRecurrenceFactsQuery",
+    "GetMonthlyRecurrenceFactsResult",
+    "GetMonthlyRecurrenceFactsUseCase",
     "GetFinancialSnapshotQuery",
     "GetFinancialSnapshotResult",
     "GetFinancialSnapshotUseCase",
@@ -213,6 +222,7 @@ __all__ = [
     "ListProcessingRunsUseCase",
     "MonthlyDelayCountFact",
     "MonthlyCsatFact",
+    "MonthlyRecurrenceFact",
     "ImportCsatContactsCommand",
     "ImportCsatContactsResult",
     "ImportCsatContactsUseCase",

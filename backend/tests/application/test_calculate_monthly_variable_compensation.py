@@ -9,7 +9,9 @@ from supervisor_ai.application.use_cases import (
     CalculateMonthlyVariableCompensationCommand,
     CalculateMonthlyVariableCompensationUseCase,
     CsatCompetitiveFact,
+    GetMonthlyRecurrenceFactsResult,
     MonthlyDelayCountFact,
+    MonthlyRecurrenceFact,
     RecurrenceCompetitiveFact,
     RegisterOperationalCollaboratorProfileCommand,
     RegisterOperationalCollaboratorProfileUseCase,
@@ -24,6 +26,30 @@ from supervisor_ai.rules_engine import (
 )
 
 NOW = datetime(2026, 8, 17, tzinfo=UTC)
+
+
+class StubMonthlyRecurrenceFactsProvider:
+    def __init__(self, rates: dict[str, Decimal | None]) -> None:
+        self.rates = rates
+        self.queries = []
+
+    def execute(self, query):
+        self.queries.append(query)
+        return GetMonthlyRecurrenceFactsResult(
+            cohort_month=query.cohort_month,
+            items=tuple(
+                MonthlyRecurrenceFact(
+                    collaborator_id=collaborator_id,
+                    cohort_month=query.cohort_month,
+                    eligible_attendance_count=(
+                        0 if self.rates[collaborator_id] is None else 1
+                    ),
+                    recurrence_count=0,
+                    recurrence_rate=self.rates[collaborator_id],
+                )
+                for collaborator_id in query.collaborator_ids
+            ),
+        )
 
 
 def _factory(session_factory: sessionmaker[Session]):
@@ -266,6 +292,60 @@ def test_recurrence_population_excludes_prior_month_ineligible_operator(
 
     assert result["operator-a"].recurrence.tier is VariableCompensationTier.SILVER
     assert result["operator-b"].recurrence.status is (
+        VariableCompensationComponentStatus.NOT_ELIGIBLE
+    )
+
+
+@pytest.mark.parametrize(
+    ("competence", "expected_cohort"),
+    (
+        (date(2026, 8, 1), date(2026, 7, 1)),
+        (date(2027, 1, 1), date(2026, 12, 1)),
+    ),
+)
+def test_automatic_recurrence_derivation_uses_previous_month(
+    session_factory: sessionmaker[Session],
+    competence: date,
+    expected_cohort: date,
+) -> None:
+    collaborators = ("operator-a", "operator-b", "operator-c")
+    for collaborator_id in collaborators:
+        _profile(session_factory, collaborator_id)
+        _presence(
+            session_factory,
+            collaborator_id,
+            expected_cohort,
+            ("P",) * (19 if collaborator_id == "operator-c" else 20),
+        )
+    provider = StubMonthlyRecurrenceFactsProvider(
+        {
+            "operator-a": Decimal("0.08"),
+            "operator-b": Decimal("0.20"),
+            "operator-c": Decimal("0.90"),
+        }
+    )
+    command = CalculateMonthlyVariableCompensationCommand(
+        competence_month=competence,
+        collaborator_ids=collaborators,
+        delay_facts=tuple(
+            MonthlyDelayCountFact(item, competence, 0) for item in collaborators
+        ),
+        csat_facts=tuple(
+            CsatCompetitiveFact(item, competence, None, None)
+            for item in collaborators
+        ),
+    )
+
+    result = CalculateMonthlyVariableCompensationUseCase(
+        _factory(session_factory),
+        MonthlyVariableCompensationEvaluator(),
+        monthly_recurrence_facts=provider,
+    ).execute(command)
+    by_id = {item.collaborator_id: item for item in result.items}
+
+    assert provider.queries[0].cohort_month == expected_cohort
+    assert by_id["operator-a"].recurrence.tier is VariableCompensationTier.SILVER
+    assert by_id["operator-c"].recurrence.status is (
         VariableCompensationComponentStatus.NOT_ELIGIBLE
     )
 

@@ -17,6 +17,7 @@ from supervisor_ai.application.use_cases import (
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
     GetMonthlyPresenceUseCase,
+    GetMonthlyRecurrenceFactsUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
     GetRecurrenceSummaryUseCase,
@@ -254,6 +255,9 @@ def test_build_monthly_variable_compensation_uses_application_and_rules_engine(
     service = build_monthly_variable_compensation_service(database_url)
 
     assert isinstance(service, CalculateMonthlyVariableCompensationUseCase)
+    assert isinstance(
+        service._monthly_recurrence_facts, GetMonthlyRecurrenceFactsUseCase
+    )
 
 
 def test_build_financial_snapshot_service_uses_application_query(

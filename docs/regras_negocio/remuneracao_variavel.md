@@ -259,24 +259,28 @@ de qualquer postagem.
 
 ## Composição factual atual
 
-O caso de uso de composição recebe a competência e fatos competitivos já
-resolvidos de CSAT, Reincidência e atrasos. Ele consulta automaticamente:
+O caso de uso de composição recebe a competência e os atrasos ainda explícitos.
+Ele consulta automaticamente:
 
 - perfil/modalidade competitiva do colaborador;
 - presença da competência para CSAT e ausências;
 - presença de `M-1` para Reincidência.
+- fatos mensais de CSAT;
+- resumo canônico de Reincidência da coorte `M-1`, limitado à fonte oficial MK.
 
 As médias são calculadas somente entre participantes elegíveis. A composição
 não lê XLSX nem reinterpreta códigos: consome a consolidação canônica de
-presença. Resultado negativo continua preservado.
+presença. Resultado negativo continua preservado. A Reincidência automática só
+é derivada quando a evidência persistida de cobertura do MK alcança o fim da
+janela normativa; cobertura ausente ou insuficiente interrompe a composição,
+sem produzir taxa zero ou resultado parcial. Operadores sem população elegível
+recebem taxa `null`.
 
-Ainda não existe fonte factual persistida para taxa de respostas do CSAT,
-resultado competitivo de CSAT, taxa competitiva de Reincidência ou atrasos.
-Esses valores permanecem entradas mensais explícitas; não são inferidos ou
-fabricados para executar o cálculo.
-
-Esses dados são entradas explícitas da regra e não são inventados pelo Rules
-Engine.
+Fatos explícitos de Reincidência permanecem como override interno compatível.
+Quando ausentes, a Application consulta a cobertura, obtém o resumo canônico e
+apenas projeta numerador, denominador e taxa para a competição. Presença, média
+com peso igual, trava coletiva e faixas continuam na composição e no Rules
+Engine. A fonte factual de atrasos permanece entrada mensal explícita.
 
 ## Fora do escopo atual
 

@@ -175,6 +175,11 @@ extração pode avançar a cobertura efetiva; declarações com data anterior fi
 registradas para auditoria, mas não fazem o watermark regredir. Sem declaração,
 a cobertura é desconhecida e a coorte não é fechada automaticamente.
 
+Para a competição mensal de RV, a fonte oficial é `mk`. Chat e ligação já são
+consolidados como tickets no relatório mensal do MK; esta etapa não combina
+outras fontes. A derivação automática exige que a cobertura do dataset de
+atendimentos da fonte MK alcance o fim integral da janela da coorte.
+
 ## Taxa
 
 ```text
@@ -235,5 +240,7 @@ operador.
 
 ## Fora do escopo
 
-Esta versão não implementa frontend, meta, ranking, RV, classificação de
-operador, alerta, recomendação, IA ou integração direta com sistemas externos.
+Esta versão não implementa frontend, meta, ranking, classificação de operador,
+alerta, recomendação, IA ou integração direta com sistemas externos. A
+Application fornece a taxa mensal coberta à composição da RV, sem persistir o
+resultado derivado.

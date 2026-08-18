@@ -17,6 +17,7 @@ from supervisor_ai.application.persistence import (
     CsatSummaryGroupRecord,
     CsatSummaryRecord,
     DailyWorkStatusFact,
+    EmployeeOccurrenceReport,
     IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
     ProcessingHealthCount,
@@ -31,6 +32,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     csat_contact_to_record,
     csat_evaluation_to_record,
     daily_work_status_to_record,
+    employee_occurrence_report_to_record,
     event_to_record,
     ingestion_coverage_to_record,
     ledger_entry_to_record,
@@ -41,6 +43,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     record_to_csat_contact,
     record_to_csat_evaluation,
     record_to_daily_work_status,
+    record_to_employee_occurrence_report,
     record_to_event,
     record_to_ingestion_coverage,
     record_to_ledger_entry,
@@ -54,6 +57,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     CsatContactRecord,
     CsatEvaluationRecord,
     DailyWorkStatusRecord,
+    EmployeeOccurrenceReportRecord,
     IngestionCoverageEvidenceRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
@@ -481,6 +485,51 @@ class SqlAlchemyDailyWorkStatusRepository:
             )
         )
         return tuple(record_to_daily_work_status(record) for record in records)
+
+
+class SqlAlchemyEmployeeOccurrenceReportRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, report: EmployeeOccurrenceReport) -> None:
+        self.session.add(employee_occurrence_report_to_record(report))
+        self.session.flush()
+
+    def get_by_id(self, report_id: str) -> EmployeeOccurrenceReport | None:
+        record = self.session.get(EmployeeOccurrenceReportRecord, report_id)
+        return (
+            None if record is None else record_to_employee_occurrence_report(record)
+        )
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> EmployeeOccurrenceReport | None:
+        record = self.session.scalar(
+            select(EmployeeOccurrenceReportRecord).where(
+                EmployeeOccurrenceReportRecord.source == source,
+                EmployeeOccurrenceReportRecord.external_reference
+                == external_reference,
+            )
+        )
+        return (
+            None if record is None else record_to_employee_occurrence_report(record)
+        )
+
+    def search_by_collaborator_date(
+        self, *, collaborator_id: str, occurrence_date: date
+    ) -> tuple[EmployeeOccurrenceReport, ...]:
+        records = self.session.scalars(
+            select(EmployeeOccurrenceReportRecord)
+            .where(
+                EmployeeOccurrenceReportRecord.collaborator_id == collaborator_id,
+                EmployeeOccurrenceReportRecord.occurrence_date == occurrence_date,
+            )
+            .order_by(
+                EmployeeOccurrenceReportRecord.submitted_at,
+                EmployeeOccurrenceReportRecord.id,
+            )
+        )
+        return tuple(record_to_employee_occurrence_report(item) for item in records)
 
 
 class SqlAlchemyIngestionCoverageRepository:

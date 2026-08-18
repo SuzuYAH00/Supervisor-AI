@@ -282,6 +282,10 @@ apenas projeta numerador, denominador e taxa para a competição. Presença, mé
 com peso igual, trava coletiva e faixas continuam na composição e no Rules
 Engine. A fonte factual de atrasos permanece entrada mensal explícita.
 
+Respostas do Google Forms são persistidas separadamente como declarações do
+colaborador. Elas não corrigem atrasos nem alteram descontos ou a RV sem uma
+decisão humana explícita, que permanece fora do escopo atual.
+
 ## Fora do escopo atual
 
 Não estão implementados persistência do resultado de RV, endpoint, frontend,

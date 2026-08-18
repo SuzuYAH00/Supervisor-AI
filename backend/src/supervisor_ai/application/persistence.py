@@ -287,6 +287,45 @@ class DailyWorkStatusFact:
 
 
 @dataclass(frozen=True, slots=True)
+class EmployeeOccurrenceReport:
+    id: str
+    external_reference: str
+    source: str
+    collaborator_id: str
+    external_collaborator_identity: str
+    submitted_at: datetime
+    occurrence_date: date
+    reason_text: str
+    source_sheet: str
+    source_row: int
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        values = {
+            "id": (self.id, 128),
+            "external_reference": (self.external_reference, 255),
+            "source": (self.source, 100),
+            "collaborator_id": (self.collaborator_id, 128),
+            "external_collaborator_identity": (
+                self.external_collaborator_identity,
+                255,
+            ),
+            "source_sheet": (self.source_sheet, 100),
+        }
+        for name, (value, maximum) in values.items():
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
+        if not self.reason_text.strip():
+            raise ValueError("reason_text must not be blank")
+        if self.source_row < 2:
+            raise ValueError("source_row must identify a data row")
+        _require_aware(self.submitted_at, "submitted_at")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
 class CsatSummaryGroupRecord:
     value: str | None
     evaluation_count: int

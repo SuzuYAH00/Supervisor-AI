@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Numeric,
     String,
+    Text,
     func,
     text,
 )
@@ -389,5 +390,52 @@ class DailyWorkStatusRecord(Base):
             "ix_daily_work_status_collaborator_competence",
             "collaborator_id",
             "competence_month",
+        ),
+    )
+
+
+class EmployeeOccurrenceReportRecord(Base):
+    __tablename__ = "employee_occurrence_reports"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"),
+        nullable=False,
+    )
+    external_collaborator_identity: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
+    submitted_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    occurrence_date: Mapped[date] = mapped_column(Date(), nullable=False)
+    reason_text: Mapped[str] = mapped_column(Text(), nullable=False)
+    source_sheet: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_row: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(source) > 0", name="ck_employee_occurrence_reports_source"
+        ),
+        CheckConstraint(
+            "length(reason_text) > 0",
+            name="ck_employee_occurrence_reports_reason",
+        ),
+        CheckConstraint(
+            "source_row >= 2", name="ck_employee_occurrence_reports_source_row"
+        ),
+        Index(
+            "uq_employee_occurrence_reports_source_reference",
+            "source",
+            "external_reference",
+            unique=True,
+        ),
+        Index(
+            "ix_employee_occurrence_reports_collaborator_date",
+            "collaborator_id",
+            "occurrence_date",
         ),
     )

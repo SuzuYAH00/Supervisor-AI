@@ -7,6 +7,7 @@ from supervisor_ai.application.persistence import (
     CsatContact,
     CsatEvaluation,
     DailyWorkStatusFact,
+    EmployeeOccurrenceReport,
     IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
     ProcessingRun,
@@ -18,6 +19,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     CsatContactRecord,
     CsatEvaluationRecord,
     DailyWorkStatusRecord,
+    EmployeeOccurrenceReportRecord,
     IngestionCoverageEvidenceRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
@@ -251,6 +253,42 @@ def record_to_daily_work_status(
         external_reference=record.external_reference,
         source_sheet=record.source_sheet,
         source_cell=record.source_cell,
+        created_at=record.created_at,
+    )
+
+
+def employee_occurrence_report_to_record(
+    report: EmployeeOccurrenceReport,
+) -> EmployeeOccurrenceReportRecord:
+    return EmployeeOccurrenceReportRecord(
+        id=report.id,
+        external_reference=report.external_reference,
+        source=report.source,
+        collaborator_id=report.collaborator_id,
+        external_collaborator_identity=report.external_collaborator_identity,
+        submitted_at=report.submitted_at,
+        occurrence_date=report.occurrence_date,
+        reason_text=report.reason_text,
+        source_sheet=report.source_sheet,
+        source_row=report.source_row,
+        created_at=report.created_at,
+    )
+
+
+def record_to_employee_occurrence_report(
+    record: EmployeeOccurrenceReportRecord,
+) -> EmployeeOccurrenceReport:
+    return EmployeeOccurrenceReport(
+        id=record.id,
+        external_reference=record.external_reference,
+        source=record.source,
+        collaborator_id=record.collaborator_id,
+        external_collaborator_identity=record.external_collaborator_identity,
+        submitted_at=record.submitted_at,
+        occurrence_date=record.occurrence_date,
+        reason_text=record.reason_text,
+        source_sheet=record.source_sheet,
+        source_row=record.source_row,
         created_at=record.created_at,
     )
 

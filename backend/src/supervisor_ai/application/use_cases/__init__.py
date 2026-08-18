@@ -102,6 +102,13 @@ from supervisor_ai.application.use_cases.import_daily_work_statuses import (
     ImportDailyWorkStatusesResult,
     ImportDailyWorkStatusesUseCase,
 )
+from supervisor_ai.application.use_cases.import_employee_occurrence_reports import (
+    EmployeeOccurrenceImportIssue,
+    EmployeeOccurrenceReportInput,
+    ImportEmployeeOccurrenceReportsCommand,
+    ImportEmployeeOccurrenceReportsResult,
+    ImportEmployeeOccurrenceReportsUseCase,
+)
 from supervisor_ai.application.use_cases.list_commercial_events import (
     CommercialEventListItem,
     ListCommercialEventsQuery,
@@ -174,6 +181,8 @@ __all__ = [
     "CsatCompetitiveFact",
     "CsatEvaluationItem",
     "CsatSummaryGroup",
+    "EmployeeOccurrenceImportIssue",
+    "EmployeeOccurrenceReportInput",
     "FinancialSnapshotCurrencyTotal",
     "FinancialSnapshotItem",
     "FinancialSummaryCurrencyTotal",
@@ -236,6 +245,9 @@ __all__ = [
     "ImportDailyWorkStatusesCommand",
     "ImportDailyWorkStatusesResult",
     "ImportDailyWorkStatusesUseCase",
+    "ImportEmployeeOccurrenceReportsCommand",
+    "ImportEmployeeOccurrenceReportsResult",
+    "ImportEmployeeOccurrenceReportsUseCase",
     "PhaseResult",
     "ProcessAndPersistCommercialEventCommand",
     "ProcessAndPersistCommercialEventResult",

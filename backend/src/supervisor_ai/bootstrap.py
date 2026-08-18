@@ -29,6 +29,7 @@ from supervisor_ai.application.use_cases import (
     ImportCsatContactsUseCase,
     ImportCsatEvaluationsUseCase,
     ImportDailyWorkStatusesUseCase,
+    ImportEmployeeOccurrenceReportsUseCase,
     ListCommercialEventsUseCase,
     ListProcessingRunsUseCase,
     ProcessAndPersistCommercialEventUseCase,
@@ -40,6 +41,7 @@ from supervisor_ai.infrastructure.importing import (
     CsatCsvImportService,
     CsvImportAdapter,
     CsvImportService,
+    EmployeeOccurrenceXlsxImportService,
     JsonCommercialEventImporter,
     MkCsatXlsxImportService,
     NpxCsatXlsxImportService,
@@ -103,6 +105,18 @@ def build_unit_of_work_factory(
         return SqlAlchemyUnitOfWork(session_factory)
 
     return factory
+
+
+def build_employee_occurrence_xlsx_import_service(
+    database_url: str, *, clock: Clock | None = None
+) -> EmployeeOccurrenceXlsxImportService:
+    session_factory = build_session_factory(database_url)
+    return EmployeeOccurrenceXlsxImportService(
+        ImportEmployeeOccurrenceReportsUseCase(
+            build_unit_of_work_factory(session_factory),
+            clock or SystemClock(),
+        )
+    )
 
 
 def build_rules_engine() -> ProcessCommercialEventUseCase:

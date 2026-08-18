@@ -42,6 +42,15 @@ from supervisor_ai.infrastructure.importing.csv_adapter import (
     CsvRowResult,
     CsvStructureError,
 )
+from supervisor_ai.infrastructure.importing.employee_occurrence_xlsx import (
+    EMPLOYEE_OCCURRENCE_HEADERS,
+    EMPLOYEE_OCCURRENCE_SOURCE,
+    EmployeeOccurrenceXlsxImportResult,
+    EmployeeOccurrenceXlsxImportService,
+    EmployeeOccurrenceXlsxStructureError,
+    ParsedEmployeeOccurrenceWorkbook,
+    parse_employee_occurrence_xlsx,
+)
 from supervisor_ai.infrastructure.importing.errors import (
     ImportDocumentError,
     ImportValidationError,
@@ -95,6 +104,11 @@ __all__ = [
     "CsvStructureError",
     "CorrelatedCsvRowResult",
     "DocumentImporter",
+    "EMPLOYEE_OCCURRENCE_HEADERS",
+    "EMPLOYEE_OCCURRENCE_SOURCE",
+    "EmployeeOccurrenceXlsxImportResult",
+    "EmployeeOccurrenceXlsxImportService",
+    "EmployeeOccurrenceXlsxStructureError",
     "ImportDocumentError",
     "ImportValidationError",
     "JsonCommercialEventImporter",
@@ -104,6 +118,7 @@ __all__ = [
     "MkCsatXlsxImportService",
     "NPX_CSAT_SOURCE",
     "NpxCsatXlsxImportService",
+    "ParsedEmployeeOccurrenceWorkbook",
     "WorkforceScheduleXlsxError",
     "WorkforceScheduleXlsxImportService",
     "correlate_csv_rows",
@@ -112,4 +127,5 @@ __all__ = [
     "parse_workforce_schedule_xlsx",
     "parse_mk_csat_xlsx",
     "parse_npx_csat_xlsx",
+    "parse_employee_occurrence_xlsx",
 ]

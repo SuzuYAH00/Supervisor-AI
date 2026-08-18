@@ -17,6 +17,10 @@ from supervisor_ai.application.use_cases.get_monthly_recurrence_facts import (
     GetMonthlyRecurrenceFactsQuery,
     GetMonthlyRecurrenceFactsResult,
 )
+from supervisor_ai.application.use_cases.npx_delays import (
+    GetMonthlyDelayFactsQuery,
+    GetMonthlyDelayFactsResult,
+)
 from supervisor_ai.rules_engine import (
     CHAT_MINIMUM_RESPONSE_RATE,
     MINIMUM_WORKED_DAYS,
@@ -75,7 +79,7 @@ class MonthlyDelayCountFact:
 class CalculateMonthlyVariableCompensationCommand:
     competence_month: date
     collaborator_ids: tuple[str, ...]
-    delay_facts: tuple[MonthlyDelayCountFact, ...]
+    delay_facts: tuple[MonthlyDelayCountFact, ...] | None = None
     csat_facts: tuple[CsatCompetitiveFact, ...] | None = None
     recurrence_facts: tuple[RecurrenceCompetitiveFact, ...] | None = None
 
@@ -91,20 +95,19 @@ class CalculateMonthlyVariableCompensationCommand:
             _validate_fact_set(
                 self.recurrence_facts, self.collaborator_ids, "recurrence"
             )
-        _validate_fact_set(self.delay_facts, self.collaborator_ids, "delay")
+        if self.delay_facts is not None:
+            _validate_fact_set(self.delay_facts, self.collaborator_ids, "delay")
         previous_month = _previous_month(self.competence_month)
         if self.csat_facts is not None and any(
-            item.reference_month != self.competence_month
-            for item in self.csat_facts
+            item.reference_month != self.competence_month for item in self.csat_facts
         ):
             raise ValueError("CSAT facts must match competence_month")
         if self.recurrence_facts is not None and any(
             item.cohort_month != previous_month for item in self.recurrence_facts
         ):
             raise ValueError("recurrence facts must match the previous month")
-        if any(
-            item.reference_month != self.competence_month
-            for item in self.delay_facts
+        if self.delay_facts is not None and any(
+            item.reference_month != self.competence_month for item in self.delay_facts
         ):
             raise ValueError("delay facts must match competence_month")
 
@@ -125,6 +128,12 @@ class MonthlyRecurrenceFactsProvider(Protocol):
     ) -> GetMonthlyRecurrenceFactsResult: ...
 
 
+class MonthlyDelayFactsProvider(Protocol):
+    def execute(
+        self, query: GetMonthlyDelayFactsQuery
+    ) -> GetMonthlyDelayFactsResult: ...
+
+
 class CalculateMonthlyVariableCompensationUseCase:
     """Compõe fatos mensais resolvidos sem conhecer planilha ou ORM."""
 
@@ -134,11 +143,13 @@ class CalculateMonthlyVariableCompensationUseCase:
         evaluator: MonthlyVariableCompensationEvaluator,
         monthly_csat_facts: MonthlyCsatFactsProvider | None = None,
         monthly_recurrence_facts: MonthlyRecurrenceFactsProvider | None = None,
+        monthly_delay_facts: MonthlyDelayFactsProvider | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._evaluator = evaluator
         self._monthly_csat_facts = monthly_csat_facts
         self._monthly_recurrence_facts = monthly_recurrence_facts
+        self._monthly_delay_facts = monthly_delay_facts
 
     def execute(
         self, command: CalculateMonthlyVariableCompensationCommand
@@ -146,6 +157,7 @@ class CalculateMonthlyVariableCompensationUseCase:
         previous_month = _previous_month(command.competence_month)
         csat_facts = self._resolve_csat_facts(command)
         recurrence_facts = self._resolve_recurrence_facts(command, previous_month)
+        delay_facts = self._resolve_delay_facts(command)
         with self._unit_of_work_factory() as unit_of_work:
             profiles = unit_of_work.operational_collaborators.get_by_ids(
                 command.collaborator_ids
@@ -171,10 +183,8 @@ class CalculateMonthlyVariableCompensationUseCase:
             previous_presence, command.collaborator_ids
         )
         csat_by_id = {item.collaborator_id: item for item in csat_facts}
-        recurrence_by_id = {
-            item.collaborator_id: item for item in recurrence_facts
-        }
-        delay_by_id = {item.collaborator_id: item for item in command.delay_facts}
+        recurrence_by_id = {item.collaborator_id: item for item in recurrence_facts}
+        delay_by_id = {item.collaborator_id: item for item in delay_facts}
         csat_averages = _csat_averages(
             command.collaborator_ids,
             profile_by_id,
@@ -206,8 +216,7 @@ class CalculateMonthlyVariableCompensationUseCase:
                     ),
                     recurrence=RecurrenceVariableCompensationFacts(
                         is_eligible=(
-                            previous_by_id[collaborator_id]
-                            .meets_minimum_worked_days
+                            previous_by_id[collaborator_id].meets_minimum_worked_days
                         ),
                         operator_rate=(
                             recurrence_by_id[collaborator_id].recurrence_rate
@@ -279,6 +288,27 @@ class CalculateMonthlyVariableCompensationUseCase:
             for item in result.items
         )
 
+    def _resolve_delay_facts(
+        self, command: CalculateMonthlyVariableCompensationCommand
+    ) -> tuple[MonthlyDelayCountFact, ...]:
+        if command.delay_facts is not None:
+            return command.delay_facts
+        if self._monthly_delay_facts is None:
+            raise ValueError(
+                "monthly_delay_facts is required when delay facts are not provided"
+            )
+        result = self._monthly_delay_facts.execute(
+            GetMonthlyDelayFactsQuery(
+                command.competence_month, command.collaborator_ids
+            )
+        )
+        return tuple(
+            MonthlyDelayCountFact(
+                item.collaborator_id, item.competence_month, item.delay_count
+            )
+            for item in result.items
+        )
+
 
 def _csat_input(
     collaborator_id: str,
@@ -332,9 +362,9 @@ def _csat_averages(
         channel: (
             None
             if not values
-            else (
-                sum(values, start=Decimal("0")) / Decimal(len(values))
-            ).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            else (sum(values, start=Decimal("0")) / Decimal(len(values))).quantize(
+                Decimal("0.01"), rounding=ROUND_DOWN
+            )
         )
         for channel, values in scores.items()
     }
@@ -353,11 +383,7 @@ def _recurrence_average(
             and rate is not None
         ):
             rates.append(rate)
-    return (
-        None
-        if not rates
-        else sum(rates, start=Decimal("0")) / Decimal(len(rates))
-    )
+    return None if not rates else sum(rates, start=Decimal("0")) / Decimal(len(rates))
 
 
 def _presence_by_collaborator(
@@ -404,9 +430,7 @@ def _validate_identity_and_month(collaborator_id: str, month: date) -> None:
 
 
 def _validate_decimal(value: Decimal | None, field_name: str) -> None:
-    if value is not None and (
-        not isinstance(value, Decimal) or not value.is_finite()
-    ):
+    if value is not None and (not isinstance(value, Decimal) or not value.is_finite()):
         raise ValueError(f"{field_name} must be a finite Decimal")
 
 

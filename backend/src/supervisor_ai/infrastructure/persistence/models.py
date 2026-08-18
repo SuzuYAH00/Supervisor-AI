@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any
 
@@ -12,6 +12,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
     func,
     text,
 )
@@ -189,9 +190,7 @@ class CsatContactRecord(Base):
         ForeignKey("operational_collaborator_profiles.collaborator_id"),
         nullable=False,
     )
-    external_operator_identity: Mapped[str] = mapped_column(
-        String(255), nullable=False
-    )
+    external_operator_identity: Mapped[str] = mapped_column(String(255), nullable=False)
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
     source_channel: Mapped[str] = mapped_column(String(10), nullable=False)
     score: Mapped[Decimal | None] = mapped_column(Numeric(20, 6), nullable=True)
@@ -329,12 +328,8 @@ class IngestionCoverageEvidenceRecord(Base):
     recorded_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
 
     __table_args__ = (
-        CheckConstraint(
-            "length(dataset) > 0", name="ck_ingestion_coverage_dataset"
-        ),
-        CheckConstraint(
-            "length(source) > 0", name="ck_ingestion_coverage_source"
-        ),
+        CheckConstraint("length(dataset) > 0", name="ck_ingestion_coverage_dataset"),
+        CheckConstraint("length(source) > 0", name="ck_ingestion_coverage_source"),
         CheckConstraint(
             "length(import_reference) > 0",
             name="ck_ingestion_coverage_import_reference",
@@ -394,6 +389,94 @@ class DailyWorkStatusRecord(Base):
     )
 
 
+class CollaboratorWorkScheduleRecord(Base):
+    __tablename__ = "collaborator_work_schedules"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"), nullable=False
+    )
+    standard_start: Mapped[time] = mapped_column(Time(), nullable=False)
+    standard_end: Mapped[time] = mapped_column(Time(), nullable=False)
+    effective_from: Mapped[date] = mapped_column(Date(), nullable=False)
+    effective_until: Mapped[date | None] = mapped_column(Date())
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+    __table_args__ = (
+        Index(
+            "uq_work_schedule_source_reference",
+            "source",
+            "source_reference",
+            unique=True,
+        ),
+        Index(
+            "ix_work_schedule_collaborator_effective",
+            "collaborator_id",
+            "effective_from",
+        ),
+    )
+
+
+class DailyPlannedWorkScheduleRecord(Base):
+    __tablename__ = "daily_planned_work_schedules"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"), nullable=False
+    )
+    work_date: Mapped[date] = mapped_column(Date(), nullable=False)
+    planned_start: Mapped[time | None] = mapped_column(Time())
+    planned_end: Mapped[time | None] = mapped_column(Time())
+    source_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_sheet: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_cell: Mapped[str] = mapped_column(String(20), nullable=False)
+    unresolved_reason: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+    __table_args__ = (
+        Index(
+            "uq_daily_planned_schedule_collaborator_date",
+            "collaborator_id",
+            "work_date",
+            unique=True,
+        ),
+        Index(
+            "uq_daily_planned_schedule_source_reference",
+            "source",
+            "source_reference",
+            unique=True,
+        ),
+    )
+
+
+class DailyWorkScheduleOverrideRecord(Base):
+    __tablename__ = "daily_work_schedule_overrides"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"), nullable=False
+    )
+    work_date: Mapped[date] = mapped_column(Date(), nullable=False)
+    planned_start: Mapped[time] = mapped_column(Time(), nullable=False)
+    planned_end: Mapped[time] = mapped_column(Time(), nullable=False)
+    reason: Mapped[str] = mapped_column(Text(), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+    __table_args__ = (
+        Index(
+            "uq_daily_work_schedule_override_date",
+            "collaborator_id",
+            "work_date",
+            unique=True,
+        ),
+    )
+
+
 class EmployeeOccurrenceReportRecord(Base):
     __tablename__ = "employee_occurrence_reports"
 
@@ -415,14 +498,12 @@ class EmployeeOccurrenceReportRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
     )
-
     __table_args__ = (
         CheckConstraint(
             "length(source) > 0", name="ck_employee_occurrence_reports_source"
         ),
         CheckConstraint(
-            "length(reason_text) > 0",
-            name="ck_employee_occurrence_reports_reason",
+            "length(reason_text) > 0", name="ck_employee_occurrence_reports_reason"
         ),
         CheckConstraint(
             "source_row >= 2", name="ck_employee_occurrence_reports_source_row"
@@ -437,5 +518,121 @@ class EmployeeOccurrenceReportRecord(Base):
             "ix_employee_occurrence_reports_collaborator_date",
             "collaborator_id",
             "occurrence_date",
+        ),
+    )
+
+
+class WorkSessionFactRecord(Base):
+    __tablename__ = "work_session_facts"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"), nullable=False
+    )
+    external_collaborator_identity: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
+    external_agent_id: Mapped[str | None] = mapped_column(String(100))
+    queue: Mapped[str] = mapped_column(String(255), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    duration_seconds: Mapped[int] = mapped_column(nullable=False)
+    source_extract_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_sheet: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_row: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+    __table_args__ = (
+        Index(
+            "uq_work_session_source_reference",
+            "source",
+            "external_reference",
+            unique=True,
+        ),
+        Index("ix_work_session_collaborator_started", "collaborator_id", "started_at"),
+    )
+
+
+class PauseFactRecord(Base):
+    __tablename__ = "pause_facts"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"), nullable=False
+    )
+    external_collaborator_identity: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
+    external_agent_id: Mapped[str | None] = mapped_column(String(100))
+    queue: Mapped[str] = mapped_column(String(255), nullable=False)
+    pause_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    duration_seconds: Mapped[int] = mapped_column(nullable=False)
+    supervisor_released: Mapped[str | None] = mapped_column(String(255))
+    source_extract_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_sheet: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_row: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+    __table_args__ = (
+        Index("uq_pause_source_reference", "source", "external_reference", unique=True),
+        Index("ix_pause_collaborator_started", "collaborator_id", "started_at"),
+    )
+
+
+class DelayOccurrenceRecord(Base):
+    __tablename__ = "delay_occurrences"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    collaborator_id: Mapped[str] = mapped_column(
+        ForeignKey("operational_collaborator_profiles.collaborator_id"), nullable=False
+    )
+    occurrence_date: Mapped[date] = mapped_column(Date(), nullable=False)
+    occurrence_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    source_fact_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    source_fact_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    observed_seconds: Mapped[int] = mapped_column(nullable=False)
+    applied_limit_seconds: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+    __table_args__ = (
+        Index(
+            "uq_delay_occurrence_source_fact",
+            "source_fact_type",
+            "source_fact_id",
+            unique=True,
+        ),
+        Index(
+            "ix_delay_occurrence_collaborator_date",
+            "collaborator_id",
+            "occurrence_date",
+        ),
+    )
+
+
+class DelayReviewRecord(Base):
+    __tablename__ = "delay_reviews"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    delay_occurrence_id: Mapped[str] = mapped_column(
+        ForeignKey("delay_occurrences.id"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    decided_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    employee_occurrence_report_id: Mapped[str | None] = mapped_column(
+        ForeignKey("employee_occurrence_reports.id")
+    )
+    note: Mapped[str | None] = mapped_column(Text())
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=utc_now, server_default=func.now()
+    )
+    __table_args__ = (
+        Index(
+            "ix_delay_review_occurrence_decided", "delay_occurrence_id", "decided_at"
         ),
     )

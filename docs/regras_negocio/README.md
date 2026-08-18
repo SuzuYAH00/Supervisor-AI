@@ -32,6 +32,7 @@ Cada documento deverá conter, sempre que aplicável:
 - CSAT
 - Cancelamentos
 - Escalas
+- [Atrasos operacionais](atrasos.md)
 - [Ocorrências declaradas por colaboradores](ocorrencias_colaboradores.md)
 
 ---

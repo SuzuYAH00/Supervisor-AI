@@ -5,16 +5,23 @@ from sqlalchemy.orm import Session, sessionmaker
 from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyAttendanceRepository,
     SqlAlchemyCollaboratorExternalIdentityRepository,
+    SqlAlchemyCollaboratorWorkScheduleRepository,
     SqlAlchemyCsatContactRepository,
     SqlAlchemyCsatRepository,
+    SqlAlchemyDailyPlannedWorkScheduleRepository,
+    SqlAlchemyDailyWorkScheduleOverrideRepository,
     SqlAlchemyDailyWorkStatusRepository,
+    SqlAlchemyDelayOccurrenceRepository,
+    SqlAlchemyDelayReviewRepository,
     SqlAlchemyEmployeeOccurrenceReportRepository,
     SqlAlchemyEventRepository,
     SqlAlchemyIngestionCoverageRepository,
     SqlAlchemyLedgerRepository,
     SqlAlchemyOperationalCollaboratorProfileRepository,
+    SqlAlchemyPauseRepository,
     SqlAlchemyProcessingHealthRepository,
     SqlAlchemyProcessingRunRepository,
+    SqlAlchemyWorkSessionRepository,
 )
 
 
@@ -39,9 +46,22 @@ class SqlAlchemyUnitOfWork:
         self.attendances = SqlAlchemyAttendanceRepository(session)
         self.ingestion_coverages = SqlAlchemyIngestionCoverageRepository(session)
         self.daily_work_statuses = SqlAlchemyDailyWorkStatusRepository(session)
+        self.collaborator_work_schedules = SqlAlchemyCollaboratorWorkScheduleRepository(
+            session
+        )
+        self.daily_planned_work_schedules = (
+            SqlAlchemyDailyPlannedWorkScheduleRepository(session)
+        )
+        self.daily_work_schedule_overrides = (
+            SqlAlchemyDailyWorkScheduleOverrideRepository(session)
+        )
         self.employee_occurrence_reports = SqlAlchemyEmployeeOccurrenceReportRepository(
             session
         )
+        self.work_sessions = SqlAlchemyWorkSessionRepository(session)
+        self.pauses = SqlAlchemyPauseRepository(session)
+        self.delay_occurrences = SqlAlchemyDelayOccurrenceRepository(session)
+        self.delay_reviews = SqlAlchemyDelayReviewRepository(session)
         self.operational_collaborators = (
             SqlAlchemyOperationalCollaboratorProfileRepository(session)
         )

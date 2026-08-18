@@ -3,27 +3,41 @@ from copy import deepcopy
 from supervisor_ai.application.persistence import (
     AttendanceFact,
     CollaboratorExternalIdentity,
+    CollaboratorWorkSchedule,
     CommercialEvent,
     CsatContact,
     CsatEvaluation,
+    DailyPlannedWorkScheduleFact,
+    DailyWorkScheduleOverride,
     DailyWorkStatusFact,
+    DelayOccurrence,
+    DelayReview,
     EmployeeOccurrenceReport,
     IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
+    PauseFact,
     ProcessingRun,
+    WorkSessionFact,
 )
 from supervisor_ai.infrastructure.persistence.models import (
     AttendanceFactRecord,
     CollaboratorExternalIdentityRecord,
+    CollaboratorWorkScheduleRecord,
     CommercialEventRecord,
     CsatContactRecord,
     CsatEvaluationRecord,
+    DailyPlannedWorkScheduleRecord,
+    DailyWorkScheduleOverrideRecord,
     DailyWorkStatusRecord,
+    DelayOccurrenceRecord,
+    DelayReviewRecord,
     EmployeeOccurrenceReportRecord,
     IngestionCoverageEvidenceRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
+    PauseFactRecord,
     ProcessingRunRecord,
+    WorkSessionFactRecord,
 )
 from supervisor_ai.rules_engine import (
     ClassificationIdentity,
@@ -32,6 +46,54 @@ from supervisor_ai.rules_engine import (
     LedgerEntry,
     LedgerEntryType,
 )
+
+
+def work_session_to_record(item: WorkSessionFact) -> WorkSessionFactRecord:
+    return WorkSessionFactRecord(
+        **{name: getattr(item, name) for name in item.__dataclass_fields__}
+    )
+
+
+def record_to_work_session(item: WorkSessionFactRecord) -> WorkSessionFact:
+    return WorkSessionFact(
+        **{name: getattr(item, name) for name in WorkSessionFact.__dataclass_fields__}
+    )
+
+
+def pause_to_record(item: PauseFact) -> PauseFactRecord:
+    return PauseFactRecord(
+        **{name: getattr(item, name) for name in item.__dataclass_fields__}
+    )
+
+
+def record_to_pause(item: PauseFactRecord) -> PauseFact:
+    return PauseFact(
+        **{name: getattr(item, name) for name in PauseFact.__dataclass_fields__}
+    )
+
+
+def delay_occurrence_to_record(item: DelayOccurrence) -> DelayOccurrenceRecord:
+    return DelayOccurrenceRecord(
+        **{name: getattr(item, name) for name in item.__dataclass_fields__}
+    )
+
+
+def record_to_delay_occurrence(item: DelayOccurrenceRecord) -> DelayOccurrence:
+    return DelayOccurrence(
+        **{name: getattr(item, name) for name in DelayOccurrence.__dataclass_fields__}
+    )
+
+
+def delay_review_to_record(item: DelayReview) -> DelayReviewRecord:
+    return DelayReviewRecord(
+        **{name: getattr(item, name) for name in item.__dataclass_fields__}
+    )
+
+
+def record_to_delay_review(item: DelayReviewRecord) -> DelayReview:
+    return DelayReview(
+        **{name: getattr(item, name) for name in DelayReview.__dataclass_fields__}
+    )
 
 
 def event_to_record(event: CommercialEvent) -> CommercialEventRecord:
@@ -186,9 +248,7 @@ def record_to_attendance(record: AttendanceFactRecord) -> AttendanceFact:
         operator_id=record.operator_id,
         channel=record.channel,
         occurred_at=record.occurred_at,
-        process=ClassificationIdentity(
-            record.process_code, record.process_description
-        ),
+        process=ClassificationIdentity(record.process_code, record.process_description),
         opening_classification=ClassificationIdentity(
             record.opening_code, record.opening_description
         ),
@@ -254,6 +314,63 @@ def record_to_daily_work_status(
         source_sheet=record.source_sheet,
         source_cell=record.source_cell,
         created_at=record.created_at,
+    )
+
+
+def collaborator_work_schedule_to_record(
+    item: CollaboratorWorkSchedule,
+) -> CollaboratorWorkScheduleRecord:
+    return CollaboratorWorkScheduleRecord(
+        **{name: getattr(item, name) for name in item.__dataclass_fields__}
+    )
+
+
+def record_to_collaborator_work_schedule(
+    item: CollaboratorWorkScheduleRecord,
+) -> CollaboratorWorkSchedule:
+    return CollaboratorWorkSchedule(
+        **{
+            name: getattr(item, name)
+            for name in CollaboratorWorkSchedule.__dataclass_fields__
+        }
+    )
+
+
+def daily_planned_work_schedule_to_record(
+    item: DailyPlannedWorkScheduleFact,
+) -> DailyPlannedWorkScheduleRecord:
+    return DailyPlannedWorkScheduleRecord(
+        **{name: getattr(item, name) for name in item.__dataclass_fields__}
+    )
+
+
+def record_to_daily_planned_work_schedule(
+    item: DailyPlannedWorkScheduleRecord,
+) -> DailyPlannedWorkScheduleFact:
+    return DailyPlannedWorkScheduleFact(
+        **{
+            name: getattr(item, name)
+            for name in DailyPlannedWorkScheduleFact.__dataclass_fields__
+        }
+    )
+
+
+def daily_work_schedule_override_to_record(
+    item: DailyWorkScheduleOverride,
+) -> DailyWorkScheduleOverrideRecord:
+    return DailyWorkScheduleOverrideRecord(
+        **{name: getattr(item, name) for name in item.__dataclass_fields__}
+    )
+
+
+def record_to_daily_work_schedule_override(
+    item: DailyWorkScheduleOverrideRecord,
+) -> DailyWorkScheduleOverride:
+    return DailyWorkScheduleOverride(
+        **{
+            name: getattr(item, name)
+            for name in DailyWorkScheduleOverride.__dataclass_fields__
+        }
     )
 
 
@@ -334,9 +451,7 @@ def ledger_entry_to_record(entry: LedgerEntry) -> LedgerEntryRecord:
         posted_at=entry.posted_at,
         posting_reference=entry.posting_reference,
         source_reference_ids=list(entry.source_reference_ids),
-        remuneration_calculation_reference=(
-            entry.remuneration_calculation_reference
-        ),
+        remuneration_calculation_reference=(entry.remuneration_calculation_reference),
         invoice_id=entry.invoice_id,
     )
 
@@ -352,8 +467,6 @@ def record_to_ledger_entry(record: LedgerEntryRecord) -> LedgerEntry:
         posted_at=record.posted_at,
         posting_reference=record.posting_reference,
         source_reference_ids=tuple(record.source_reference_ids),
-        remuneration_calculation_reference=(
-            record.remuneration_calculation_reference
-        ),
+        remuneration_calculation_reference=(record.remuneration_calculation_reference),
         invoice_id=record.invoice_id,
     )

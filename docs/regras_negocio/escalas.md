@@ -53,7 +53,29 @@ dias de ausência penalizável e não penalizável. A composição da RV usa o m
 competência para CSAT e descontos por ausência, e `M-1` para a elegibilidade de
 Reincidência. Ela ainda respeita os demais requisitos próprios dos indicadores.
 
-## Limites atuais
+## Expediente padrão e jornada planejada
 
-A escala não é fonte confirmada de atrasos; atrasos não fazem parte deste
-slice. Também não há endpoint, frontend ou postagem no Ledger.
+O expediente padrão é versionado por vigência. O cadastro mutável da aba
+`DADOS` não pode reescrever competências anteriores; snapshots mensais
+explicitamente disponíveis preservam o período a que pertencem. Vigências do
+mesmo colaborador não podem se sobrepor.
+
+A jornada diária é um fato separado do status de presença. A resolução segue:
+
+1. override manual auditável do dia;
+2. slot explícito da grade de fim de semana ou feriado;
+3. expediente padrão vigente em dia útil normal.
+
+As grades explícitas admitem `08:00–14:00`, `11:00–17:00` e `14:00–20:00`.
+Uma jornada diferente do padrão é expediente alternativo, não atraso. `EX`
+exige slot explícito; `PL` preserva presença, mas supervisor não bate ponto no
+NPX e não é avaliado para atraso de entrada.
+
+Quando a grade mensal confirma trabalho de fim de semana/feriado, mas não há
+slot exato para o alias, a jornada fica explicitamente não resolvida. Não há
+fallback para o padrão. A cobertura de `planned_work_schedules` somente avança
+por declaração explícita da extração; a maior data encontrada não é cobertura.
+
+O parser suporta apenas o formato de abril/2026 em diante e usa a data real das
+células e dos blocos. Datas fora da competência são ignoradas. Alias é sempre
+resolvido por `CollaboratorExternalIdentity`, sem aproximação.

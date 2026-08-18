@@ -7,19 +7,26 @@ from supervisor_ai.application.persistence import (
     CollaboratorExternalIdentity,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
+    CollaboratorWorkSchedule,
     CommercialEvent,
     CommercialEventCursorPosition,
     CsatContact,
     CsatEvaluation,
     CsatSummaryRecord,
+    DailyPlannedWorkScheduleFact,
+    DailyWorkScheduleOverride,
     DailyWorkStatusFact,
+    DelayOccurrence,
+    DelayReview,
     EmployeeOccurrenceReport,
     IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
+    PauseFact,
     ProcessingHealthRecord,
     ProcessingRun,
     ProcessingRunCursorPosition,
     ProcessingRunListRecord,
+    WorkSessionFact,
 )
 from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
 
@@ -169,6 +176,40 @@ class DailyWorkStatusRepository(Protocol):
         self, *, collaborator_id: str, competence_month: date
     ) -> tuple[DailyWorkStatusFact, ...]: ...
 
+
+class CollaboratorWorkScheduleRepository(Protocol):
+    def add(self, schedule: CollaboratorWorkSchedule) -> None: ...
+    def get_by_id(self, schedule_id: str) -> CollaboratorWorkSchedule | None: ...
+    def find_for_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> CollaboratorWorkSchedule | None: ...
+    def find_overlapping(
+        self,
+        *,
+        collaborator_id: str,
+        effective_from: date,
+        effective_until: date | None,
+    ) -> tuple[CollaboratorWorkSchedule, ...]: ...
+
+
+class DailyPlannedWorkScheduleRepository(Protocol):
+    def add(self, fact: DailyPlannedWorkScheduleFact) -> None: ...
+    def get_by_id(self, fact_id: str) -> DailyPlannedWorkScheduleFact | None: ...
+    def get_by_collaborator_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> DailyPlannedWorkScheduleFact | None: ...
+    def search_competence(
+        self, *, competence_month: date, collaborator_ids: tuple[str, ...]
+    ) -> tuple[DailyPlannedWorkScheduleFact, ...]: ...
+
+
+class DailyWorkScheduleOverrideRepository(Protocol):
+    def add(self, override: DailyWorkScheduleOverride) -> None: ...
+    def get_by_id(self, override_id: str) -> DailyWorkScheduleOverride | None: ...
+    def get_for_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> DailyWorkScheduleOverride | None: ...
+
     def search_competence(
         self, *, competence_month: date, collaborator_ids: tuple[str, ...]
     ) -> tuple[DailyWorkStatusFact, ...]: ...
@@ -186,6 +227,48 @@ class EmployeeOccurrenceReportRepository(Protocol):
     def search_by_collaborator_date(
         self, *, collaborator_id: str, occurrence_date: date
     ) -> tuple[EmployeeOccurrenceReport, ...]: ...
+
+
+class WorkSessionRepository(Protocol):
+    def add(self, fact: WorkSessionFact) -> None: ...
+    def get_by_id(self, fact_id: str) -> WorkSessionFact | None: ...
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> WorkSessionFact | None: ...
+    def search_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> tuple[WorkSessionFact, ...]: ...
+
+
+class PauseRepository(Protocol):
+    def add(self, fact: PauseFact) -> None: ...
+    def get_by_id(self, fact_id: str) -> PauseFact | None: ...
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> PauseFact | None: ...
+    def search_period(
+        self, *, start_date: date, end_date: date
+    ) -> tuple[PauseFact, ...]: ...
+
+
+class DelayOccurrenceRepository(Protocol):
+    def add(self, occurrence: DelayOccurrence) -> None: ...
+    def get_by_id(self, occurrence_id: str) -> DelayOccurrence | None: ...
+    def get_by_source_fact(
+        self, *, source_fact_type: str, source_fact_id: str
+    ) -> DelayOccurrence | None: ...
+    def search_month(
+        self, *, collaborator_id: str, competence_month: date
+    ) -> tuple[DelayOccurrence, ...]: ...
+
+
+class DelayReviewRepository(Protocol):
+    def add(self, review: DelayReview) -> None: ...
+    def get_by_id(self, review_id: str) -> DelayReview | None: ...
+    def get_latest_for_occurrences(
+        self, occurrence_ids: tuple[str, ...]
+    ) -> tuple[DelayReview, ...]: ...
+
 
 class OperationalCollaboratorProfileRepository(Protocol):
     def add(self, profile: OperationalCollaboratorProfile) -> None: ...
@@ -246,7 +329,14 @@ class UnitOfWork(Protocol):
     csat_contacts: CsatContactRepository
     attendances: AttendanceRepository
     daily_work_statuses: DailyWorkStatusRepository
+    collaborator_work_schedules: CollaboratorWorkScheduleRepository
+    daily_planned_work_schedules: DailyPlannedWorkScheduleRepository
+    daily_work_schedule_overrides: DailyWorkScheduleOverrideRepository
     employee_occurrence_reports: EmployeeOccurrenceReportRepository
+    work_sessions: WorkSessionRepository
+    pauses: PauseRepository
+    delay_occurrences: DelayOccurrenceRepository
+    delay_reviews: DelayReviewRepository
     operational_collaborators: OperationalCollaboratorProfileRepository
     collaborator_external_identities: CollaboratorExternalIdentityRepository
     ingestion_coverages: IngestionCoverageRepository

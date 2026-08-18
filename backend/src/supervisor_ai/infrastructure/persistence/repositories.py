@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Select, and_, case, distinct, func, or_, select
 from sqlalchemy.orm import Session
@@ -10,58 +11,86 @@ from supervisor_ai.application.persistence import (
     CollaboratorExternalIdentity,
     CollaboratorFinancialTimelineCursorPosition,
     CollaboratorFinancialTimelineRecord,
+    CollaboratorWorkSchedule,
     CommercialEvent,
     CommercialEventCursorPosition,
     CsatContact,
     CsatEvaluation,
     CsatSummaryGroupRecord,
     CsatSummaryRecord,
+    DailyPlannedWorkScheduleFact,
+    DailyWorkScheduleOverride,
     DailyWorkStatusFact,
+    DelayOccurrence,
+    DelayReview,
     EmployeeOccurrenceReport,
     IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
+    PauseFact,
     ProcessingHealthCount,
     ProcessingHealthRecord,
     ProcessingRun,
     ProcessingRunCursorPosition,
     ProcessingRunListRecord,
+    WorkSessionFact,
 )
 from supervisor_ai.infrastructure.persistence.mappings import (
     attendance_to_record,
     collaborator_external_identity_to_record,
+    collaborator_work_schedule_to_record,
     csat_contact_to_record,
     csat_evaluation_to_record,
+    daily_planned_work_schedule_to_record,
+    daily_work_schedule_override_to_record,
     daily_work_status_to_record,
+    delay_occurrence_to_record,
+    delay_review_to_record,
     employee_occurrence_report_to_record,
     event_to_record,
     ingestion_coverage_to_record,
     ledger_entry_to_record,
     operational_collaborator_profile_to_record,
+    pause_to_record,
     processing_run_to_record,
     record_to_attendance,
     record_to_collaborator_external_identity,
+    record_to_collaborator_work_schedule,
     record_to_csat_contact,
     record_to_csat_evaluation,
+    record_to_daily_planned_work_schedule,
+    record_to_daily_work_schedule_override,
     record_to_daily_work_status,
+    record_to_delay_occurrence,
+    record_to_delay_review,
     record_to_employee_occurrence_report,
     record_to_event,
     record_to_ingestion_coverage,
     record_to_ledger_entry,
     record_to_operational_collaborator_profile,
+    record_to_pause,
     record_to_processing_run,
+    record_to_work_session,
+    work_session_to_record,
 )
 from supervisor_ai.infrastructure.persistence.models import (
     AttendanceFactRecord,
     CollaboratorExternalIdentityRecord,
+    CollaboratorWorkScheduleRecord,
     CommercialEventRecord,
     CsatContactRecord,
     CsatEvaluationRecord,
+    DailyPlannedWorkScheduleRecord,
+    DailyWorkScheduleOverrideRecord,
     DailyWorkStatusRecord,
+    DelayOccurrenceRecord,
+    DelayReviewRecord,
     EmployeeOccurrenceReportRecord,
     IngestionCoverageEvidenceRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
+    PauseFactRecord,
     ProcessingRunRecord,
+    WorkSessionFactRecord,
 )
 from supervisor_ai.rules_engine import Currency, LedgerEntry, LedgerEntryType
 
@@ -306,12 +335,8 @@ class SqlAlchemyOperationalCollaboratorProfileRepository:
         self.session.add(operational_collaborator_profile_to_record(profile))
         self.session.flush()
 
-    def get_by_id(
-        self, collaborator_id: str
-    ) -> OperationalCollaboratorProfile | None:
-        record = self.session.get(
-            OperationalCollaboratorProfileRecord, collaborator_id
-        )
+    def get_by_id(self, collaborator_id: str) -> OperationalCollaboratorProfile | None:
+        record = self.session.get(OperationalCollaboratorProfileRecord, collaborator_id)
         if record is None:
             return None
         return record_to_operational_collaborator_profile(record)
@@ -331,8 +356,7 @@ class SqlAlchemyOperationalCollaboratorProfileRepository:
             .order_by(OperationalCollaboratorProfileRecord.collaborator_id)
         )
         return tuple(
-            record_to_operational_collaborator_profile(record)
-            for record in records
+            record_to_operational_collaborator_profile(record) for record in records
         )
 
 
@@ -409,9 +433,7 @@ class SqlAlchemyAttendanceRepository:
                 <= datetime.combine(end_date, time.max, tzinfo=UTC)
                 if end_date == date.max
                 else AttendanceFactRecord.occurred_at
-                < datetime.combine(
-                    end_date + timedelta(days=1), time.min, tzinfo=UTC
-                )
+                < datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
             )
         records = self.session.scalars(
             select(AttendanceFactRecord)
@@ -487,6 +509,129 @@ class SqlAlchemyDailyWorkStatusRepository:
         return tuple(record_to_daily_work_status(record) for record in records)
 
 
+class SqlAlchemyCollaboratorWorkScheduleRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, schedule: CollaboratorWorkSchedule) -> None:
+        self.session.add(collaborator_work_schedule_to_record(schedule))
+        self.session.flush()
+
+    def get_by_id(self, schedule_id: str) -> CollaboratorWorkSchedule | None:
+        item = self.session.get(CollaboratorWorkScheduleRecord, schedule_id)
+        return None if item is None else record_to_collaborator_work_schedule(item)
+
+    def find_for_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> CollaboratorWorkSchedule | None:
+        item = self.session.scalar(
+            select(CollaboratorWorkScheduleRecord)
+            .where(
+                CollaboratorWorkScheduleRecord.collaborator_id == collaborator_id,
+                CollaboratorWorkScheduleRecord.effective_from <= work_date,
+                or_(
+                    CollaboratorWorkScheduleRecord.effective_until.is_(None),
+                    CollaboratorWorkScheduleRecord.effective_until >= work_date,
+                ),
+            )
+            .order_by(CollaboratorWorkScheduleRecord.effective_from.desc())
+            .limit(1)
+        )
+        return None if item is None else record_to_collaborator_work_schedule(item)
+
+    def find_overlapping(
+        self,
+        *,
+        collaborator_id: str,
+        effective_from: date,
+        effective_until: date | None,
+    ) -> tuple[CollaboratorWorkSchedule, ...]:
+        end = effective_until or date.max
+        items = self.session.scalars(
+            select(CollaboratorWorkScheduleRecord).where(
+                CollaboratorWorkScheduleRecord.collaborator_id == collaborator_id,
+                CollaboratorWorkScheduleRecord.effective_from <= end,
+                or_(
+                    CollaboratorWorkScheduleRecord.effective_until.is_(None),
+                    CollaboratorWorkScheduleRecord.effective_until >= effective_from,
+                ),
+            )
+        )
+        return tuple(record_to_collaborator_work_schedule(item) for item in items)
+
+
+class SqlAlchemyDailyPlannedWorkScheduleRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, fact: DailyPlannedWorkScheduleFact) -> None:
+        self.session.add(daily_planned_work_schedule_to_record(fact))
+        self.session.flush()
+
+    def get_by_id(self, fact_id: str) -> DailyPlannedWorkScheduleFact | None:
+        item = self.session.get(DailyPlannedWorkScheduleRecord, fact_id)
+        return None if item is None else record_to_daily_planned_work_schedule(item)
+
+    def get_by_collaborator_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> DailyPlannedWorkScheduleFact | None:
+        item = self.session.scalar(
+            select(DailyPlannedWorkScheduleRecord).where(
+                DailyPlannedWorkScheduleRecord.collaborator_id == collaborator_id,
+                DailyPlannedWorkScheduleRecord.work_date == work_date,
+            )
+        )
+        return None if item is None else record_to_daily_planned_work_schedule(item)
+
+    def search_competence(
+        self, *, competence_month: date, collaborator_ids: tuple[str, ...]
+    ) -> tuple[DailyPlannedWorkScheduleFact, ...]:
+        if not collaborator_ids:
+            return ()
+        following = date(
+            competence_month.year + (competence_month.month == 12),
+            competence_month.month % 12 + 1,
+            1,
+        )
+        items = self.session.scalars(
+            select(DailyPlannedWorkScheduleRecord)
+            .where(
+                DailyPlannedWorkScheduleRecord.collaborator_id.in_(collaborator_ids),
+                DailyPlannedWorkScheduleRecord.work_date >= competence_month,
+                DailyPlannedWorkScheduleRecord.work_date < following,
+            )
+            .order_by(
+                DailyPlannedWorkScheduleRecord.collaborator_id,
+                DailyPlannedWorkScheduleRecord.work_date,
+            )
+        )
+        return tuple(record_to_daily_planned_work_schedule(item) for item in items)
+
+
+class SqlAlchemyDailyWorkScheduleOverrideRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, override: DailyWorkScheduleOverride) -> None:
+        self.session.add(daily_work_schedule_override_to_record(override))
+        self.session.flush()
+
+    def get_by_id(self, override_id: str) -> DailyWorkScheduleOverride | None:
+        item = self.session.get(DailyWorkScheduleOverrideRecord, override_id)
+        return None if item is None else record_to_daily_work_schedule_override(item)
+
+    def get_for_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> DailyWorkScheduleOverride | None:
+        item = self.session.scalar(
+            select(DailyWorkScheduleOverrideRecord).where(
+                DailyWorkScheduleOverrideRecord.collaborator_id == collaborator_id,
+                DailyWorkScheduleOverrideRecord.work_date == work_date,
+            )
+        )
+        return None if item is None else record_to_daily_work_schedule_override(item)
+
+
 class SqlAlchemyEmployeeOccurrenceReportRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -497,9 +642,7 @@ class SqlAlchemyEmployeeOccurrenceReportRepository:
 
     def get_by_id(self, report_id: str) -> EmployeeOccurrenceReport | None:
         record = self.session.get(EmployeeOccurrenceReportRecord, report_id)
-        return (
-            None if record is None else record_to_employee_occurrence_report(record)
-        )
+        return None if record is None else record_to_employee_occurrence_report(record)
 
     def get_by_source_reference(
         self, *, source: str, external_reference: str
@@ -507,13 +650,10 @@ class SqlAlchemyEmployeeOccurrenceReportRepository:
         record = self.session.scalar(
             select(EmployeeOccurrenceReportRecord).where(
                 EmployeeOccurrenceReportRecord.source == source,
-                EmployeeOccurrenceReportRecord.external_reference
-                == external_reference,
+                EmployeeOccurrenceReportRecord.external_reference == external_reference,
             )
         )
-        return (
-            None if record is None else record_to_employee_occurrence_report(record)
-        )
+        return None if record is None else record_to_employee_occurrence_report(record)
 
     def search_by_collaborator_date(
         self, *, collaborator_id: str, occurrence_date: date
@@ -530,6 +670,167 @@ class SqlAlchemyEmployeeOccurrenceReportRepository:
             )
         )
         return tuple(record_to_employee_occurrence_report(item) for item in records)
+
+
+class SqlAlchemyWorkSessionRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, fact: WorkSessionFact) -> None:
+        self.session.add(work_session_to_record(fact))
+        self.session.flush()
+
+    def get_by_id(self, fact_id: str) -> WorkSessionFact | None:
+        item = self.session.get(WorkSessionFactRecord, fact_id)
+        return None if item is None else record_to_work_session(item)
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> WorkSessionFact | None:
+        item = self.session.scalar(
+            select(WorkSessionFactRecord).where(
+                WorkSessionFactRecord.source == source,
+                WorkSessionFactRecord.external_reference == external_reference,
+            )
+        )
+        return None if item is None else record_to_work_session(item)
+
+    def search_date(
+        self, *, collaborator_id: str, work_date: date
+    ) -> tuple[WorkSessionFact, ...]:
+        operational_timezone = ZoneInfo("America/Fortaleza")
+        start = datetime.combine(work_date, time.min, operational_timezone).astimezone(
+            UTC
+        )
+        end = start + timedelta(days=1)
+        items = self.session.scalars(
+            select(WorkSessionFactRecord)
+            .where(
+                WorkSessionFactRecord.collaborator_id == collaborator_id,
+                WorkSessionFactRecord.started_at >= start,
+                WorkSessionFactRecord.started_at < end,
+            )
+            .order_by(WorkSessionFactRecord.started_at, WorkSessionFactRecord.id)
+        )
+        return tuple(record_to_work_session(item) for item in items)
+
+
+class SqlAlchemyPauseRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, fact: PauseFact) -> None:
+        self.session.add(pause_to_record(fact))
+        self.session.flush()
+
+    def get_by_id(self, fact_id: str) -> PauseFact | None:
+        item = self.session.get(PauseFactRecord, fact_id)
+        return None if item is None else record_to_pause(item)
+
+    def get_by_source_reference(
+        self, *, source: str, external_reference: str
+    ) -> PauseFact | None:
+        item = self.session.scalar(
+            select(PauseFactRecord).where(
+                PauseFactRecord.source == source,
+                PauseFactRecord.external_reference == external_reference,
+            )
+        )
+        return None if item is None else record_to_pause(item)
+
+    def search_period(
+        self, *, start_date: date, end_date: date
+    ) -> tuple[PauseFact, ...]:
+        operational_timezone = ZoneInfo("America/Fortaleza")
+        start = datetime.combine(start_date, time.min, operational_timezone).astimezone(
+            UTC
+        )
+        end = datetime.combine(
+            end_date + timedelta(days=1), time.min, operational_timezone
+        ).astimezone(UTC)
+        items = self.session.scalars(
+            select(PauseFactRecord)
+            .where(
+                PauseFactRecord.started_at >= start, PauseFactRecord.started_at < end
+            )
+            .order_by(PauseFactRecord.started_at, PauseFactRecord.id)
+        )
+        return tuple(record_to_pause(item) for item in items)
+
+
+class SqlAlchemyDelayOccurrenceRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, occurrence: DelayOccurrence) -> None:
+        self.session.add(delay_occurrence_to_record(occurrence))
+        self.session.flush()
+
+    def get_by_id(self, occurrence_id: str) -> DelayOccurrence | None:
+        item = self.session.get(DelayOccurrenceRecord, occurrence_id)
+        return None if item is None else record_to_delay_occurrence(item)
+
+    def get_by_source_fact(
+        self, *, source_fact_type: str, source_fact_id: str
+    ) -> DelayOccurrence | None:
+        item = self.session.scalar(
+            select(DelayOccurrenceRecord).where(
+                DelayOccurrenceRecord.source_fact_type == source_fact_type,
+                DelayOccurrenceRecord.source_fact_id == source_fact_id,
+            )
+        )
+        return None if item is None else record_to_delay_occurrence(item)
+
+    def search_month(
+        self, *, collaborator_id: str, competence_month: date
+    ) -> tuple[DelayOccurrence, ...]:
+        if competence_month.month == 12:
+            following = date(competence_month.year + 1, 1, 1)
+        else:
+            following = date(competence_month.year, competence_month.month + 1, 1)
+        items = self.session.scalars(
+            select(DelayOccurrenceRecord)
+            .where(
+                DelayOccurrenceRecord.collaborator_id == collaborator_id,
+                DelayOccurrenceRecord.occurrence_date >= competence_month,
+                DelayOccurrenceRecord.occurrence_date < following,
+            )
+            .order_by(DelayOccurrenceRecord.occurrence_date, DelayOccurrenceRecord.id)
+        )
+        return tuple(record_to_delay_occurrence(item) for item in items)
+
+
+class SqlAlchemyDelayReviewRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, review: DelayReview) -> None:
+        self.session.add(delay_review_to_record(review))
+        self.session.flush()
+
+    def get_by_id(self, review_id: str) -> DelayReview | None:
+        item = self.session.get(DelayReviewRecord, review_id)
+        return None if item is None else record_to_delay_review(item)
+
+    def get_latest_for_occurrences(
+        self, occurrence_ids: tuple[str, ...]
+    ) -> tuple[DelayReview, ...]:
+        if not occurrence_ids:
+            return ()
+        items = self.session.scalars(
+            select(DelayReviewRecord)
+            .where(DelayReviewRecord.delay_occurrence_id.in_(occurrence_ids))
+            .order_by(
+                DelayReviewRecord.delay_occurrence_id,
+                DelayReviewRecord.decided_at.desc(),
+                DelayReviewRecord.id.desc(),
+            )
+        )
+        latest: dict[str, DelayReview] = {}
+        for item in items:
+            review = record_to_delay_review(item)
+            latest.setdefault(review.delay_occurrence_id, review)
+        return tuple(latest.values())
 
 
 class SqlAlchemyIngestionCoverageRepository:
@@ -682,9 +983,7 @@ class SqlAlchemyProcessingHealthRepository:
             select(
                 ProcessingRunRecord.event_id.label("event_id"),
                 ProcessingRunRecord.final_status.label("final_status"),
-                ProcessingRunRecord.rules_engine_version.label(
-                    "rules_engine_version"
-                ),
+                ProcessingRunRecord.rules_engine_version.label("rules_engine_version"),
             )
             .join(
                 CommercialEventRecord,
@@ -715,9 +1014,7 @@ class SqlAlchemyProcessingHealthRepository:
                 distinct(run_source.c.event_id).label("event_id")
             ).subquery()
         else:
-            cohort_statement = select(
-                CommercialEventRecord.id.label("event_id")
-            )
+            cohort_statement = select(CommercialEventRecord.id.label("event_id"))
             if source is not None:
                 cohort_statement = cohort_statement.where(
                     CommercialEventRecord.source == source
@@ -870,9 +1167,7 @@ class SqlAlchemyLedgerRepository:
                 <= datetime.combine(end_date, time.max, tzinfo=UTC)
                 if end_date == date.max
                 else LedgerEntryRecord.posted_at
-                < datetime.combine(
-                    end_date + timedelta(days=1), time.min, tzinfo=UTC
-                )
+                < datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
             )
         if entry_type is not None:
             statement = statement.where(
@@ -926,9 +1221,7 @@ def _apply_credit_filters(
     end_date: date | None,
 ) -> Select[tuple[LedgerEntryRecord]]:
     if beneficiary_id is not None:
-        statement = statement.where(
-            LedgerEntryRecord.beneficiary_id == beneficiary_id
-        )
+        statement = statement.where(LedgerEntryRecord.beneficiary_id == beneficiary_id)
     if start_date is not None:
         statement = statement.where(
             LedgerEntryRecord.posted_at
@@ -1003,7 +1296,5 @@ def _processing_run_filters(
     if source is not None:
         filters.append(CommercialEventRecord.source == source)
     if rules_engine_version is not None:
-        filters.append(
-            ProcessingRunRecord.rules_engine_version == rules_engine_version
-        )
+        filters.append(ProcessingRunRecord.rules_engine_version == rules_engine_version)
     return tuple(filters)

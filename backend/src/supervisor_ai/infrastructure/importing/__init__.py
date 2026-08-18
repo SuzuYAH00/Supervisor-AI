@@ -60,6 +60,11 @@ from supervisor_ai.infrastructure.importing.importer import (
     JsonCommercialEventImporter,
     JsonImportResult,
 )
+from supervisor_ai.infrastructure.importing.npx_workforce_xlsx import (
+    NpxWorkbookStructureError,
+    parse_npx_pauses_xlsx,
+    parse_npx_work_sessions_xlsx,
+)
 from supervisor_ai.infrastructure.importing.reporting import (
     CorrelatedCsvRowResult,
     correlate_csv_rows,
@@ -70,6 +75,7 @@ from supervisor_ai.infrastructure.importing.workforce_schedule_xlsx import (
     ATTENDANCE_SHEET_SOURCE,
     WorkforceScheduleXlsxError,
     WorkforceScheduleXlsxImportService,
+    parse_work_schedules_xlsx,
     parse_workforce_schedule_xlsx,
 )
 
@@ -118,6 +124,7 @@ __all__ = [
     "MkCsatXlsxImportService",
     "NPX_CSAT_SOURCE",
     "NpxCsatXlsxImportService",
+    "NpxWorkbookStructureError",
     "ParsedEmployeeOccurrenceWorkbook",
     "WorkforceScheduleXlsxError",
     "WorkforceScheduleXlsxImportService",
@@ -125,7 +132,10 @@ __all__ = [
     "has_csv_import_failures",
     "project_csv_import_report",
     "parse_workforce_schedule_xlsx",
+    "parse_work_schedules_xlsx",
     "parse_mk_csat_xlsx",
     "parse_npx_csat_xlsx",
+    "parse_npx_pauses_xlsx",
+    "parse_npx_work_sessions_xlsx",
     "parse_employee_occurrence_xlsx",
 ]

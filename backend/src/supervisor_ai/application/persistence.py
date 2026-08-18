@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
 from supervisor_ai.rules_engine import (
@@ -218,9 +218,7 @@ class AttendanceFact:
             if identity.code is not None and len(identity.code) > 20:
                 raise ValueError(f"{name} code must not exceed 20 characters")
             if len(identity.description) > 255:
-                raise ValueError(
-                    f"{name} description must not exceed 255 characters"
-                )
+                raise ValueError(f"{name} description must not exceed 255 characters")
         _require_aware(self.occurred_at, "occurred_at")
         _require_aware(self.created_at, "created_at")
 
@@ -287,6 +285,95 @@ class DailyWorkStatusFact:
 
 
 @dataclass(frozen=True, slots=True)
+class CollaboratorWorkSchedule:
+    id: str
+    collaborator_id: str
+    standard_start: time
+    standard_end: time
+    effective_from: date
+    effective_until: date | None
+    source: str
+    source_reference: str
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        _validate_schedule_identity(self)
+        _validate_schedule_times(self.standard_start, self.standard_end)
+        if (
+            self.effective_until is not None
+            and self.effective_until < self.effective_from
+        ):
+            raise ValueError("effective_until must not precede effective_from")
+
+
+@dataclass(frozen=True, slots=True)
+class DailyPlannedWorkScheduleFact:
+    id: str
+    collaborator_id: str
+    work_date: date
+    planned_start: time | None
+    planned_end: time | None
+    source_type: str
+    source: str
+    source_reference: str
+    source_sheet: str
+    source_cell: str
+    unresolved_reason: str | None = None
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        _validate_schedule_identity(self)
+        for name in ("source_type", "source_sheet", "source_cell"):
+            if not getattr(self, name).strip():
+                raise ValueError(f"{name} must not be blank")
+        resolved = self.planned_start is not None and self.planned_end is not None
+        if resolved:
+            _validate_schedule_times(self.planned_start, self.planned_end)
+            if self.unresolved_reason is not None:
+                raise ValueError("resolved schedule must not have unresolved_reason")
+        elif self.planned_start is not None or self.planned_end is not None:
+            raise ValueError("planned_start and planned_end must be provided together")
+        elif not self.unresolved_reason or not self.unresolved_reason.strip():
+            raise ValueError("unresolved schedule requires unresolved_reason")
+
+    @property
+    def is_resolved(self) -> bool:
+        return self.planned_start is not None
+
+
+@dataclass(frozen=True, slots=True)
+class DailyWorkScheduleOverride:
+    id: str
+    collaborator_id: str
+    work_date: date
+    planned_start: time
+    planned_end: time
+    reason: str
+    created_by: str
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        for name in ("id", "collaborator_id", "reason", "created_by"):
+            if not getattr(self, name).strip():
+                raise ValueError(f"{name} must not be blank")
+        _validate_schedule_times(self.planned_start, self.planned_end)
+
+
+def _validate_schedule_identity(item: object) -> None:
+    for name in ("id", "collaborator_id", "source", "source_reference"):
+        value = getattr(item, name)
+        if not value.strip():
+            raise ValueError(f"{name} must not be blank")
+
+
+def _validate_schedule_times(start: time, end: time) -> None:
+    if start.tzinfo is not None or end.tzinfo is not None:
+        raise ValueError("schedule times must be civil times without timezone")
+    if end <= start:
+        raise ValueError("schedule end must be after start")
+
+
+@dataclass(frozen=True, slots=True)
 class EmployeeOccurrenceReport:
     id: str
     external_reference: str
@@ -323,6 +410,124 @@ class EmployeeOccurrenceReport:
             raise ValueError("source_row must identify a data row")
         _require_aware(self.submitted_at, "submitted_at")
         _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class WorkSessionFact:
+    id: str
+    external_reference: str
+    source: str
+    collaborator_id: str
+    external_collaborator_identity: str
+    external_agent_id: str | None
+    queue: str
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: int
+    source_extract_reference: str
+    source_sheet: str
+    source_row: int
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        _validate_npx_fact(self)
+
+
+@dataclass(frozen=True, slots=True)
+class PauseFact:
+    id: str
+    external_reference: str
+    source: str
+    collaborator_id: str
+    external_collaborator_identity: str
+    external_agent_id: str | None
+    queue: str
+    pause_type: str
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: int
+    supervisor_released: str | None
+    source_extract_reference: str
+    source_sheet: str
+    source_row: int
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        _validate_npx_fact(self)
+        if not self.pause_type.strip():
+            raise ValueError("pause_type must not be blank")
+
+
+@dataclass(frozen=True, slots=True)
+class DelayOccurrence:
+    id: str
+    collaborator_id: str
+    occurrence_date: date
+    occurrence_type: str
+    source_fact_type: str
+    source_fact_id: str
+    observed_seconds: int
+    applied_limit_seconds: int
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        for name in (
+            "id",
+            "collaborator_id",
+            "occurrence_type",
+            "source_fact_type",
+            "source_fact_id",
+        ):
+            if not getattr(self, name).strip():
+                raise ValueError(f"{name} must not be blank")
+        if self.observed_seconds < 0 or self.applied_limit_seconds < 0:
+            raise ValueError("delay seconds must not be negative")
+        _require_aware(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class DelayReview:
+    id: str
+    delay_occurrence_id: str
+    decision: str
+    decided_at: datetime
+    decided_by: str
+    employee_occurrence_report_id: str | None = None
+    note: str | None = None
+    created_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        for name in ("id", "delay_occurrence_id", "decision", "decided_by"):
+            if not getattr(self, name).strip():
+                raise ValueError(f"{name} must not be blank")
+        if self.decision not in {"valid", "corrected"}:
+            raise ValueError("decision must be valid or corrected")
+        _require_aware(self.decided_at, "decided_at")
+        _require_aware(self.created_at, "created_at")
+
+
+def _validate_npx_fact(fact: WorkSessionFact | PauseFact) -> None:
+    for name in (
+        "id",
+        "external_reference",
+        "source",
+        "collaborator_id",
+        "external_collaborator_identity",
+        "queue",
+        "source_extract_reference",
+        "source_sheet",
+    ):
+        if not getattr(fact, name).strip():
+            raise ValueError(f"{name} must not be blank")
+    if fact.source_row < 2:
+        raise ValueError("source_row must identify a data row")
+    if fact.duration_seconds < 0:
+        raise ValueError("duration_seconds must not be negative")
+    _require_aware(fact.started_at, "started_at")
+    _require_aware(fact.ended_at, "ended_at")
+    _require_aware(fact.created_at, "created_at")
+    if fact.ended_at < fact.started_at:
+        raise ValueError("ended_at cannot precede started_at")
 
 
 @dataclass(frozen=True, slots=True)

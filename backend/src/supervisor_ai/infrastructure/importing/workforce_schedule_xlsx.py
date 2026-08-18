@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Protocol
@@ -14,6 +14,12 @@ from supervisor_ai.application.use_cases.import_daily_work_statuses import (
     DailyWorkStatusInput,
     ImportDailyWorkStatusesCommand,
     ImportDailyWorkStatusesResult,
+)
+from supervisor_ai.application.use_cases.work_schedules import (
+    CollaboratorWorkScheduleInput,
+    DailyPlannedWorkScheduleInput,
+    ImportWorkSchedulesCommand,
+    ImportWorkSchedulesResult,
 )
 
 ATTENDANCE_SHEET_SOURCE = "attendance_sheet"
@@ -51,14 +57,39 @@ class DailyWorkStatusImporter(Protocol):
     ) -> ImportDailyWorkStatusesResult: ...
 
 
-class WorkforceScheduleXlsxImportService:
-    def __init__(self, importer: DailyWorkStatusImporter) -> None:
-        self._importer = importer
+class WorkScheduleImporter(Protocol):
+    def execute(
+        self, command: ImportWorkSchedulesCommand
+    ) -> ImportWorkSchedulesResult: ...
 
-    def import_xlsx(self, content: bytes) -> ImportDailyWorkStatusesResult:
-        return self._importer.execute(
+
+class WorkforceScheduleXlsxImportService:
+    def __init__(
+        self,
+        importer: DailyWorkStatusImporter,
+        schedule_importer: WorkScheduleImporter | None = None,
+    ) -> None:
+        self._importer = importer
+        self._schedule_importer = schedule_importer
+
+    def import_xlsx(
+        self,
+        content: bytes,
+        *,
+        covered_through: date | None = None,
+        import_reference: str | None = None,
+    ) -> ImportDailyWorkStatusesResult:
+        result = self._importer.execute(
             ImportDailyWorkStatusesCommand(parse_workforce_schedule_xlsx(content))
         )
+        if self._schedule_importer is not None:
+            standards, daily = parse_work_schedules_xlsx(content)
+            self._schedule_importer.execute(
+                ImportWorkSchedulesCommand(
+                    standards, daily, covered_through, import_reference
+                )
+            )
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,11 +128,238 @@ def parse_workforce_schedule_xlsx(
         raise WorkforceScheduleXlsxError("XLSX structure is invalid") from error
 
 
+def parse_work_schedules_xlsx(
+    content: bytes,
+) -> tuple[
+    tuple[CollaboratorWorkScheduleInput, ...],
+    tuple[DailyPlannedWorkScheduleInput, ...],
+]:
+    """Extrai somente jornadas comprovadas pelo formato auditado abril/2026+."""
+    statuses = parse_workforce_schedule_xlsx(content)
+    try:
+        with ZipFile(BytesIO(content)) as archive:
+            strings = _read_shared_strings(archive)
+            all_sheets = _all_sheet_paths(archive)
+            standards: list[CollaboratorWorkScheduleInput] = []
+            explicit: dict[
+                tuple[str, date], tuple[time | None, time | None, str, str]
+            ] = {}
+            monthly: dict[tuple[date, str], tuple[time, time]] = {}
+            for competence in sorted({item.competence_month for item in statuses}):
+                month_name = next(
+                    name for name, value in _MONTHS.items() if value == competence.month
+                )
+                weekend_name = f"FINAIS DE SEMANA - {month_name} {competence.year}"
+                if weekend_name in all_sheets:
+                    cells = _sheet_cells(archive, all_sheets[weekend_name], strings)
+                    snapshots = _standard_snapshots(cells)
+                    month_end = _month_end(competence)
+                    for identity, schedule in snapshots.items():
+                        monthly[(competence, identity)] = schedule
+                        reference = f"{weekend_name}!standard:{identity}"
+                        standards.append(
+                            CollaboratorWorkScheduleInput(
+                                identity,
+                                schedule[0],
+                                schedule[1],
+                                competence,
+                                month_end,
+                                ATTENDANCE_SHEET_SOURCE,
+                                reference,
+                            )
+                        )
+                    explicit.update(
+                        _explicit_assignments(cells, weekend_name, competence)
+                    )
+                holiday_name = f"FERIADOS - {month_name} {competence.year}"
+                if holiday_name in all_sheets:
+                    cells = _sheet_cells(archive, all_sheets[holiday_name], strings)
+                    explicit.update(
+                        _explicit_assignments(cells, holiday_name, competence)
+                    )
+            daily: list[DailyPlannedWorkScheduleInput] = []
+            worked = {"P", "PS", "PD", "PF", "FT", "PL", "EX"}
+            for status in statuses:
+                if status.raw_code not in worked:
+                    continue
+                key = (status.external_identity, status.work_date)
+                source_type = "standard"
+                slot = explicit.get(key)
+                unresolved = None
+                if status.raw_code == "PL":
+                    slot = None
+                    source_type = "unresolved"
+                    unresolved = "pl_not_subject_to_npx_entry_delay"
+                elif slot is not None:
+                    if slot[0] is None:
+                        source_type = "unresolved"
+                        unresolved = "conflicting_explicit_schedule"
+                    else:
+                        source_type = "explicit"
+                elif status.work_date.weekday() >= 5 or status.raw_code in {"PF", "EX"}:
+                    source_type = "unresolved"
+                    unresolved = "explicit_schedule_not_found"
+                else:
+                    standard = monthly.get(
+                        (status.competence_month, status.external_identity)
+                    )
+                    if standard is None:
+                        source_type = "unresolved"
+                        unresolved = "standard_schedule_not_found"
+                    else:
+                        slot = (*standard, status.source_sheet, status.source_cell)
+                start, end, sheet, cell = (
+                    slot
+                    if slot is not None
+                    else (None, None, status.source_sheet, status.source_cell)
+                )
+                reference = f"{status.source_sheet}!planned:{status.source_cell}"
+                daily.append(
+                    DailyPlannedWorkScheduleInput(
+                        status.external_identity,
+                        status.work_date,
+                        start,
+                        end,
+                        source_type,
+                        ATTENDANCE_SHEET_SOURCE,
+                        reference,
+                        sheet,
+                        cell,
+                        unresolved,
+                    )
+                )
+            represented = {
+                (item.external_identity, item.work_date)
+                for item in daily
+                if item.source_type == "explicit"
+            }
+            for (identity, work_date), slot in explicit.items():
+                if slot[0] is None or (identity, work_date) in represented:
+                    continue
+                daily.append(
+                    DailyPlannedWorkScheduleInput(
+                        identity,
+                        work_date,
+                        slot[0],
+                        slot[1],
+                        "explicit",
+                        ATTENDANCE_SHEET_SOURCE,
+                        f"{slot[2]}!planned:{slot[3]}",
+                        slot[2],
+                        slot[3],
+                    )
+                )
+            daily.sort(
+                key=lambda item: (item.source_type != "explicit", item.work_date)
+            )
+            return tuple(standards), tuple(daily)
+    except (BadZipFile, KeyError, ElementTree.ParseError) as error:
+        raise WorkforceScheduleXlsxError("XLSX structure is invalid") from error
+
+
+def _all_sheet_paths(archive: ZipFile) -> dict[str, str]:
+    workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
+    relationships = ElementTree.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+    targets = {
+        item.attrib["Id"]: item.attrib["Target"]
+        for item in relationships.findall(f"{_PACKAGE_REL_NS}Relationship")
+    }
+    return {
+        node.attrib["name"]: str(
+            PurePosixPath("xl") / targets[node.attrib[f"{_REL_NS}id"]].lstrip("/")
+        )
+        for node in workbook.findall(f"{_NS}sheets/{_NS}sheet")
+    }
+
+
+def _sheet_cells(
+    archive: ZipFile, path: str, strings: tuple[str, ...]
+) -> dict[str, str]:
+    root = ElementTree.fromstring(archive.read(path))
+    return {
+        node.attrib["r"]: _cell_value(node, strings)
+        for node in root.findall(f".//{_NS}c")
+    }
+
+
+def _standard_snapshots(cells: dict[str, str]) -> dict[str, tuple[time, time]]:
+    result: dict[str, tuple[time, time]] = {}
+    pattern = re.compile(r"^(\d{2}):(\d{2}) até (\d{2}):(\d{2}) - (.+)$")
+    for value in cells.values():
+        match = pattern.fullmatch(value)
+        if match:
+            result[match.group(5)] = (
+                time(int(match.group(1)), int(match.group(2))),
+                time(int(match.group(3)), int(match.group(4))),
+            )
+    return result
+
+
+def _explicit_assignments(
+    cells: dict[str, str], sheet: str, competence: date
+) -> dict[tuple[str, date], tuple[time | None, time | None, str, str]]:
+    result: dict[
+        tuple[str, date], tuple[time | None, time | None, str, str]
+    ] = {}
+    by_row: dict[int, dict[int, tuple[str, str]]] = {}
+    for reference, value in cells.items():
+        column, row = _split_reference(reference)
+        by_row.setdefault(row, {})[_column_number(column)] = (value, reference)
+    for base, (title, _) in by_row.get(2, {}).items():
+        dates = [
+            date(competence.year, int(month), int(day))
+            for day, month in re.findall(r"(\d{2})/(\d{2})", title)
+        ]
+        dates = [
+            item
+            for item in dates
+            if (item.year, item.month) == (competence.year, competence.month)
+        ]
+        if not dates:
+            continue
+        row_dates = [(range(5, 20), dates[0])]
+        if len(dates) > 1:
+            row_dates.append((range(21, 40), dates[1]))
+        for rows, work_date in row_dates:
+            for row in rows:
+                values = by_row.get(row, {})
+                for offset, start, end in (
+                    (0, time(8), time(14)),
+                    (3, time(11), time(17)),
+                    (6, time(14), time(20)),
+                ):
+                    item = values.get(base + offset)
+                    if item is None or item[0] in {
+                        "Sábado",
+                        "Domingo",
+                        "Chat",
+                        "Imediato",
+                        "EXTRA",
+                    }:
+                        continue
+                    key = (item[0], work_date)
+                    if key in result and result[key][:2] != (start, end):
+                        result[key] = (None, None, sheet, item[1])
+                    elif key not in result:
+                        result[key] = (start, end, sheet, item[1])
+    return result
+
+
+def _column_number(column: str) -> int:
+    value = 0
+    for character in column:
+        value = value * 26 + ord(character) - 64
+    return value
+
+
+def _month_end(month: date) -> date:
+    following = date(month.year + (month.month == 12), month.month % 12 + 1, 1)
+    return following - timedelta(days=1)
+
+
 def _read_normative_sheets(archive: ZipFile) -> tuple[_Sheet, ...]:
     workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
-    relationships = ElementTree.fromstring(
-        archive.read("xl/_rels/workbook.xml.rels")
-    )
+    relationships = ElementTree.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
     targets = {
         relationship.attrib["Id"]: relationship.attrib["Target"]
         for relationship in relationships.findall(f"{_PACKAGE_REL_NS}Relationship")
@@ -182,9 +440,7 @@ def _parse_sheet(
     return tuple(facts)
 
 
-def _date_columns(
-    cells: dict[str, str], competence_month: date
-) -> dict[str, date]:
+def _date_columns(cells: dict[str, str], competence_month: date) -> dict[str, date]:
     result: dict[str, date] = {}
     for reference, value in cells.items():
         column, row = _split_reference(reference)
@@ -213,9 +469,7 @@ def _validated_employee_rows(root: ElementTree.Element) -> tuple[int, ...]:
     return tuple(sorted(rows))
 
 
-def _cell_value(
-    node: ElementTree.Element, shared_strings: tuple[str, ...]
-) -> str:
+def _cell_value(node: ElementTree.Element, shared_strings: tuple[str, ...]) -> str:
     cell_type = node.attrib.get("t")
     if cell_type == "inlineStr":
         return "".join(text.text or "" for text in node.iter(f"{_NS}t"))

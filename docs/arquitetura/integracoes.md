@@ -326,6 +326,11 @@ O Supervisor AI deve reduzir gradualmente a dependência dessas planilhas, subst
 
 ## Cobertura factual de ingestão
 
+Para atrasos mensais, são cobertos separadamente `npx_work_sessions`,
+`npx_pauses` e `planned_work_schedules`. O importador da Escala conserva o
+status diário, o snapshot versionado do expediente e a jornada planejada. A
+declaração de cobertura da Escala é explícita; não é calculada por `MAX(data)`.
+
 Importações que declarem representar um intervalo completo podem registrar uma
 evidência de cobertura por dataset e fonte. A evidência contém uma referência
 da extração, `covered_through` e o instante de registro. Ela é independente dos
@@ -419,3 +424,13 @@ A primeira versão do Supervisor AI deve priorizar integrações que impactam di
 - Indicadores;
 - Desempenho;
 - Tomada de decisão da supervisão.
+# NPX — sessões e pausas
+
+As exportações de Pontos e Pausas alimentam fatos operacionais separados com
+source `npx`. Chat e Ligação compartilham o mesmo contrato; fila é atributo do
+fato, não modalidade competitiva. Identidades externas são resolvidas antes da
+persistência e as referências determinísticas impedem duplicação.
+
+Cada dataset possui cobertura explícita (`npx_work_sessions` e `npx_pauses`).
+`MAX(started_at)` não comprova completude. Regras de atraso são aplicadas pelo
+Rules Engine/Application depois da persistência, nunca pelo conector XLSX.

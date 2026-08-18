@@ -36,6 +36,13 @@ Uma competência preserva referências factuais distintas:
 - `attendance_reference_month`: o próprio mês da competência, para atrasos e
   ausências/atestados.
 
+A quantidade de atrasos é derivada automaticamente quando sessões e pausas NPX
+e jornadas planejadas possuem cobertura completa da competência. A Application
+gera atrasos de entrada/pausa, aplica a decisão humana mais recente e entrega a
+contagem ao Rules Engine. Cobertura incompleta ou jornada não resolvida impede
+o fechamento; não equivale a zero. `delay_facts` explícito permanece como
+override interno compatível.
+
 Exemplo para a competência de agosto:
 
 - CSAT de agosto;
@@ -195,6 +202,16 @@ componente, nem proporcionalidade pelo número de dias trabalhados.
 | 1 a 2 | -R$ 25,00 |
 | 3 a 9 | -R$ 50,00 |
 | 10 ou mais | -R$ 250,00 |
+
+Os fatos NPX de pausas e sessões são persistidos separadamente da revisão
+humana. Pausas normativas já produzem ocorrências auditáveis; uma decisão
+`corrected` deixa de contá-las, enquanto ausência de revisão ou decisão `valid`
+mantém a ocorrência. O formulário do colaborador não corrige automaticamente.
+
+A composição automática dessa contagem ainda não está habilitada porque a
+escala persistida não fornece `planned_start` diário para derivar atrasos de
+entrada. Até essa fonte existir, a composição mantém o fato mensal explícito e
+não interpreta ausência de registros como zero.
 
 ### Ausências/atestados na competência
 

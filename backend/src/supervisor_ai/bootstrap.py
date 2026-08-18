@@ -19,6 +19,8 @@ from supervisor_ai.application.use_cases import (
     GetFinancialSnapshotUseCase,
     GetFinancialSummaryUseCase,
     GetMonthlyCsatFactsUseCase,
+    GetMonthlyDelayCountUseCase,
+    GetMonthlyDelayFactsFromCoverageUseCase,
     GetMonthlyPresenceUseCase,
     GetMonthlyRecurrenceFactsUseCase,
     GetProcessingHealthUseCase,
@@ -30,10 +32,13 @@ from supervisor_ai.application.use_cases import (
     ImportCsatEvaluationsUseCase,
     ImportDailyWorkStatusesUseCase,
     ImportEmployeeOccurrenceReportsUseCase,
+    ImportNpxFactsUseCase,
+    ImportWorkSchedulesUseCase,
     ListCommercialEventsUseCase,
     ListProcessingRunsUseCase,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
+    RecordDelayReviewUseCase,
 )
 from supervisor_ai.infrastructure.importing import (
     AttendanceCsvImportService,
@@ -158,15 +163,11 @@ def build_rules_engine() -> ProcessCommercialEventUseCase:
         remuneration_eligibility=RemunerationEligibilityPhaseHandler(
             RemunerationEligibilityEvaluator()
         ),
-        payment_validation=PaymentValidationPhaseHandler(
-            PaymentValidationEvaluator()
-        ),
+        payment_validation=PaymentValidationPhaseHandler(PaymentValidationEvaluator()),
         remuneration_amount=RemunerationAmountPhaseHandler(
             RemunerationAmountEvaluator()
         ),
-        ledger_posting=LedgerPostingPhaseHandler(
-            RemunerationLedgerPostingEvaluator()
-        ),
+        ledger_posting=LedgerPostingPhaseHandler(RemunerationLedgerPostingEvaluator()),
     )
 
 
@@ -259,9 +260,7 @@ def build_commercial_event_details_service(
     database_url: str,
 ) -> GetCommercialEventDetailsUseCase:
     session_factory = build_session_factory(database_url)
-    return GetCommercialEventDetailsUseCase(
-        build_unit_of_work_factory(session_factory)
-    )
+    return GetCommercialEventDetailsUseCase(build_unit_of_work_factory(session_factory))
 
 
 def build_commercial_event_list_service(
@@ -284,9 +283,7 @@ def build_processing_run_details_service(
     database_url: str,
 ) -> GetProcessingRunDetailsUseCase:
     session_factory = build_session_factory(database_url)
-    return GetProcessingRunDetailsUseCase(
-        build_unit_of_work_factory(session_factory)
-    )
+    return GetProcessingRunDetailsUseCase(build_unit_of_work_factory(session_factory))
 
 
 def build_processing_run_listing_service(
@@ -377,7 +374,10 @@ def build_workforce_schedule_import_service(
     return WorkforceScheduleXlsxImportService(
         ImportDailyWorkStatusesUseCase(
             build_unit_of_work_factory(session_factory), SystemClock()
-        )
+        ),
+        ImportWorkSchedulesUseCase(
+            build_unit_of_work_factory(session_factory), SystemClock()
+        ),
     )
 
 
@@ -386,6 +386,27 @@ def build_monthly_presence_service(
 ) -> GetMonthlyPresenceUseCase:
     session_factory = build_session_factory(database_url)
     return GetMonthlyPresenceUseCase(build_unit_of_work_factory(session_factory))
+
+
+def build_npx_facts_import_service(database_url: str) -> ImportNpxFactsUseCase:
+    session_factory = build_session_factory(database_url)
+    return ImportNpxFactsUseCase(
+        build_unit_of_work_factory(session_factory), SystemClock()
+    )
+
+
+def build_delay_review_service(database_url: str) -> RecordDelayReviewUseCase:
+    session_factory = build_session_factory(database_url)
+    return RecordDelayReviewUseCase(
+        build_unit_of_work_factory(session_factory), SystemClock()
+    )
+
+
+def build_monthly_delay_count_service(
+    database_url: str,
+) -> GetMonthlyDelayCountUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetMonthlyDelayCountUseCase(build_unit_of_work_factory(session_factory))
 
 
 def build_monthly_variable_compensation_service(
@@ -403,4 +424,5 @@ def build_monthly_variable_compensation_service(
                 GetRecurrenceSummaryUseCase(unit_of_work_factory),
             )
         ),
+        GetMonthlyDelayFactsFromCoverageUseCase(unit_of_work_factory, SystemClock()),
     )

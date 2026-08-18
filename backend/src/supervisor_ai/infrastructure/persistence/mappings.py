@@ -7,6 +7,7 @@ from supervisor_ai.application.persistence import (
     CsatContact,
     CsatEvaluation,
     DailyWorkStatusFact,
+    IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
     ProcessingRun,
 )
@@ -17,6 +18,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     CsatContactRecord,
     CsatEvaluationRecord,
     DailyWorkStatusRecord,
+    IngestionCoverageEvidenceRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
     ProcessingRunRecord,
@@ -192,6 +194,30 @@ def record_to_attendance(record: AttendanceFactRecord) -> AttendanceFact:
             record.closing_code, record.closing_description
         ),
         created_at=record.created_at,
+    )
+
+
+def ingestion_coverage_to_record(
+    evidence: IngestionCoverageEvidence,
+) -> IngestionCoverageEvidenceRecord:
+    return IngestionCoverageEvidenceRecord(
+        dataset=evidence.dataset,
+        source=evidence.source,
+        import_reference=evidence.import_reference,
+        covered_through=evidence.covered_through,
+        recorded_at=evidence.recorded_at,
+    )
+
+
+def record_to_ingestion_coverage(
+    record: IngestionCoverageEvidenceRecord,
+) -> IngestionCoverageEvidence:
+    return IngestionCoverageEvidence(
+        dataset=record.dataset,
+        source=record.source,
+        import_reference=record.import_reference,
+        covered_through=record.covered_through,
+        recorded_at=record.recorded_at,
     )
 
 

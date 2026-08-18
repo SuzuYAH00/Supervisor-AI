@@ -162,6 +162,19 @@ Uma coorte mensal só pode ser consultada como fechada quando a observação cob
 o último dia do mês mais 30 dias. A API exige `observed_through` e rejeita uma
 janela incompleta.
 
+Para uso automatizado, o calendário não é evidência suficiente de observação.
+O banco precisa possuir uma declaração persistida de cobertura do dataset e da
+fonte cujo `covered_through` alcance o fim da janela. A maior data encontrada em
+`occurred_at` não representa cobertura: uma fonte pode estar completa mesmo em
+um dia sem atendimentos e pode conter um registro recente apesar de possuir
+lacunas anteriores.
+
+Cada declaração de cobertura preserva dataset, fonte, referência da extração,
+data garantida e instante de registro. As declarações são append-only. Uma nova
+extração pode avançar a cobertura efetiva; declarações com data anterior ficam
+registradas para auditoria, mas não fazem o watermark regredir. Sem declaração,
+a cobertura é desconhecida e a coorte não é fechada automaticamente.
+
 ## Taxa
 
 ```text
@@ -191,6 +204,13 @@ conflito e não sobrescreve o registro.
 Resultados de reincidência não são persistidos nesta versão: são derivados pelo
 Rules Engine a partir dos fatos. Assim, reimportação idempotente também não cria
 resultado duplicado.
+
+O importador pode receber, separadamente dos registros, `source`,
+`covered_through` e uma referência auditável da extração. Essa declaração
+significa que a origem garante ter fornecido todos os atendimentos necessários
+até a data informada. Ela nunca é inferida do conteúdo do CSV. Reutilizar a
+mesma referência com a mesma declaração é idempotente; reutilizá-la com outra
+data gera conflito explícito.
 
 ## Consultas
 

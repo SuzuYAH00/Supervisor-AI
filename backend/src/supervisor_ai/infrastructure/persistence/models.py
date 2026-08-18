@@ -318,6 +318,35 @@ class AttendanceFactRecord(Base):
     )
 
 
+class IngestionCoverageEvidenceRecord(Base):
+    __tablename__ = "ingestion_coverage_evidence"
+
+    dataset: Mapped[str] = mapped_column(String(100), primary_key=True)
+    source: Mapped[str] = mapped_column(String(100), primary_key=True)
+    import_reference: Mapped[str] = mapped_column(String(255), primary_key=True)
+    covered_through: Mapped[date] = mapped_column(Date(), nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(dataset) > 0", name="ck_ingestion_coverage_dataset"
+        ),
+        CheckConstraint(
+            "length(source) > 0", name="ck_ingestion_coverage_source"
+        ),
+        CheckConstraint(
+            "length(import_reference) > 0",
+            name="ck_ingestion_coverage_import_reference",
+        ),
+        Index(
+            "ix_ingestion_coverage_latest",
+            "dataset",
+            "source",
+            "covered_through",
+        ),
+    )
+
+
 class DailyWorkStatusRecord(Base):
     __tablename__ = "daily_work_statuses"
 

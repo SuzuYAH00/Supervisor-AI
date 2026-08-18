@@ -1,8 +1,14 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
-from supervisor_ai.application.errors import AttendanceFactConflict
-from supervisor_ai.application.persistence import AttendanceFact
+from supervisor_ai.application.errors import (
+    AttendanceFactConflict,
+    IngestionCoverageConflict,
+)
+from supervisor_ai.application.persistence import (
+    AttendanceFact,
+    IngestionCoverageEvidence,
+)
 from supervisor_ai.application.ports import Clock, UnitOfWork, UnitOfWorkFactory
 from supervisor_ai.rules_engine import ClassificationIdentity
 
@@ -39,6 +45,32 @@ class AttendanceInput:
 @dataclass(frozen=True, slots=True)
 class ImportAttendancesCommand:
     attendances: tuple[AttendanceInput, ...]
+    coverage: "AttendanceCoverageDeclaration | None" = None
+
+    def __post_init__(self) -> None:
+        if self.coverage is not None and any(
+            item.source != self.coverage.source for item in self.attendances
+        ):
+            raise ValueError(
+                "all attendance facts must match the declared coverage source"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class AttendanceCoverageDeclaration:
+    source: str
+    covered_through: date
+    import_reference: str
+
+    def __post_init__(self) -> None:
+        for name, value, maximum in (
+            ("source", self.source, 100),
+            ("import_reference", self.import_reference, 255),
+        ):
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +79,8 @@ class ImportAttendancesResult:
     created_count: int
     already_existing_count: int
     attendance_ids: tuple[str, ...]
+    declared_covered_through: date | None = None
+    effective_covered_through: date | None = None
 
 
 class ImportAttendancesUseCase:
@@ -64,12 +98,61 @@ class ImportAttendancesUseCase:
             for fact in facts:
                 if self._ensure_attendance(unit_of_work, fact):
                     created_count += 1
+            effective_coverage = self._record_coverage(
+                unit_of_work, command.coverage, created_at
+            )
             unit_of_work.commit()
         return ImportAttendancesResult(
             received_count=len(facts),
             created_count=created_count,
             already_existing_count=len(facts) - created_count,
             attendance_ids=tuple(item.id for item in facts),
+            declared_covered_through=(
+                command.coverage.covered_through
+                if command.coverage is not None
+                else None
+            ),
+            effective_covered_through=(
+                effective_coverage.covered_through
+                if effective_coverage is not None
+                else None
+            ),
+        )
+
+    @staticmethod
+    def _record_coverage(
+        unit_of_work: UnitOfWork,
+        declaration: AttendanceCoverageDeclaration | None,
+        recorded_at: datetime,
+    ) -> IngestionCoverageEvidence | None:
+        if declaration is None:
+            return None
+        evidence = IngestionCoverageEvidence(
+            dataset=RECURRENCE_ATTENDANCES_DATASET,
+            source=declaration.source,
+            import_reference=declaration.import_reference,
+            covered_through=declaration.covered_through,
+            recorded_at=recorded_at,
+        )
+        existing = unit_of_work.ingestion_coverages.get_by_import_reference(
+            dataset=evidence.dataset,
+            source=evidence.source,
+            import_reference=evidence.import_reference,
+        )
+        if existing is None:
+            unit_of_work.ingestion_coverages.add(evidence)
+        elif (
+            existing.dataset != evidence.dataset
+            or existing.source != evidence.source
+            or existing.import_reference != evidence.import_reference
+            or existing.covered_through != evidence.covered_through
+        ):
+            raise IngestionCoverageConflict(
+                "ingestion coverage reference differs from persisted evidence"
+            )
+        return unit_of_work.ingestion_coverages.get_latest(
+            dataset=evidence.dataset,
+            source=evidence.source,
         )
 
     @staticmethod
@@ -104,3 +187,4 @@ def _same_fact(first: AttendanceFact, second: AttendanceFact) -> bool:
             first.closing_classification == second.closing_classification,
         )
     )
+RECURRENCE_ATTENDANCES_DATASET = "recurrence_attendances"

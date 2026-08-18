@@ -22,6 +22,14 @@ class AttendanceFactConflict(ApplicationConflict):
     """A identidade do atendimento diverge dos fatos persistidos."""
 
 
+class IngestionCoverageConflict(ApplicationConflict):
+    """A referência da extração diverge da cobertura já registrada."""
+
+
+class IngestionCoverageUnknown(Exception):
+    """Não existe evidência de cobertura para o dataset e a fonte."""
+
+
 class DailyWorkStatusConflict(ApplicationConflict):
     """A mesma origem ou dia de trabalho diverge do fato persistido."""
 

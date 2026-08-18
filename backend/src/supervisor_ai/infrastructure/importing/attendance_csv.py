@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Protocol
 
 from supervisor_ai.application.use_cases.import_attendances import (
+    AttendanceCoverageDeclaration,
     AttendanceInput,
     ImportAttendancesCommand,
     ImportAttendancesResult,
@@ -43,10 +44,20 @@ class AttendanceCsvImportService:
     def __init__(self, importer: AttendanceImporter) -> None:
         self._importer = importer
 
-    def import_csv(self, content: str) -> ImportAttendancesResult:
-        return self._importer.execute(
-            ImportAttendancesCommand(_parse_attendance_csv(content))
-        )
+    def import_csv(
+        self,
+        content: str,
+        *,
+        coverage: AttendanceCoverageDeclaration | None = None,
+    ) -> ImportAttendancesResult:
+        attendances = _parse_attendance_csv(content)
+        try:
+            command = ImportAttendancesCommand(attendances, coverage)
+        except ValueError as error:
+            raise AttendanceCsvValidationError(
+                "coverage source does not match attendance facts"
+            ) from error
+        return self._importer.execute(command)
 
 
 def _parse_attendance_csv(content: str) -> tuple[AttendanceInput, ...]:

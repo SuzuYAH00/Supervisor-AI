@@ -324,6 +324,25 @@ Atualmente representa uma camada intermediária de armazenamento e cálculo.
 
 O Supervisor AI deve reduzir gradualmente a dependência dessas planilhas, substituindo processos manuais por coleta e processamento automatizado.
 
+## Cobertura factual de ingestão
+
+Importações que declarem representar um intervalo completo podem registrar uma
+evidência de cobertura por dataset e fonte. A evidência contém uma referência
+da extração, `covered_through` e o instante de registro. Ela é independente dos
+registros importados e não é calculada por `MAX(occurred_at)`.
+
+O histórico é preservado: declarações posteriores não sobrescrevem as
+anteriores, e o watermark efetivo é a maior cobertura comprovada. O
+`ProcessingRun` existente não foi reutilizado porque seu contrato exige um
+`CommercialEvent` e representa o pipeline comercial. Importações factuais como
+atendimentos usam uma referência própria da extração até que exista um modelo
+de execução de importação compartilhado e semanticamente compatível.
+
+Reincidência é o primeiro consumidor. Uma consulta segura por cobertura busca a
+evidência persistida e só constrói a coorte quando ela alcança o último dia do
+mês original mais a janela normativa de 30 dias. Ausência ou insuficiência de
+cobertura não é convertida em taxa zero.
+
 ---
 
 # 9. Looker Studio

@@ -17,6 +17,7 @@ from supervisor_ai.application.persistence import (
     CsatSummaryGroupRecord,
     CsatSummaryRecord,
     DailyWorkStatusFact,
+    IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
     ProcessingHealthCount,
     ProcessingHealthRecord,
@@ -31,6 +32,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     csat_evaluation_to_record,
     daily_work_status_to_record,
     event_to_record,
+    ingestion_coverage_to_record,
     ledger_entry_to_record,
     operational_collaborator_profile_to_record,
     processing_run_to_record,
@@ -40,6 +42,7 @@ from supervisor_ai.infrastructure.persistence.mappings import (
     record_to_csat_evaluation,
     record_to_daily_work_status,
     record_to_event,
+    record_to_ingestion_coverage,
     record_to_ledger_entry,
     record_to_operational_collaborator_profile,
     record_to_processing_run,
@@ -51,6 +54,7 @@ from supervisor_ai.infrastructure.persistence.models import (
     CsatContactRecord,
     CsatEvaluationRecord,
     DailyWorkStatusRecord,
+    IngestionCoverageEvidenceRecord,
     LedgerEntryRecord,
     OperationalCollaboratorProfileRecord,
     ProcessingRunRecord,
@@ -477,6 +481,42 @@ class SqlAlchemyDailyWorkStatusRepository:
             )
         )
         return tuple(record_to_daily_work_status(record) for record in records)
+
+
+class SqlAlchemyIngestionCoverageRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, evidence: IngestionCoverageEvidence) -> None:
+        self.session.add(ingestion_coverage_to_record(evidence))
+        self.session.flush()
+
+    def get_by_import_reference(
+        self, *, dataset: str, source: str, import_reference: str
+    ) -> IngestionCoverageEvidence | None:
+        record = self.session.get(
+            IngestionCoverageEvidenceRecord,
+            (dataset, source, import_reference),
+        )
+        return None if record is None else record_to_ingestion_coverage(record)
+
+    def get_latest(
+        self, *, dataset: str, source: str
+    ) -> IngestionCoverageEvidence | None:
+        record = self.session.scalar(
+            select(IngestionCoverageEvidenceRecord)
+            .where(
+                IngestionCoverageEvidenceRecord.dataset == dataset,
+                IngestionCoverageEvidenceRecord.source == source,
+            )
+            .order_by(
+                IngestionCoverageEvidenceRecord.covered_through.desc(),
+                IngestionCoverageEvidenceRecord.recorded_at.desc(),
+                IngestionCoverageEvidenceRecord.import_reference.desc(),
+            )
+            .limit(1)
+        )
+        return None if record is None else record_to_ingestion_coverage(record)
 
 
 class SqlAlchemyProcessingRunRepository:

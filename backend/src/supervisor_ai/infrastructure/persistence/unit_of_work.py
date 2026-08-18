@@ -9,6 +9,7 @@ from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyCsatRepository,
     SqlAlchemyDailyWorkStatusRepository,
     SqlAlchemyEventRepository,
+    SqlAlchemyIngestionCoverageRepository,
     SqlAlchemyLedgerRepository,
     SqlAlchemyOperationalCollaboratorProfileRepository,
     SqlAlchemyProcessingHealthRepository,
@@ -35,6 +36,7 @@ class SqlAlchemyUnitOfWork:
         self.csat = SqlAlchemyCsatRepository(session)
         self.csat_contacts = SqlAlchemyCsatContactRepository(session)
         self.attendances = SqlAlchemyAttendanceRepository(session)
+        self.ingestion_coverages = SqlAlchemyIngestionCoverageRepository(session)
         self.daily_work_statuses = SqlAlchemyDailyWorkStatusRepository(session)
         self.operational_collaborators = (
             SqlAlchemyOperationalCollaboratorProfileRepository(session)

@@ -226,6 +226,27 @@ class AttendanceFact:
 
 
 @dataclass(frozen=True, slots=True)
+class IngestionCoverageEvidence:
+    dataset: str
+    source: str
+    import_reference: str
+    covered_through: date
+    recorded_at: datetime
+
+    def __post_init__(self) -> None:
+        for name, value, maximum in (
+            ("dataset", self.dataset, 100),
+            ("source", self.source, 100),
+            ("import_reference", self.import_reference, 255),
+        ):
+            if not value.strip():
+                raise ValueError(f"{name} must not be blank")
+            if len(value) > maximum:
+                raise ValueError(f"{name} must not exceed {maximum} characters")
+        _require_aware(self.recorded_at, "recorded_at")
+
+
+@dataclass(frozen=True, slots=True)
 class DailyWorkStatusFact:
     id: str
     collaborator_id: str

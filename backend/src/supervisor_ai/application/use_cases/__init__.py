@@ -67,7 +67,12 @@ from supervisor_ai.application.use_cases.get_recurrence_summary import (
     GetRecurrenceSummaryUseCase,
     RecurrenceOperatorSummary,
 )
+from supervisor_ai.application.use_cases.get_recurrence_summary_from_coverage import (
+    GetRecurrenceSummaryFromCoverageQuery,
+    GetRecurrenceSummaryFromCoverageUseCase,
+)
 from supervisor_ai.application.use_cases.import_attendances import (
+    AttendanceCoverageDeclaration,
     AttendanceInput,
     ImportAttendancesCommand,
     ImportAttendancesResult,
@@ -143,6 +148,7 @@ from .resolve_collaborator_external_identity import (
 
 __all__ = [
     "AttendanceInput",
+    "AttendanceCoverageDeclaration",
     "AttendanceItem",
     "CalculateMonthlyVariableCompensationCommand",
     "CalculateMonthlyVariableCompensationResult",
@@ -197,6 +203,8 @@ __all__ = [
     "GetProcessingHealthUseCase",
     "GetRecurrenceSummaryResult",
     "GetRecurrenceSummaryUseCase",
+    "GetRecurrenceSummaryFromCoverageQuery",
+    "GetRecurrenceSummaryFromCoverageUseCase",
     "ListCommercialEventsQuery",
     "ListCommercialEventsResult",
     "ListCommercialEventsUseCase",

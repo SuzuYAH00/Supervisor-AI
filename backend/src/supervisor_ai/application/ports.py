@@ -13,6 +13,7 @@ from supervisor_ai.application.persistence import (
     CsatEvaluation,
     CsatSummaryRecord,
     DailyWorkStatusFact,
+    IngestionCoverageEvidence,
     OperationalCollaboratorProfile,
     ProcessingHealthRecord,
     ProcessingRun,
@@ -138,6 +139,18 @@ class AttendanceRepository(Protocol):
     ) -> tuple[AttendanceFact, ...]: ...
 
 
+class IngestionCoverageRepository(Protocol):
+    def add(self, evidence: IngestionCoverageEvidence) -> None: ...
+
+    def get_by_import_reference(
+        self, *, dataset: str, source: str, import_reference: str
+    ) -> IngestionCoverageEvidence | None: ...
+
+    def get_latest(
+        self, *, dataset: str, source: str
+    ) -> IngestionCoverageEvidence | None: ...
+
+
 class DailyWorkStatusRepository(Protocol):
     def add(self, fact: DailyWorkStatusFact) -> None: ...
 
@@ -221,6 +234,7 @@ class UnitOfWork(Protocol):
     daily_work_statuses: DailyWorkStatusRepository
     operational_collaborators: OperationalCollaboratorProfileRepository
     collaborator_external_identities: CollaboratorExternalIdentityRepository
+    ingestion_coverages: IngestionCoverageRepository
 
     def __enter__(self) -> Self: ...
 

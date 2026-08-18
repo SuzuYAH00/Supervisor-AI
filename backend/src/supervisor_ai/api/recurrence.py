@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Annotated, Protocol
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from supervisor_ai.api.errors import error_response
@@ -21,9 +21,11 @@ from supervisor_ai.api.schemas import (
 from supervisor_ai.application import (
     AttendanceFactConflict,
     AttendanceFilters,
+    IngestionCoverageConflict,
     RecurrenceCohortQuery,
 )
 from supervisor_ai.application.use_cases import (
+    AttendanceCoverageDeclaration,
     GetAttendancesResult,
     GetRecurrenceSummaryResult,
     ImportAttendancesResult,
@@ -36,7 +38,12 @@ from supervisor_ai.rules_engine import ClassificationIdentity
 
 
 class AttendanceCsvImportServiceContract(Protocol):
-    def import_csv(self, content: str) -> ImportAttendancesResult: ...
+    def import_csv(
+        self,
+        content: str,
+        *,
+        coverage: AttendanceCoverageDeclaration | None = None,
+    ) -> ImportAttendancesResult: ...
 
 
 class AttendanceQueryServiceContract(Protocol):
@@ -73,6 +80,13 @@ def recurrence_router(
     )
     async def import_attendances_csv(
         file: Annotated[UploadFile, File()],
+        coverage_source: Annotated[
+            str | None, Form(min_length=1, max_length=100)
+        ] = None,
+        covered_through: Annotated[date | None, Form()] = None,
+        coverage_reference: Annotated[
+            str | None, Form(min_length=1, max_length=255)
+        ] = None,
     ) -> AttendanceImportResponse | JSONResponse:
         if not file.filename:
             return error_response(
@@ -98,8 +112,36 @@ def recurrence_router(
                 "invalid_attendance_encoding",
                 "Attendance CSV file must use UTF-8 encoding",
             )
+        coverage_values = (
+            coverage_source,
+            covered_through,
+            coverage_reference,
+        )
+        if any(value is not None for value in coverage_values) and not all(
+            value is not None for value in coverage_values
+        ):
+            return error_response(
+                422,
+                "incomplete_ingestion_coverage",
+                "Coverage source, date and reference must be provided together",
+            )
+        coverage = (
+            AttendanceCoverageDeclaration(
+                source=coverage_source,
+                covered_through=covered_through,
+                import_reference=coverage_reference,
+            )
+            if coverage_source is not None
+            and covered_through is not None
+            and coverage_reference is not None
+            else None
+        )
         try:
-            result = importer.import_csv(content)
+            result = (
+                importer.import_csv(content)
+                if coverage is None
+                else importer.import_csv(content, coverage=coverage)
+            )
         except AttendanceCsvStructureError:
             return error_response(
                 400,
@@ -118,6 +160,12 @@ def recurrence_router(
                 "attendance_fact_conflict",
                 "Attendance conflicts with persisted facts",
             )
+        except IngestionCoverageConflict:
+            return error_response(
+                409,
+                "ingestion_coverage_conflict",
+                "Coverage reference conflicts with persisted evidence",
+            )
         except Exception:
             return error_response(
                 500, "internal_error", "Attendance CSV import could not be completed"
@@ -127,6 +175,8 @@ def recurrence_router(
             created_count=result.created_count,
             already_existing_count=result.already_existing_count,
             attendance_ids=list(result.attendance_ids),
+            declared_covered_through=result.declared_covered_through,
+            effective_covered_through=result.effective_covered_through,
         )
 
     @router.get(

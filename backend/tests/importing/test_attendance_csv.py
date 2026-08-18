@@ -1,8 +1,9 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
 from supervisor_ai.application.use_cases import (
+    AttendanceCoverageDeclaration,
     ImportAttendancesCommand,
     ImportAttendancesResult,
 )
@@ -55,6 +56,22 @@ def test_csv_supports_classification_without_code() -> None:
 
     assert importer.command is not None
     assert importer.command.attendances[0].opening_classification.code is None
+
+
+def test_csv_forwards_explicit_coverage_without_deriving_it_from_rows() -> None:
+    importer = CapturingImporter()
+    coverage = AttendanceCoverageDeclaration(
+        source="local",
+        covered_through=date(2026, 8, 30),
+        import_reference="export-2026-08-30",
+    )
+
+    AttendanceCsvImportService(importer).import_csv(
+        HEADER,
+        coverage=coverage,
+    )
+
+    assert importer.command == ImportAttendancesCommand((), coverage)
 
 
 @pytest.mark.parametrize(

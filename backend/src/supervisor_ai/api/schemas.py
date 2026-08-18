@@ -338,6 +338,8 @@ class AttendanceImportResponse(BaseModel):
     created_count: int
     already_existing_count: int
     attendance_ids: list[str]
+    declared_covered_through: date | None = None
+    effective_covered_through: date | None = None
 
 
 class ClassificationIdentityResponse(BaseModel):

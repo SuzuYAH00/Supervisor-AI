@@ -7,11 +7,17 @@ from supervisor_ai.application import (
     AttendanceFact,
     AttendanceFactConflict,
     AttendanceFilters,
+    IngestionCoverageConflict,
+    IngestionCoverageEvidence,
+    IngestionCoverageUnknown,
     RecurrenceCohortQuery,
 )
 from supervisor_ai.application.use_cases import (
+    AttendanceCoverageDeclaration,
     AttendanceInput,
     GetAttendancesUseCase,
+    GetRecurrenceSummaryFromCoverageQuery,
+    GetRecurrenceSummaryFromCoverageUseCase,
     GetRecurrenceSummaryUseCase,
     ImportAttendancesCommand,
     ImportAttendancesUseCase,
@@ -77,9 +83,35 @@ class FakeAttendanceRepository:
         )
 
 
+class FakeIngestionCoverageRepository:
+    def __init__(self) -> None:
+        self.items: dict[tuple[str, str, str], IngestionCoverageEvidence] = {}
+
+    def add(self, evidence: IngestionCoverageEvidence) -> None:
+        self.items[
+            (evidence.dataset, evidence.source, evidence.import_reference)
+        ] = evidence
+
+    def get_by_import_reference(
+        self, *, dataset: str, source: str, import_reference: str
+    ) -> IngestionCoverageEvidence | None:
+        return self.items.get((dataset, source, import_reference))
+
+    def get_latest(
+        self, *, dataset: str, source: str
+    ) -> IngestionCoverageEvidence | None:
+        matches = tuple(
+            item
+            for item in self.items.values()
+            if item.dataset == dataset and item.source == source
+        )
+        return max(matches, key=lambda item: item.covered_through, default=None)
+
+
 class FakeUnitOfWork:
     def __init__(self) -> None:
         self.attendances = FakeAttendanceRepository()
+        self.ingestion_coverages = FakeIngestionCoverageRepository()
         self.commit_calls = 0
         self.rollback_calls = 0
         self.closed = False
@@ -189,3 +221,163 @@ def test_cohort_requires_complete_observation_window() -> None:
             reference_month=date(2026, 7, 1),
             observed_through=date(2026, 8, 29),
         )
+
+
+def test_coverage_is_explicit_append_only_and_idempotent() -> None:
+    unit_of_work = FakeUnitOfWork()
+    importer = ImportAttendancesUseCase(lambda: unit_of_work, lambda: NOW)
+
+    first = importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 8, 10), "export-a"
+            ),
+        )
+    )
+    advanced = importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 8, 20), "export-b"
+            ),
+        )
+    )
+    regressive = importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 8, 15), "export-c"
+            ),
+        )
+    )
+    repeated = importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 8, 15), "export-c"
+            ),
+        )
+    )
+
+    assert first.effective_covered_through == date(2026, 8, 10)
+    assert advanced.effective_covered_through == date(2026, 8, 20)
+    assert regressive.declared_covered_through == date(2026, 8, 15)
+    assert regressive.effective_covered_through == date(2026, 8, 20)
+    assert repeated.effective_covered_through == date(2026, 8, 20)
+    assert len(unit_of_work.ingestion_coverages.items) == 3
+
+
+def test_same_coverage_reference_with_different_date_conflicts() -> None:
+    unit_of_work = FakeUnitOfWork()
+    importer = ImportAttendancesUseCase(lambda: unit_of_work, lambda: NOW)
+    importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 8, 10), "export-a"
+            ),
+        )
+    )
+
+    with pytest.raises(IngestionCoverageConflict):
+        importer.execute(
+            ImportAttendancesCommand(
+                (),
+                AttendanceCoverageDeclaration(
+                    "local-export", date(2026, 8, 11), "export-a"
+                ),
+            )
+        )
+
+
+def test_latest_attendance_date_does_not_create_coverage() -> None:
+    unit_of_work = FakeUnitOfWork()
+    ImportAttendancesUseCase(lambda: unit_of_work, lambda: NOW).execute(
+        ImportAttendancesCommand(
+            (
+                attendance_input(
+                    "future-attendance",
+                    occurred_at=datetime(2026, 9, 30, tzinfo=UTC),
+                ),
+            )
+        )
+    )
+
+    assert unit_of_work.ingestion_coverages.get_latest(
+        dataset="recurrence_attendances", source="local-export"
+    ) is None
+
+
+def test_covered_summary_requires_known_and_sufficient_coverage() -> None:
+    unit_of_work = FakeUnitOfWork()
+    summary = GetRecurrenceSummaryUseCase(lambda: unit_of_work)
+    service = GetRecurrenceSummaryFromCoverageUseCase(
+        lambda: unit_of_work, summary
+    )
+    query = GetRecurrenceSummaryFromCoverageQuery(
+        date(2026, 7, 1), "local-export"
+    )
+
+    with pytest.raises(IngestionCoverageUnknown):
+        service.execute(query)
+
+    importer = ImportAttendancesUseCase(lambda: unit_of_work, lambda: NOW)
+    importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 8, 29), "incomplete"
+            ),
+        )
+    )
+    with pytest.raises(ValueError, match="observation window"):
+        service.execute(query)
+
+    importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 8, 30), "complete"
+            ),
+        )
+    )
+    result = service.execute(query)
+
+    assert result.query.reference_month == date(2026, 7, 1)
+    assert result.query.observed_through == date(2026, 8, 30)
+    assert result.eligible_attendance_count == 0
+
+
+def test_covered_summary_recomputes_window_when_cohort_month_changes() -> None:
+    unit_of_work = FakeUnitOfWork()
+    importer = ImportAttendancesUseCase(lambda: unit_of_work, lambda: NOW)
+    importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 9, 29), "september-incomplete"
+            ),
+        )
+    )
+    service = GetRecurrenceSummaryFromCoverageUseCase(
+        lambda: unit_of_work,
+        GetRecurrenceSummaryUseCase(lambda: unit_of_work),
+    )
+    query = GetRecurrenceSummaryFromCoverageQuery(
+        date(2026, 8, 1), "local-export"
+    )
+
+    with pytest.raises(ValueError, match="observation window"):
+        service.execute(query)
+
+    importer.execute(
+        ImportAttendancesCommand(
+            (),
+            AttendanceCoverageDeclaration(
+                "local-export", date(2026, 9, 30), "september-complete"
+            ),
+        )
+    )
+
+    assert service.execute(query).query.window_end == date(2026, 9, 30)

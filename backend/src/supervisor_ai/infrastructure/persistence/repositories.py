@@ -359,6 +359,16 @@ class SqlAlchemyOperationalCollaboratorProfileRepository:
             record_to_operational_collaborator_profile(record) for record in records
         )
 
+    def list_all(self) -> tuple[OperationalCollaboratorProfile, ...]:
+        records = self.session.scalars(
+            select(OperationalCollaboratorProfileRecord).order_by(
+                OperationalCollaboratorProfileRecord.collaborator_id
+            )
+        )
+        return tuple(
+            record_to_operational_collaborator_profile(record) for record in records
+        )
+
 
 class SqlAlchemyCollaboratorExternalIdentityRepository:
     def __init__(self, session: Session) -> None:
@@ -630,6 +640,30 @@ class SqlAlchemyDailyWorkScheduleOverrideRepository:
             )
         )
         return None if item is None else record_to_daily_work_schedule_override(item)
+
+    def search_competence(
+        self, *, competence_month: date, collaborator_ids: tuple[str, ...]
+    ) -> tuple[DailyWorkScheduleOverride, ...]:
+        if not collaborator_ids:
+            return ()
+        following = date(
+            competence_month.year + (competence_month.month == 12),
+            competence_month.month % 12 + 1,
+            1,
+        )
+        items = self.session.scalars(
+            select(DailyWorkScheduleOverrideRecord)
+            .where(
+                DailyWorkScheduleOverrideRecord.collaborator_id.in_(collaborator_ids),
+                DailyWorkScheduleOverrideRecord.work_date >= competence_month,
+                DailyWorkScheduleOverrideRecord.work_date < following,
+            )
+            .order_by(
+                DailyWorkScheduleOverrideRecord.collaborator_id,
+                DailyWorkScheduleOverrideRecord.work_date,
+            )
+        )
+        return tuple(record_to_daily_work_schedule_override(item) for item in items)
 
 
 class SqlAlchemyEmployeeOccurrenceReportRepository:

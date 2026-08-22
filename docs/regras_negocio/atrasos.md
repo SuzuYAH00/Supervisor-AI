@@ -65,3 +65,7 @@ trabalhada sujeita a ponto também precisa estar resolvida. Cobertura ou jornada
 incompleta bloqueia o fechamento, sem converter ausência de fatos em zero. O
 override explícito `delay_facts` permanece compatível. A contagem soma `ENTRY`
 e `PAUSE_DURATION` cuja decisão final não seja `corrected`.
+
+Overrides operacionais passam pela mesma resolução usada no atraso de entrada:
+alteram `planned_start/planned_end` somente no dia informado e preservam o
+expediente padrão histórico.

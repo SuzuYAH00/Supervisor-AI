@@ -79,3 +79,16 @@ por declaração explícita da extração; a maior data encontrada não é cober
 O parser suporta apenas o formato de abril/2026 em diante e usa a data real das
 células e dos blocos. Datas fora da competência são ignoradas. Alias é sempre
 resolvido por `CollaboratorExternalIdentity`, sem aproximação.
+
+## Consulta operacional e overrides
+
+A consulta mensal diferencia `resolved_standard`, `resolved_explicit_grid`,
+`resolved_override` e `unresolved`, preservando aba, célula, referência e o
+motivo factual da pendência. O frontend somente apresenta essa decisão.
+
+O override é append-only para `collaborator_id + work_date`, prevalece sobre
+grade e padrão e não altera o expediente cadastral. Conflitos falham sem
+sobrescrita. Como o MVP ainda não possui autenticação, a API registra a autoria
+técnica `mvp-supervisor`; ela não representa uma pessoa autenticada. O nome de
+apresentação usa temporariamente o `collaborator_id`, pois ainda não há nome
+cadastral factual separado.

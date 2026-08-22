@@ -53,7 +53,12 @@ export async function apiRequest<T>(
   let response: Response;
   try {
     response = await fetch(composeUrl(path), {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...(typeof options.body === "string"
+          ? { "Content-Type": "application/json" }
+          : {}),
+      },
       method: options.method ?? "GET",
       body: options.body,
       signal: options.signal,

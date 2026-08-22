@@ -24,6 +24,15 @@ export function AppLayout() {
               className={({ isActive }) =>
                 `navigation-link${isActive ? " active" : ""}`
               }
+              to="/work-schedules"
+            >
+              <span>Jornadas</span>
+              <small>Pendências e overrides</small>
+            </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                `navigation-link${isActive ? " active" : ""}`
+              }
               to="/imports/csv"
             >
               <span>Importar CSV</span>

@@ -52,6 +52,11 @@ from supervisor_ai.api.schemas import (
     FinancialSummaryResponse,
     HealthResponse,
 )
+from supervisor_ai.api.work_schedules import (
+    WorkScheduleOverrideContract,
+    WorkScheduleQueryContract,
+    work_schedules_router,
+)
 from supervisor_ai.application.use_cases import (
     GetFinancialSnapshotQuery,
     GetFinancialSnapshotResult,
@@ -100,6 +105,8 @@ class HttpApplicationServices:
     attendance_csv_import: AttendanceCsvImportServiceContract
     attendance_query: AttendanceQueryServiceContract
     recurrence_summary: RecurrenceSummaryServiceContract
+    work_schedule_query: WorkScheduleQueryContract | None = None
+    work_schedule_override: WorkScheduleOverrideContract | None = None
 
 
 def create_http_application(
@@ -307,9 +314,7 @@ def create_http_application(
             services.commercial_event_list,
         )
     )
-    app.include_router(
-        collaborators_router(services.collaborator_financial_timeline)
-    )
+    app.include_router(collaborators_router(services.collaborator_financial_timeline))
     app.include_router(
         processing_runs_router(
             services.processing_run_details,
@@ -331,6 +336,15 @@ def create_http_application(
             services.recurrence_summary,
         )
     )
+    if (
+        services.work_schedule_query is not None
+        and services.work_schedule_override is not None
+    ):
+        app.include_router(
+            work_schedules_router(
+                services.work_schedule_query, services.work_schedule_override
+            )
+        )
     return app
 
 

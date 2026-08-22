@@ -23,6 +23,7 @@ from supervisor_ai.application.use_cases import (
     GetMonthlyDelayFactsFromCoverageUseCase,
     GetMonthlyPresenceUseCase,
     GetMonthlyRecurrenceFactsUseCase,
+    GetOperationalWorkSchedulesUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
     GetRecurrenceSummaryFromCoverageUseCase,
@@ -38,6 +39,7 @@ from supervisor_ai.application.use_cases import (
     ListProcessingRunsUseCase,
     ProcessAndPersistCommercialEventUseCase,
     ProcessCommercialEventUseCase,
+    RecordDailyWorkScheduleOverrideUseCase,
     RecordDelayReviewUseCase,
 )
 from supervisor_ai.infrastructure.importing import (
@@ -240,7 +242,27 @@ def build_http_application(database_url: str) -> FastAPI:
             attendance_csv_import=build_attendance_csv_import_service(database_url),
             attendance_query=build_attendance_query_service(database_url),
             recurrence_summary=build_recurrence_summary_service(database_url),
+            work_schedule_query=build_work_schedule_query_service(database_url),
+            work_schedule_override=build_work_schedule_override_service(database_url),
         )
+    )
+
+
+def build_work_schedule_query_service(
+    database_url: str,
+) -> GetOperationalWorkSchedulesUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetOperationalWorkSchedulesUseCase(
+        build_unit_of_work_factory(session_factory)
+    )
+
+
+def build_work_schedule_override_service(
+    database_url: str,
+) -> RecordDailyWorkScheduleOverrideUseCase:
+    session_factory = build_session_factory(database_url)
+    return RecordDailyWorkScheduleOverrideUseCase(
+        build_unit_of_work_factory(session_factory), SystemClock()
     )
 
 

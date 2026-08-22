@@ -10,6 +10,7 @@ import { FinancialTimelinePage } from "../features/financial-timeline/pages/Fina
 import { ProcessingHealthPage } from "../features/processing-health/pages/ProcessingHealthPage";
 import { ProcessingRunDetailPage } from "../features/processing-runs/pages/ProcessingRunDetailPage";
 import { ProcessingRunsPage } from "../features/processing-runs/pages/ProcessingRunsPage";
+import { WorkSchedulesPage } from "../features/work-schedules/pages/WorkSchedulesPage";
 import { NotFoundPage } from "./NotFoundPage";
 
 export const appRoutes: RouteObject[] = [
@@ -28,6 +29,7 @@ export const appRoutes: RouteObject[] = [
       },
       { path: "financial-timeline", element: <FinancialTimelinePage /> },
       { path: "processing-runs", element: <ProcessingRunsPage /> },
+      { path: "work-schedules", element: <WorkSchedulesPage /> },
       {
         path: "processing-runs/:processingRunId",
         element: <ProcessingRunDetailPage />,

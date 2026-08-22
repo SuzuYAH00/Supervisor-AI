@@ -14,6 +14,11 @@ from supervisor_ai.application.ports import Clock, UnitOfWorkFactory
 PLANNED_WORK_SCHEDULES_DATASET = "planned_work_schedules"
 ATTENDANCE_SHEET_SOURCE = "attendance_sheet"
 
+RESOLVED_STANDARD = "resolved_standard"
+RESOLVED_EXPLICIT_GRID = "resolved_explicit_grid"
+RESOLVED_OVERRIDE = "resolved_override"
+UNRESOLVED = "unresolved"
+
 
 @dataclass(frozen=True, slots=True)
 class CollaboratorWorkScheduleInput:
@@ -164,6 +169,12 @@ class RecordDailyWorkScheduleOverrideUseCase:
             self._clock(),
         )
         with self._factory() as uow:
+            if uow.operational_collaborators.get_by_id(command.collaborator_id) is None:
+                from supervisor_ai.application.errors import (
+                    OperationalCollaboratorProfileNotFound,
+                )
+
+                raise OperationalCollaboratorProfileNotFound(command.collaborator_id)
             existing = uow.daily_work_schedule_overrides.get_for_date(
                 collaborator_id=command.collaborator_id, work_date=command.work_date
             )
@@ -173,6 +184,163 @@ class RecordDailyWorkScheduleOverrideUseCase:
                 raise WorkScheduleConflict("daily schedule override already exists")
             uow.commit()
         return override
+
+
+@dataclass(frozen=True, slots=True)
+class GetOperationalWorkSchedulesQuery:
+    competence_month: date
+    collaborator_id: str | None = None
+    resolution_status: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.competence_month.day != 1:
+            raise ValueError("competence_month must be the first day of a month")
+        if self.collaborator_id is not None and not self.collaborator_id.strip():
+            raise ValueError("collaborator_id must not be blank")
+        allowed = {
+            None,
+            "resolved",
+            "pending",
+            "with_override",
+            RESOLVED_STANDARD,
+            RESOLVED_EXPLICIT_GRID,
+            RESOLVED_OVERRIDE,
+            UNRESOLVED,
+        }
+        if self.resolution_status not in allowed:
+            raise ValueError("resolution_status is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalWorkScheduleItem:
+    collaborator_id: str
+    display_name: str
+    work_date: date
+    planned_start: time | None
+    planned_end: time | None
+    resolution_status: str
+    effective_origin: str
+    source: str
+    source_reference: str
+    source_sheet: str
+    source_cell: str
+    unresolved_reason: str | None
+    has_override: bool
+    override: DailyWorkScheduleOverride | None
+
+
+@dataclass(frozen=True, slots=True)
+class GetOperationalWorkSchedulesResult:
+    competence_month: date
+    collaborator_id: str | None
+    resolution_status: str | None
+    total_count: int
+    pending_count: int
+    items: tuple[OperationalWorkScheduleItem, ...]
+
+
+class GetOperationalWorkSchedulesUseCase:
+    def __init__(self, unit_of_work_factory: UnitOfWorkFactory) -> None:
+        self._factory = unit_of_work_factory
+
+    def execute(
+        self, query: GetOperationalWorkSchedulesQuery
+    ) -> GetOperationalWorkSchedulesResult:
+        with self._factory() as uow:
+            collaborator_ids = (
+                (query.collaborator_id,)
+                if query.collaborator_id is not None
+                else tuple(
+                    item.collaborator_id
+                    for item in uow.operational_collaborators.list_all()
+                )
+            )
+            facts = uow.daily_planned_work_schedules.search_competence(
+                competence_month=query.competence_month,
+                collaborator_ids=collaborator_ids,
+            )
+            overrides = uow.daily_work_schedule_overrides.search_competence(
+                competence_month=query.competence_month,
+                collaborator_ids=collaborator_ids,
+            )
+        override_by_key = {
+            (item.collaborator_id, item.work_date): item for item in overrides
+        }
+        all_items = tuple(
+            _operational_item(
+                fact, override_by_key.get((fact.collaborator_id, fact.work_date))
+            )
+            for fact in facts
+        )
+        items = tuple(
+            item for item in all_items if _matches_status(item, query.resolution_status)
+        )
+        return GetOperationalWorkSchedulesResult(
+            query.competence_month,
+            query.collaborator_id,
+            query.resolution_status,
+            len(all_items),
+            sum(item.resolution_status == UNRESOLVED for item in all_items),
+            items,
+        )
+
+
+def _operational_item(
+    fact: DailyPlannedWorkScheduleFact,
+    override: DailyWorkScheduleOverride | None,
+) -> OperationalWorkScheduleItem:
+    if override is not None:
+        return OperationalWorkScheduleItem(
+            fact.collaborator_id,
+            fact.collaborator_id,
+            fact.work_date,
+            override.planned_start,
+            override.planned_end,
+            RESOLVED_OVERRIDE,
+            "override",
+            fact.source,
+            fact.source_reference,
+            fact.source_sheet,
+            fact.source_cell,
+            None,
+            True,
+            override,
+        )
+    status = (
+        UNRESOLVED
+        if not fact.is_resolved
+        else RESOLVED_EXPLICIT_GRID
+        if fact.source_type == "explicit"
+        else RESOLVED_STANDARD
+    )
+    return OperationalWorkScheduleItem(
+        fact.collaborator_id,
+        fact.collaborator_id,
+        fact.work_date,
+        fact.planned_start,
+        fact.planned_end,
+        status,
+        fact.source_type,
+        fact.source,
+        fact.source_reference,
+        fact.source_sheet,
+        fact.source_cell,
+        fact.unresolved_reason,
+        False,
+        None,
+    )
+
+
+def _matches_status(item: OperationalWorkScheduleItem, requested: str | None) -> bool:
+    if requested is None:
+        return True
+    if requested == "resolved":
+        return item.resolution_status != UNRESOLVED
+    if requested == "pending":
+        return item.resolution_status == UNRESOLVED
+    if requested == "with_override":
+        return item.has_override
+    return item.resolution_status == requested
 
 
 def _standard(

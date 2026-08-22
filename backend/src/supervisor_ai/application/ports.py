@@ -212,7 +212,7 @@ class DailyWorkScheduleOverrideRepository(Protocol):
 
     def search_competence(
         self, *, competence_month: date, collaborator_ids: tuple[str, ...]
-    ) -> tuple[DailyWorkStatusFact, ...]: ...
+    ) -> tuple[DailyWorkScheduleOverride, ...]: ...
 
 
 class EmployeeOccurrenceReportRepository(Protocol):
@@ -280,6 +280,8 @@ class OperationalCollaboratorProfileRepository(Protocol):
     def get_by_ids(
         self, collaborator_ids: tuple[str, ...]
     ) -> tuple[OperationalCollaboratorProfile, ...]: ...
+
+    def list_all(self) -> tuple[OperationalCollaboratorProfile, ...]: ...
 
 
 class CollaboratorExternalIdentityRepository(Protocol):

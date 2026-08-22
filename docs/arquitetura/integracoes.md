@@ -434,3 +434,9 @@ persistência e as referências determinísticas impedem duplicação.
 Cada dataset possui cobertura explícita (`npx_work_sessions` e `npx_pauses`).
 `MAX(started_at)` não comprova completude. Regras de atraso são aplicadas pelo
 Rules Engine/Application depois da persistência, nunca pelo conector XLSX.
+
+# Operação de jornadas
+
+`GET /work-schedules` projeta fatos mensais e a precedência já resolvida pela
+Application. `POST /work-schedules/overrides` registra uma exceção diária
+auditável. A API valida e projeta contratos; não recalcula a jornada.

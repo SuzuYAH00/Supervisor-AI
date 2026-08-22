@@ -448,3 +448,17 @@ possíveis evidências do Google Forms. `POST /delays/{id}/reviews` acrescenta
 uma decisão humana auditável. A API não interpreta justificativas e não altera
 os fatos importados; a Application valida colaborador e data antes de aceitar
 uma ocorrência como evidência.
+
+# Central de pendências da RV
+
+`GET /variable-compensation` agrega as incompletudes detectadas pelos providers
+em issues estruturadas. Cobertura de Reincidência e NPX possui escopo de
+competência; ausência de fatos de presença, CSAT não avaliável e jornada diária
+não resolvida possuem escopo individual. A Application não recalcula a RV e o
+frontend não interpreta códigos técnicos.
+
+Quando existe fluxo operacional, a issue aponta para Jornadas preservando
+competência e colaborador. Pendências que dependem de importação de CSAT,
+Reincidência, Escala ou NPX permanecem com orientação textual e sem botão
+fictício. Erros de aliases rejeitados ainda não aparecem na Central porque os
+relatórios de importação atuais não são persistidos como pendências consultáveis.

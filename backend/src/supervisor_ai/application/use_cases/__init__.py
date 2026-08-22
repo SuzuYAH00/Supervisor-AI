@@ -182,6 +182,10 @@ from .calculate_monthly_variable_compensation import (
     RecurrenceCompetitiveFact,
 )
 from .monthly_variable_compensation_closure import (
+    ClosureIssueComponent,
+    ClosureIssueScope,
+    ClosureIssueSeverity,
+    ClosurePendingIssue,
     ClosureStatus,
     GetMonthlyVariableCompensationClosureQuery,
     GetMonthlyVariableCompensationClosureResult,
@@ -211,6 +215,10 @@ __all__ = [
     "CalculateMonthlyVariableCompensationResult",
     "CalculateMonthlyVariableCompensationUseCase",
     "ClosureStatus",
+    "ClosureIssueComponent",
+    "ClosureIssueScope",
+    "ClosureIssueSeverity",
+    "ClosurePendingIssue",
     "CollaboratorCurrencySummary",
     "CollaboratorFinancialSummary",
     "CollaboratorFinancialTimelineItem",

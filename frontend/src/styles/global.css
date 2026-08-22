@@ -525,6 +525,20 @@ a:focus-visible {
 .rv-pending { margin-top: 16px; padding: 12px; border-radius: 8px; background: #fff5df; }
 .rv-pending p { margin: 4px 0 0; overflow-wrap: anywhere; }
 
+.issues-center {
+  padding: 22px;
+  border: 1px solid #d8b36a;
+  border-radius: 14px;
+  background: #fffaf0;
+}
+
+.issues-center h2 { margin: 4px 0 0; }
+.issue-list { display: grid; gap: 10px; padding: 0; list-style: none; }
+.issue-list li { display: flex; justify-content: space-between; gap: 18px; padding: 14px; border-radius: 10px; background: #fff; }
+.issue-list p { margin: 4px 0; }
+.issue-list small, .issue-list li > span { color: #68756f; }
+.rv-pending .issue-list { margin-bottom: 0; }
+
 .field-error {
   color: #8a2e24;
   font-size: 0.82rem;

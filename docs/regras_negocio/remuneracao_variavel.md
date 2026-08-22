@@ -315,6 +315,16 @@ resolvidos que explicam cada parcela.
 são avaliáveis. `INCOMPLETE` preserva as pendências por componente; ausência de
 cobertura ou de população não é convertida silenciosamente em zero.
 
+Cada estado `INCOMPLETE` possui ao menos uma issue bloqueante estruturada. A
+issue identifica código estável, componente, escopo da competência ou do
+colaborador, mensagem operacional e ação disponível. Falhas globais de cobertura
+são agregadas uma única vez e relacionam os colaboradores efetivamente afetados.
+
+`NOT_ELIGIBLE` não é pendência: presença abaixo do mínimo ou taxa de respondentes
+abaixo do corte produzem resultado normativo de R$ 0,00. Da mesma forma, ausência
+de faixa, trava coletiva da Reincidência, atraso válido e resultado negativo são
+resultados calculados, não incompletudes.
+
 Em resumo: RV mensal = CSAT + Reincidência - atrasos - ausências penalizáveis.
 Qualidade permanece descontinuada, o máximo positivo é R$ 1.600,00 e o resultado
 factual pode ser negativo.

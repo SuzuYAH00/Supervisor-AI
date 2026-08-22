@@ -5,6 +5,8 @@ from supervisor_ai.application import DailyWorkStatusFact
 from supervisor_ai.application.errors import WorkScheduleIncomplete
 from supervisor_ai.application.use_cases import (
     CalculateMonthlyVariableCompensationUseCase,
+    ClosureIssueComponent,
+    ClosureIssueScope,
     ClosureStatus,
     GetMonthlyCsatFactsResult,
     GetMonthlyDelayFactsResult,
@@ -57,12 +59,16 @@ class RecurrenceProvider:
 
 
 class DelayProvider:
-    def __init__(self, incomplete=False):
+    def __init__(self, incomplete=False, reason=None):
         self.incomplete = incomplete
+        self.reason = reason
 
     def execute(self, query):
         if self.incomplete:
-            raise WorkScheduleIncomplete("npx_pauses")
+            raise WorkScheduleIncomplete(
+                self.reason
+                or "coverage is incomplete for npx_pauses through 2026-08-31"
+            )
         return GetMonthlyDelayFactsResult(
             query.competence_month,
             tuple(
@@ -76,40 +82,59 @@ def factory(session_factory):
     return lambda: SqlAlchemyUnitOfWork(session_factory)
 
 
-def prepare(session_factory):
+def prepare(
+    session_factory,
+    collaborator_ids=("operator-1",),
+    *,
+    with_presence=True,
+    delay_reason=None,
+):
     uow_factory = factory(session_factory)
-    RegisterOperationalCollaboratorProfileUseCase(uow_factory).execute(
-        RegisterOperationalCollaboratorProfileCommand(
-            "operator-1", CsatCompetitiveChannel.CHAT
+    for collaborator_id in collaborator_ids:
+        RegisterOperationalCollaboratorProfileUseCase(uow_factory).execute(
+            RegisterOperationalCollaboratorProfileCommand(
+                collaborator_id, CsatCompetitiveChannel.CHAT
+            )
         )
-    )
+    if not with_presence:
+        return uow_factory
     with uow_factory() as uow:
-        for month in (date(2026, 7, 1), date(2026, 8, 1)):
-            for day in range(1, 21):
-                uow.daily_work_statuses.add(
-                    DailyWorkStatusFact(
-                        f"{month}-{day}",
-                        "operator-1",
-                        date(month.year, month.month, day),
-                        month,
-                        "P",
-                        "attendance_sheet",
-                        f"{month}:{day}",
-                        "sheet",
-                        f"A{day}",
-                        NOW,
+        for collaborator_id in collaborator_ids:
+            for month in (date(2026, 7, 1), date(2026, 8, 1)):
+                for day in range(1, 21):
+                    uow.daily_work_statuses.add(
+                        DailyWorkStatusFact(
+                            f"{collaborator_id}-{month}-{day}",
+                            collaborator_id,
+                            date(month.year, month.month, day),
+                            month,
+                            "P",
+                            "attendance_sheet",
+                            f"{collaborator_id}:{month}:{day}",
+                            "sheet",
+                            f"A{day}",
+                            NOW,
+                        )
                     )
-                )
         uow.commit()
     return uow_factory
 
 
-def service(session_factory, *, incomplete=False):
-    uow_factory = prepare(session_factory)
+def service(
+    session_factory,
+    *,
+    incomplete=False,
+    collaborator_ids=("operator-1",),
+    with_presence=True,
+    delay_reason=None,
+):
+    uow_factory = prepare(
+        session_factory, collaborator_ids, with_presence=with_presence
+    )
     csat, recurrence, delays = (
         CsatProvider(),
         RecurrenceProvider(),
-        DelayProvider(incomplete),
+        DelayProvider(incomplete, delay_reason),
     )
     calculator = CalculateMonthlyVariableCompensationUseCase(
         uow_factory, MonthlyVariableCompensationEvaluator()
@@ -142,3 +167,56 @@ def test_incomplete_delay_coverage_never_becomes_zero(session_factory):
     assert item.delays.count is None
     assert item.total_amount is None
     assert result.projected_total is None
+    assert len(result.issues) == 1
+    assert result.issues[0].code == "npx_pauses_coverage_incomplete"
+    assert result.issues[0].component is ClosureIssueComponent.DELAYS
+    assert result.issues[0].scope is ClosureIssueScope.COMPETENCE
+    assert result.issues[0].affected_collaborator_ids == ("operator-1",)
+    assert result.issues[0].action_target is None
+
+
+def test_global_coverage_issue_is_aggregated_once(session_factory):
+    result = service(
+        session_factory,
+        incomplete=True,
+        collaborator_ids=("operator-1", "operator-2"),
+    ).execute(GetMonthlyVariableCompensationClosureQuery(date(2026, 8, 1)))
+
+    assert len(result.issues) == 1
+    assert result.issues[0].scope is ClosureIssueScope.COMPETENCE
+    assert result.issues[0].affected_collaborator_ids == (
+        "operator-1",
+        "operator-2",
+    )
+
+
+def test_missing_presence_is_individual_and_not_ineligibility(session_factory):
+    result = service(session_factory, with_presence=False).execute(
+        GetMonthlyVariableCompensationClosureQuery(date(2026, 8, 1))
+    )
+
+    assert {issue.code for issue in result.issues} == {
+        "presence_current_month_missing",
+        "presence_previous_month_missing",
+    }
+    assert all(
+        issue.component is ClosureIssueComponent.PRESENCE for issue in result.issues
+    )
+    assert all(
+        issue.scope is ClosureIssueScope.COLLABORATOR for issue in result.issues
+    )
+
+
+def test_unresolved_schedule_has_individual_action(session_factory):
+    result = service(
+        session_factory,
+        incomplete=True,
+        delay_reason="planned schedule unresolved for operator-1 on 2026-08-18",
+    ).execute(GetMonthlyVariableCompensationClosureQuery(date(2026, 8, 1)))
+
+    issue = result.issues[0]
+    assert issue.code == "work_schedule_unresolved"
+    assert issue.component is ClosureIssueComponent.WORK_SCHEDULE
+    assert issue.collaborator_id == "operator-1"
+    assert issue.action_target == "/work-schedules"
+    assert dict(issue.metadata) == {"work_date": "2026-08-18"}

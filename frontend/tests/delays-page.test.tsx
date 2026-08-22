@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 
 import { createDelayReview, getOperationalDelays } from "../src/features/delays/api/delays";
 import { DelaysPage } from "../src/features/delays/pages/DelaysPage";
@@ -12,6 +13,7 @@ vi.mock("../src/features/delays/api/delays", () => ({
 
 const getDelays = vi.mocked(getOperationalDelays);
 const createReview = vi.mocked(createDelayReview);
+const page = (entry = "/delays") => render(<MemoryRouter initialEntries={[entry]}><DelaysPage /></MemoryRouter>);
 
 function result(status: "pending_review" | "corrected" = "pending_review") {
   return {
@@ -38,7 +40,7 @@ test("shows evidence without choosing it and records a corrected review", async 
   const user = userEvent.setup();
   getDelays.mockResolvedValueOnce(result()).mockResolvedValueOnce(result("corrected"));
   createReview.mockResolvedValue({ id: "review-1", decision: "corrected", decided_at: "2026-08-06T12:00:00Z", decided_by: "mvp-supervisor", employee_occurrence_report_id: null, note: null });
-  render(<DelaysPage />);
+  page();
   expect(await screen.findByText("Pendente — continua contando")).toBeInTheDocument();
   expect(screen.getByText("Possíveis ocorrências (2)")).toBeInTheDocument();
   await user.click(screen.getByText("Possíveis ocorrências (2)"));
@@ -54,7 +56,7 @@ test("shows evidence without choosing it and records a corrected review", async 
 test("forwards filters and presents HTTP errors", async () => {
   const user = userEvent.setup();
   getDelays.mockResolvedValueOnce(result()).mockRejectedValueOnce(new ApiError({ code: "network_error", message: "Falha operacional", kind: "network" }));
-  render(<DelaysPage />);
+  page();
   await screen.findByText("Pendente — continua contando");
   await user.selectOptions(screen.getByLabelText("Tipo"), "entry");
   expect(await screen.findByRole("alert")).toHaveTextContent("Falha operacional");
@@ -65,9 +67,19 @@ test("records the explicit decision to keep a delay", async () => {
   const user = userEvent.setup();
   getDelays.mockResolvedValue(result());
   createReview.mockResolvedValue({ id: "review-valid", decision: "valid", decided_at: "2026-08-06T12:00:00Z", decided_by: "mvp-supervisor", employee_occurrence_report_id: null, note: null });
-  render(<DelaysPage />);
+  page();
   await screen.findByText("Pendente — continua contando");
   await user.click(screen.getByRole("button", { name: "Revisar atraso" }));
   await user.click(screen.getByRole("button", { name: "Salvar revisão" }));
   await waitFor(() => expect(createReview).toHaveBeenCalledWith("delay-1", { decision: "valid" }));
+});
+
+test("initializes competence and collaborator from navigation parameters", async () => {
+  getDelays.mockResolvedValue(result());
+  page("/delays?competence_month=2026-07&collaborator_id=operator-1");
+  await screen.findByText("Pendente — continua contando");
+  expect(getDelays).toHaveBeenCalledWith(
+    expect.objectContaining({ competenceMonth: "2026-07", collaboratorId: "operator-1" }),
+    expect.any(AbortSignal),
+  );
 });

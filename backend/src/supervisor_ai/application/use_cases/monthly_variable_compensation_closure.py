@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
@@ -41,6 +41,38 @@ from supervisor_ai.rules_engine import (
 class ClosureStatus(StrEnum):
     CALCULATED = "calculated"
     INCOMPLETE = "incomplete"
+
+
+class ClosureIssueComponent(StrEnum):
+    PRESENCE = "presence"
+    CSAT = "csat"
+    RECURRENCE = "recurrence"
+    DELAYS = "delays"
+    WORK_SCHEDULE = "work_schedule"
+
+
+class ClosureIssueScope(StrEnum):
+    COLLABORATOR = "collaborator"
+    COMPETENCE = "competence"
+
+
+class ClosureIssueSeverity(StrEnum):
+    BLOCKING = "blocking"
+
+
+@dataclass(frozen=True, slots=True)
+class ClosurePendingIssue:
+    code: str
+    component: ClosureIssueComponent
+    scope: ClosureIssueScope
+    competence_month: date
+    message: str
+    severity: ClosureIssueSeverity
+    collaborator_id: str | None = None
+    affected_collaborator_ids: tuple[str, ...] = ()
+    action_type: str | None = None
+    action_target: str | None = None
+    metadata: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +131,7 @@ class MonthlyVariableCompensationClosureItem:
     competence_month: date
     status: ClosureStatus
     pending_reasons: tuple[str, ...]
+    pending_issues: tuple[ClosurePendingIssue, ...]
     current_worked_days: int
     previous_worked_days: int
     csat: CsatClosureComponent
@@ -119,6 +152,7 @@ class GetMonthlyVariableCompensationClosureResult:
     incomplete_count: int
     projected_total: Decimal | None
     items: tuple[MonthlyVariableCompensationClosureItem, ...]
+    issues: tuple[ClosurePendingIssue, ...] = ()
 
 
 class GetMonthlyVariableCompensationClosureUseCase:
@@ -157,18 +191,40 @@ class GetMonthlyVariableCompensationClosureUseCase:
         csat_result = self._csat.execute(
             GetMonthlyCsatFactsQuery(query.competence_month, collaborator_ids)
         )
-        pending: list[str] = []
+        global_issues: list[ClosurePendingIssue] = []
         recurrence_items: tuple[MonthlyRecurrenceFact, ...]
         try:
             recurrence_items = self._recurrence.execute(
                 GetMonthlyRecurrenceFactsQuery(previous_month, collaborator_ids)
             ).items
-        except (IngestionCoverageUnknown, ValueError) as error:
-            pending.append(f"recurrence_incomplete:{error}")
-            recurrence_items = tuple(
-                MonthlyRecurrenceFact(item, previous_month, 0, 0, None)
-                for item in collaborator_ids
+        except IngestionCoverageUnknown:
+            global_issues.append(
+                _competence_issue(
+                    "recurrence_coverage_missing",
+                    ClosureIssueComponent.RECURRENCE,
+                    query.competence_month,
+                    "A Reincidência não pode ser calculada porque não existe "
+                    "cobertura registrada para a fonte MK.",
+                    collaborator_ids,
+                    "review_recurrence_import",
+                )
             )
+            recurrence_items = _empty_recurrence(previous_month, collaborator_ids)
+        except ValueError as error:
+            if str(error) != "the cohort observation window is incomplete":
+                raise
+            global_issues.append(
+                _competence_issue(
+                    "recurrence_coverage_incomplete",
+                    ClosureIssueComponent.RECURRENCE,
+                    query.competence_month,
+                    "A janela de observação da Reincidência ainda não possui "
+                    "cobertura completa.",
+                    collaborator_ids,
+                    "review_recurrence_import",
+                )
+            )
+            recurrence_items = _empty_recurrence(previous_month, collaborator_ids)
         delay_counts: dict[str, int] = {}
         try:
             delay_counts = {
@@ -178,7 +234,9 @@ class GetMonthlyVariableCompensationClosureUseCase:
                 ).items
             }
         except WorkScheduleIncomplete as error:
-            pending.append(f"delays_incomplete:{error}")
+            global_issues.append(
+                _delay_issue(str(error), query.competence_month, collaborator_ids)
+            )
         calculation = self._calculator.execute(
             CalculateMonthlyVariableCompensationCommand(
                 query.competence_month,
@@ -223,7 +281,7 @@ class GetMonthlyVariableCompensationClosureUseCase:
                 inputs[collaborator_id],
                 results[collaborator_id],
                 delay_counts.get(collaborator_id),
-                tuple(pending),
+                tuple(global_issues),
                 previous_presence[collaborator_id].worked_days,
                 current_presence_counts[collaborator_id],
                 previous_presence_counts[collaborator_id],
@@ -250,6 +308,7 @@ class GetMonthlyVariableCompensationClosureUseCase:
             len(items) - calculated_count,
             total,
             filtered,
+            _aggregate_issues(items),
         )
 
     def _item(
@@ -260,30 +319,82 @@ class GetMonthlyVariableCompensationClosureUseCase:
         facts,
         result,
         delay_count,
-        pending,
+        global_issues,
         previous_worked_days,
         current_presence_fact_count,
         previous_presence_fact_count,
     ):
-        reasons = list(pending)
+        issues = [
+            issue
+            for issue in global_issues
+            if (
+                issue.scope is ClosureIssueScope.COMPETENCE
+                or issue.collaborator_id == collaborator_id
+            )
+            and (
+                issue.component is not ClosureIssueComponent.RECURRENCE
+                or facts.recurrence.is_eligible
+            )
+        ]
         if current_presence_fact_count == 0:
-            reasons.append("presence_current_month_missing")
+            issues.append(
+                _collaborator_issue(
+                    "presence_current_month_missing",
+                    ClosureIssueComponent.PRESENCE,
+                    result.competence.competence_month,
+                    collaborator_id,
+                    "Não existem fatos de presença para o colaborador nesta "
+                    "competência.",
+                    "review_attendance_import",
+                )
+            )
         if previous_presence_fact_count == 0:
-            reasons.append("presence_previous_month_missing")
+            issues.append(
+                _collaborator_issue(
+                    "presence_previous_month_missing",
+                    ClosureIssueComponent.PRESENCE,
+                    result.competence.competence_month,
+                    collaborator_id,
+                    "Não existem fatos de presença no mês anterior, necessários "
+                    "para a elegibilidade da Reincidência.",
+                    "review_attendance_import",
+                )
+            )
         if result.csat.status.value == "not_evaluable":
-            reasons.append(
+            code = (
                 "csat_no_eligible_contacts"
                 if csat.eligible_contact_count == 0
                 else "csat_not_evaluable"
             )
+            issues.append(
+                _collaborator_issue(
+                    code,
+                    ClosureIssueComponent.CSAT,
+                    result.competence.competence_month,
+                    collaborator_id,
+                    "O CSAT não possui dados suficientes para calcular o indicador "
+                    "do colaborador.",
+                    "review_csat_import",
+                )
+            )
         if result.recurrence.status.value == "not_evaluable" and not any(
-            reason.startswith("recurrence_incomplete") for reason in reasons
+            issue.component is ClosureIssueComponent.RECURRENCE for issue in issues
         ):
-            reasons.append("recurrence_not_evaluable")
+            issues.append(
+                _collaborator_issue(
+                    "recurrence_not_evaluable",
+                    ClosureIssueComponent.RECURRENCE,
+                    result.competence.competence_month,
+                    collaborator_id,
+                    "A Reincidência não possui população suficiente para calcular "
+                    "a taxa do colaborador.",
+                    "review_recurrence_import",
+                )
+            )
         status = (
             ClosureStatus.CALCULATED
             if result.status is MonthlyVariableCompensationStatus.CALCULATED
-            and not reasons
+            and not issues
             and delay_count is not None
             else ClosureStatus.INCOMPLETE
         )
@@ -307,7 +418,8 @@ class GetMonthlyVariableCompensationClosureUseCase:
             collaborator_id,
             result.competence.competence_month,
             status,
-            tuple(reasons),
+            tuple(issue.code for issue in issues),
+            tuple(issues),
             facts.csat.worked_days,
             previous_worked_days,
             CsatClosureComponent(
@@ -356,6 +468,127 @@ def _component(
         result.amount,
         individual,
         average,
+    )
+
+
+def _empty_recurrence(
+    cohort_month: date, collaborator_ids: tuple[str, ...]
+) -> tuple[MonthlyRecurrenceFact, ...]:
+    return tuple(
+        MonthlyRecurrenceFact(item, cohort_month, 0, 0, None)
+        for item in collaborator_ids
+    )
+
+
+def _competence_issue(
+    code: str,
+    component: ClosureIssueComponent,
+    competence_month: date,
+    message: str,
+    collaborator_ids: tuple[str, ...],
+    action_type: str | None = None,
+    action_target: str | None = None,
+) -> ClosurePendingIssue:
+    return ClosurePendingIssue(
+        code,
+        component,
+        ClosureIssueScope.COMPETENCE,
+        competence_month,
+        message,
+        ClosureIssueSeverity.BLOCKING,
+        affected_collaborator_ids=collaborator_ids,
+        action_type=action_type,
+        action_target=action_target,
+    )
+
+
+def _collaborator_issue(
+    code: str,
+    component: ClosureIssueComponent,
+    competence_month: date,
+    collaborator_id: str,
+    message: str,
+    action_type: str | None = None,
+    action_target: str | None = None,
+    metadata: tuple[tuple[str, str], ...] = (),
+) -> ClosurePendingIssue:
+    return ClosurePendingIssue(
+        code,
+        component,
+        ClosureIssueScope.COLLABORATOR,
+        competence_month,
+        message,
+        ClosureIssueSeverity.BLOCKING,
+        collaborator_id,
+        (collaborator_id,),
+        action_type,
+        action_target,
+        metadata,
+    )
+
+
+def _delay_issue(
+    reason: str, competence_month: date, collaborator_ids: tuple[str, ...]
+) -> ClosurePendingIssue:
+    coverage_prefix = "coverage is incomplete for "
+    unresolved_prefix = "planned schedule unresolved for "
+    if reason.startswith(coverage_prefix):
+        dataset = reason.removeprefix(coverage_prefix).split(" through ", 1)[0]
+        if dataset == "planned_work_schedules":
+            return _competence_issue(
+                "work_schedule_coverage_incomplete",
+                ClosureIssueComponent.WORK_SCHEDULE,
+                competence_month,
+                "A Escala não possui cobertura completa para a competência.",
+                collaborator_ids,
+                "resolve_work_schedules",
+                "/work-schedules",
+            )
+        return _competence_issue(
+            f"{dataset}_coverage_incomplete",
+            ClosureIssueComponent.DELAYS,
+            competence_month,
+            "Os atrasos não podem ser concluídos porque a cobertura dos "
+            "relatórios NPX está incompleta.",
+            collaborator_ids,
+            "review_npx_import",
+        )
+    if reason.startswith(unresolved_prefix) and " on " in reason:
+        identity, work_date = reason.removeprefix(unresolved_prefix).rsplit(" on ", 1)
+        return _collaborator_issue(
+            "work_schedule_unresolved",
+            ClosureIssueComponent.WORK_SCHEDULE,
+            competence_month,
+            identity,
+            f"A jornada planejada de {work_date} não foi resolvida.",
+            "resolve_work_schedule",
+            "/work-schedules",
+            (("work_date", work_date),),
+        )
+    raise ValueError(f"unclassified work schedule incompleteness: {reason}")
+
+
+def _aggregate_issues(
+    items: tuple[MonthlyVariableCompensationClosureItem, ...],
+) -> tuple[ClosurePendingIssue, ...]:
+    unique: dict[tuple[str, str | None], ClosurePendingIssue] = {}
+    affected: dict[tuple[str, str | None], list[str]] = {}
+    for item in items:
+        for issue in item.pending_issues:
+            key = (
+                issue.code,
+                issue.collaborator_id
+                if issue.scope is ClosureIssueScope.COLLABORATOR
+                else None,
+            )
+            unique.setdefault(key, issue)
+            if issue.scope is ClosureIssueScope.COMPETENCE:
+                affected.setdefault(key, []).append(item.collaborator_id)
+    return tuple(
+        replace(issue, affected_collaborator_ids=tuple(affected.get(key, ())))
+        if issue.scope is ClosureIssueScope.COMPETENCE
+        else issue
+        for key, issue in unique.items()
     )
 
 

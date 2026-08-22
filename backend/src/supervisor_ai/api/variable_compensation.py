@@ -59,12 +59,23 @@ def variable_compensation_router(
 
 
 def _result(result: GetMonthlyVariableCompensationClosureResult) -> dict[str, object]:
+    by_component: dict[str, int] = {}
+    for issue in result.issues:
+        by_component[issue.component.value] = (
+            by_component.get(issue.component.value, 0) + 1
+        )
     return {
         "competence_month": result.competence_month.strftime("%Y-%m"),
         "collaborator_count": result.collaborator_count,
         "calculated_count": result.calculated_count,
         "incomplete_count": result.incomplete_count,
         "projected_total": _decimal(result.projected_total),
+        "issue_summary": {
+            "total_count": len(result.issues),
+            "blocking_count": len(result.issues),
+            "by_component": by_component,
+        },
+        "issues": [_issue(issue) for issue in result.issues],
         "items": [_item(item) for item in result.items],
     }
 
@@ -76,6 +87,7 @@ def _item(item: object) -> dict[str, object]:
         "competence_month": item.competence_month.strftime("%Y-%m"),
         "status": item.status.value,
         "pending_reasons": list(item.pending_reasons),
+        "pending_issues": [_issue(issue) for issue in item.pending_issues],
         "eligibility": {
             "current_worked_days": item.current_worked_days,
             "previous_worked_days": item.previous_worked_days,
@@ -119,6 +131,23 @@ def _component(item: object) -> dict[str, object]:
         "amount": _decimal(item.amount),
         "individual_value": _decimal(item.individual_value),
         "team_average": _decimal(item.team_average),
+    }
+
+
+def _issue(issue: object) -> dict[str, object]:
+    return {
+        "code": issue.code,
+        "component": issue.component.value,
+        "scope": issue.scope.value,
+        "collaborator_id": issue.collaborator_id,
+        "affected_collaborator_ids": list(issue.affected_collaborator_ids),
+        "competence_month": issue.competence_month.strftime("%Y-%m"),
+        "message": issue.message,
+        "severity": issue.severity.value,
+        "blocking": issue.severity.value == "blocking",
+        "action_type": issue.action_type,
+        "action_target": issue.action_target,
+        "metadata": dict(issue.metadata),
     }
 
 

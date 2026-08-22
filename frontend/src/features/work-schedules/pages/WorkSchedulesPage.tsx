@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError } from "../../../lib/http/api-error";
 import { createWorkScheduleOverride, getWorkSchedules } from "../api/work-schedules";
 import type { WorkScheduleItem, WorkSchedulesResult } from "../types/work-schedules";
@@ -6,9 +7,10 @@ import type { WorkScheduleItem, WorkSchedulesResult } from "../types/work-schedu
 const statusLabel = { resolved_standard: "Expediente padrão", resolved_explicit_grid: "Grade explícita", resolved_override: "Override manual", unresolved: "Pendente" };
 
 export function WorkSchedulesPage() {
-  const [month, setMonth] = useState("2026-08");
-  const [collaborator, setCollaborator] = useState("");
-  const [situation, setSituation] = useState("");
+  const [searchParams] = useSearchParams();
+  const [month, setMonth] = useState(searchParams.get("competence_month") ?? "2026-08");
+  const [collaborator, setCollaborator] = useState(searchParams.get("collaborator_id") ?? "");
+  const [situation, setSituation] = useState(searchParams.get("resolution_status") ?? "");
   const [data, setData] = useState<WorkSchedulesResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);

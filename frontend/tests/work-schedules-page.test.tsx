@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 
 import { getWorkSchedules, createWorkScheduleOverride } from "../src/features/work-schedules/api/work-schedules";
 import { WorkSchedulesPage } from "../src/features/work-schedules/pages/WorkSchedulesPage";
@@ -33,9 +34,10 @@ test("highlights pending schedules and creates a manual override", async () => {
     created_at: "2026-08-19T12:00:00+00:00",
   });
 
-  render(<WorkSchedulesPage />);
+  render(<MemoryRouter initialEntries={["/work-schedules?competence_month=2026-08&collaborator_id=operator-1&resolution_status=pending"]}><WorkSchedulesPage /></MemoryRouter>);
   expect(await screen.findByText("Jornada pendente")).toBeInTheDocument();
   expect(screen.getByText(/Jornadas pendentes:/)).toHaveTextContent("1");
+  expect(getSchedules).toHaveBeenCalledWith(expect.objectContaining({ competenceMonth: "2026-08", collaboratorId: "operator-1", resolutionStatus: "pending" }), expect.any(AbortSignal));
   await user.click(screen.getByRole("button", { name: "Definir jornada manualmente" }));
   await user.type(screen.getByLabelText("Horário inicial"), "16:00");
   await user.type(screen.getByLabelText("Horário final"), "22:00");

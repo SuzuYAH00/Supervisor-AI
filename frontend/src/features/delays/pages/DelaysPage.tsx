@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError } from "../../../lib/http/api-error";
 import { createDelayReview, getOperationalDelays } from "../api/delays";
 import type { OperationalDelay, OperationalDelaysResult } from "../types/delays";
@@ -11,8 +12,9 @@ function clock(seconds: number): string {
 }
 
 export function DelaysPage() {
-  const [month, setMonth] = useState("2026-08");
-  const [collaborator, setCollaborator] = useState("");
+  const [searchParams] = useSearchParams();
+  const [month, setMonth] = useState(searchParams.get("competence_month") ?? "2026-08");
+  const [collaborator, setCollaborator] = useState(searchParams.get("collaborator_id") ?? "");
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [data, setData] = useState<OperationalDelaysResult | null>(null);

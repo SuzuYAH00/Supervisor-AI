@@ -440,3 +440,11 @@ Rules Engine/Application depois da persistência, nunca pelo conector XLSX.
 `GET /work-schedules` projeta fatos mensais e a precedência já resolvida pela
 Application. `POST /work-schedules/overrides` registra uma exceção diária
 auditável. A API valida e projeta contratos; não recalcula a jornada.
+
+# Revisão operacional de atrasos
+
+`GET /delays` projeta os fatos NPX, a jornada aplicável, o review vigente e as
+possíveis evidências do Google Forms. `POST /delays/{id}/reviews` acrescenta
+uma decisão humana auditável. A API não interpreta justificativas e não altera
+os fatos importados; a Application valida colaborador e data antes de aceitar
+uma ocorrência como evidência.

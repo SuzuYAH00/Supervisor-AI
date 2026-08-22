@@ -138,6 +138,14 @@ from supervisor_ai.application.use_cases.npx_delays import (
     RecordDelayReviewUseCase,
     WorkSessionInput,
 )
+from supervisor_ai.application.use_cases.operational_delays import (
+    GetOperationalDelaysQuery,
+    GetOperationalDelaysResult,
+    GetOperationalDelaysUseCase,
+    OperationalDelayItem,
+    OperationalDelaySchedule,
+    OperationalDelaySourceFact,
+)
 from supervisor_ai.application.use_cases.process_and_persist_commercial_event import (
     ProcessAndPersistCommercialEventCommand,
     ProcessAndPersistCommercialEventResult,
@@ -287,6 +295,12 @@ __all__ = [
     "ImportNpxFactsResult",
     "ImportNpxFactsUseCase",
     "MonthlyDelayCountResult",
+    "GetOperationalDelaysQuery",
+    "GetOperationalDelaysResult",
+    "GetOperationalDelaysUseCase",
+    "OperationalDelayItem",
+    "OperationalDelaySchedule",
+    "OperationalDelaySourceFact",
     "NpxCoverageDeclaration",
     "NpxImportIssue",
     "PauseInput",

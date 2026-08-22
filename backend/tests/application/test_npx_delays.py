@@ -1,9 +1,14 @@
 from datetime import UTC, date, datetime, timedelta
 
+import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from supervisor_ai.application.errors import DelayReviewConflict
 from supervisor_ai.application.persistence import (
     CollaboratorExternalIdentity,
+    DailyPlannedWorkScheduleFact,
+    DelayOccurrence,
+    EmployeeOccurrenceReport,
     OperationalCollaboratorProfile,
 )
 from supervisor_ai.application.use_cases.npx_delays import (
@@ -16,6 +21,10 @@ from supervisor_ai.application.use_cases.npx_delays import (
     RecordDelayReviewCommand,
     RecordDelayReviewUseCase,
     WorkSessionInput,
+)
+from supervisor_ai.application.use_cases.operational_delays import (
+    GetOperationalDelaysQuery,
+    GetOperationalDelaysUseCase,
 )
 from supervisor_ai.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from supervisor_ai.rules_engine import CsatCompetitiveChannel
@@ -30,6 +39,11 @@ def _factory(session_factory: sessionmaker[Session]):
 
 def _setup(session_factory: sessionmaker[Session]) -> None:
     with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.operational_collaborators.add(
+            OperationalCollaboratorProfile(
+                "operator-2", CsatCompetitiveChannel.PHONE, NOW
+            )
+        )
         uow.operational_collaborators.add(
             OperationalCollaboratorProfile(
                 "operator-1", CsatCompetitiveChannel.CHAT, NOW
@@ -190,3 +204,181 @@ def test_valid_review_keeps_delay_countable(
         .delay_count
         == 1
     )
+
+
+def test_operational_projection_filters_and_preserves_possible_evidence(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _setup(session_factory)
+    factory = _factory(session_factory)
+    ImportNpxFactsUseCase(factory, lambda: NOW).execute(
+        ImportNpxFactsCommand(work_sessions=(_session(),), pauses=(_pause(),))
+    )
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.daily_planned_work_schedules.add(
+            DailyPlannedWorkScheduleFact(
+                "schedule-entry",
+                "operator-1",
+                date(2026, 8, 3),
+                datetime.min.time().replace(hour=5),
+                datetime.min.time().replace(hour=11),
+                "standard",
+                "attendance_sheet",
+                "schedule-ref",
+                "AUGUST",
+                "D3",
+                created_at=NOW,
+            )
+        )
+        uow.delay_occurrences.add(
+            DelayOccurrence(
+                "delay-entry",
+                "operator-1",
+                date(2026, 8, 3),
+                "entry",
+                "work_session",
+                "session-1",
+                5 * 3600 + 40 * 60,
+                5 * 3600 + 59,
+                NOW,
+            )
+        )
+        uow.employee_occurrence_reports.add(
+            EmployeeOccurrenceReport(
+                "report-1",
+                "forms-1",
+                "google_forms_employee_occurrences",
+                "operator-1",
+                "Agent Test",
+                NOW,
+                date(2026, 8, 3),
+                "Original employee statement",
+                "Responses",
+                2,
+                NOW,
+            )
+        )
+        uow.employee_occurrence_reports.add(
+            EmployeeOccurrenceReport(
+                "report-other-collaborator",
+                "forms-3",
+                "google_forms_employee_occurrences",
+                "operator-2",
+                "Other Agent",
+                NOW,
+                date(2026, 8, 3),
+                "Statement from another collaborator",
+                "Responses",
+                4,
+                NOW,
+            )
+        )
+        uow.employee_occurrence_reports.add(
+            EmployeeOccurrenceReport(
+                "report-other-date",
+                "forms-2",
+                "google_forms_employee_occurrences",
+                "operator-1",
+                "Agent Test",
+                NOW,
+                date(2026, 8, 4),
+                "Statement from another date",
+                "Responses",
+                3,
+                NOW,
+            )
+        )
+        uow.employee_occurrence_reports.add(
+            EmployeeOccurrenceReport(
+                "report-2",
+                "forms-4",
+                "google_forms_employee_occurrences",
+                "operator-1",
+                "Agent Test",
+                NOW + timedelta(minutes=1),
+                date(2026, 8, 3),
+                "Second statement from the same date",
+                "Responses",
+                5,
+                NOW,
+            )
+        )
+        uow.commit()
+
+    service = GetOperationalDelaysUseCase(factory)
+    result = service.execute(
+        GetOperationalDelaysQuery(
+            date(2026, 8, 1),
+            collaborator_id="operator-1",
+            delay_type="pause_duration",
+            review_status="pending_review",
+        )
+    )
+    assert result.detected_count == 1
+    assert result.pending_count == 1
+    assert result.items[0].counts_for_rv is True
+    assert [item.id for item in result.items[0].possible_reports] == [
+        "report-1",
+        "report-2",
+    ]
+
+    entry = service.execute(
+        GetOperationalDelaysQuery(date(2026, 8, 1), delay_type="entry")
+    )
+    assert entry.items[0].source_fact.source_fact_type == "work_session"
+    assert entry.items[0].schedule.planned_start.hour == 5
+
+    occurrence_id = result.items[0].occurrence.id
+    invalid_reports = (
+        "missing-report",
+        "report-other-date",
+        "report-other-collaborator",
+    )
+    for report_id in invalid_reports:
+        with pytest.raises(DelayReviewConflict):
+            RecordDelayReviewUseCase(factory, lambda: NOW).execute(
+                RecordDelayReviewCommand(
+                    f"invalid-{report_id}",
+                    occurrence_id,
+                    DelayDecision.CORRECTED,
+                    NOW,
+                    "supervisor-1",
+                    report_id,
+                )
+            )
+    RecordDelayReviewUseCase(factory, lambda: NOW).execute(
+        RecordDelayReviewCommand(
+            "review-operational",
+            occurrence_id,
+            DelayDecision.CORRECTED,
+            NOW,
+            "supervisor-1",
+            "report-1",
+        )
+    )
+    corrected = service.execute(
+        GetOperationalDelaysQuery(
+            date(2026, 8, 1), review_status="corrected"
+        )
+    )
+    assert corrected.corrected_count == 1
+    assert corrected.items[0].counts_for_rv is False
+
+    later = NOW + timedelta(minutes=1)
+    RecordDelayReviewUseCase(factory, lambda: later).execute(
+        RecordDelayReviewCommand(
+            "review-later",
+            occurrence_id,
+            DelayDecision.VALID,
+            later,
+            "supervisor-1",
+        )
+    )
+    latest = service.execute(
+        GetOperationalDelaysQuery(date(2026, 8, 1), review_status="valid")
+    )
+    assert latest.items[0].current_review.id == "review-later"
+    assert latest.items[0].counts_for_rv is True
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        assert uow.delay_reviews.get_by_id("review-operational") is not None
+        assert uow.delay_reviews.get_by_id("review-later") is not None

@@ -29,6 +29,8 @@ EXPECTED_ROUTES = {
     ("GET", "/recurrence/summary"),
     ("GET", "/work-schedules"),
     ("POST", "/work-schedules/overrides"),
+    ("GET", "/delays"),
+    ("POST", "/delays/{delay_occurrence_id}/reviews"),
 }
 def application(tmp_path: Path) -> tuple[FastAPI, Engine]:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'mvp-contract.sqlite3'}"

@@ -23,6 +23,7 @@ from supervisor_ai.application.use_cases import (
     GetMonthlyDelayFactsFromCoverageUseCase,
     GetMonthlyPresenceUseCase,
     GetMonthlyRecurrenceFactsUseCase,
+    GetOperationalDelaysUseCase,
     GetOperationalWorkSchedulesUseCase,
     GetProcessingHealthUseCase,
     GetProcessingRunDetailsUseCase,
@@ -244,6 +245,8 @@ def build_http_application(database_url: str) -> FastAPI:
             recurrence_summary=build_recurrence_summary_service(database_url),
             work_schedule_query=build_work_schedule_query_service(database_url),
             work_schedule_override=build_work_schedule_override_service(database_url),
+            operational_delay_query=build_operational_delay_query_service(database_url),
+            delay_review=build_delay_review_service(database_url),
         )
     )
 
@@ -264,6 +267,13 @@ def build_work_schedule_override_service(
     return RecordDailyWorkScheduleOverrideUseCase(
         build_unit_of_work_factory(session_factory), SystemClock()
     )
+
+
+def build_operational_delay_query_service(
+    database_url: str,
+) -> GetOperationalDelaysUseCase:
+    session_factory = build_session_factory(database_url)
+    return GetOperationalDelaysUseCase(build_unit_of_work_factory(session_factory))
 
 
 def build_financial_snapshot_service(

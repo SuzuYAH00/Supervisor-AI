@@ -69,3 +69,20 @@ e `PAUSE_DURATION` cuja decisão final não seja `corrected`.
 Overrides operacionais passam pela mesma resolução usada no atraso de entrada:
 alteram `planned_start/planned_end` somente no dia informado e preservam o
 expediente padrão histórico.
+
+## Consulta e revisão operacional
+
+A consulta mensal apresenta o `DelayOccurrence`, seu fato NPX de origem, a
+jornada efetiva quando o tipo é entrada, a revisão vigente e todas as
+declarações do Forms do mesmo `collaborator_id + occurrence_date`. A
+coincidência diária é apenas possível evidência e não cria vínculo automático.
+
+Os estados da interface possuem esta semântica:
+
+- `pending_review`: ainda não houve decisão, mas o atraso continua contando;
+- `valid`: o supervisor revisou e manteve o atraso, que continua contando;
+- `corrected`: a revisão vigente remove somente aquela ocorrência da contagem.
+
+Revisões são append-only e a mais recente por `decided_at/id` é vigente. O fato
+NPX não é atualizado ou apagado. O MVP registra `mvp-supervisor` como autoria
+técnica da operação; esse valor não representa uma pessoa autenticada.

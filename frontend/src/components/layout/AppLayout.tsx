@@ -24,6 +24,15 @@ export function AppLayout() {
               className={({ isActive }) =>
                 `navigation-link${isActive ? " active" : ""}`
               }
+              to="/delays"
+            >
+              <span>Revisão de atrasos</span>
+              <small>Ocorrências e decisões</small>
+            </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                `navigation-link${isActive ? " active" : ""}`
+              }
               to="/work-schedules"
             >
               <span>Jornadas</span>

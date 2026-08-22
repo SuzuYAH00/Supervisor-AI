@@ -11,6 +11,7 @@ import { ProcessingHealthPage } from "../features/processing-health/pages/Proces
 import { ProcessingRunDetailPage } from "../features/processing-runs/pages/ProcessingRunDetailPage";
 import { ProcessingRunsPage } from "../features/processing-runs/pages/ProcessingRunsPage";
 import { WorkSchedulesPage } from "../features/work-schedules/pages/WorkSchedulesPage";
+import { DelaysPage } from "../features/delays/pages/DelaysPage";
 import { NotFoundPage } from "./NotFoundPage";
 
 export const appRoutes: RouteObject[] = [
@@ -30,6 +31,7 @@ export const appRoutes: RouteObject[] = [
       { path: "financial-timeline", element: <FinancialTimelinePage /> },
       { path: "processing-runs", element: <ProcessingRunsPage /> },
       { path: "work-schedules", element: <WorkSchedulesPage /> },
+      { path: "delays", element: <DelaysPage /> },
       {
         path: "processing-runs/:processingRunId",
         element: <ProcessingRunDetailPage />,

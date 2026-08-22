@@ -23,6 +23,11 @@ from supervisor_ai.api.csat import (
     CsatSummaryServiceContract,
     csat_router,
 )
+from supervisor_ai.api.delays import (
+    DelayReviewContract,
+    OperationalDelayQueryContract,
+    delays_router,
+)
 from supervisor_ai.api.errors import error_response
 from supervisor_ai.api.processing import (
     ProcessingHealthServiceContract,
@@ -107,6 +112,8 @@ class HttpApplicationServices:
     recurrence_summary: RecurrenceSummaryServiceContract
     work_schedule_query: WorkScheduleQueryContract | None = None
     work_schedule_override: WorkScheduleOverrideContract | None = None
+    operational_delay_query: OperationalDelayQueryContract | None = None
+    delay_review: DelayReviewContract | None = None
 
 
 def create_http_application(
@@ -344,6 +351,13 @@ def create_http_application(
             work_schedules_router(
                 services.work_schedule_query, services.work_schedule_override
             )
+        )
+    if (
+        services.operational_delay_query is not None
+        and services.delay_review is not None
+    ):
+        app.include_router(
+            delays_router(services.operational_delay_query, services.delay_review)
         )
     return app
 

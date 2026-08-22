@@ -57,5 +57,15 @@ A existência da resposta:
 - não aprova justificativa;
 - não executa interpretação por IA.
 
-Somente uma decisão humana futura, explícita e auditável, poderá marcar um
-atraso como corrigido. O fato original importado não será apagado ou alterado.
+Somente uma decisão humana explícita e auditável pode marcar um atraso como
+corrigido. O fato original importado não é apagado ou alterado.
+
+## Uso na revisão operacional
+
+A tela de atrasos apresenta todas as ocorrências declaradas no mesmo dia e pelo
+mesmo colaborador. Quando existirem múltiplos atrasos ou múltiplos formulários,
+nenhum pareamento é escolhido pelo sistema. O supervisor pode selecionar
+opcionalmente uma ocorrência como evidência de um `DelayReview` específico.
+
+Um review também pode ser registrado sem formulário. A ausência de vínculo não
+transforma texto, nota ou outro campo do Forms em regra automática.

@@ -172,7 +172,8 @@ def test_incomplete_delay_coverage_never_becomes_zero(session_factory):
     assert result.issues[0].component is ClosureIssueComponent.DELAYS
     assert result.issues[0].scope is ClosureIssueScope.COMPETENCE
     assert result.issues[0].affected_collaborator_ids == ("operator-1",)
-    assert result.issues[0].action_target is None
+    assert result.issues[0].action_target == "/imports"
+    assert dict(result.issues[0].metadata) == {"import_type": "npx_pauses"}
 
 
 def test_global_coverage_issue_is_aggregated_once(session_factory):

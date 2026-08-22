@@ -207,6 +207,8 @@ class GetMonthlyVariableCompensationClosureUseCase:
                     "cobertura registrada para a fonte MK.",
                     collaborator_ids,
                     "review_recurrence_import",
+                    "/imports",
+                    (("import_type", "recurrence_mk"),),
                 )
             )
             recurrence_items = _empty_recurrence(previous_month, collaborator_ids)
@@ -222,6 +224,8 @@ class GetMonthlyVariableCompensationClosureUseCase:
                     "cobertura completa.",
                     collaborator_ids,
                     "review_recurrence_import",
+                    "/imports",
+                    (("import_type", "recurrence_mk"),),
                 )
             )
             recurrence_items = _empty_recurrence(previous_month, collaborator_ids)
@@ -346,6 +350,8 @@ class GetMonthlyVariableCompensationClosureUseCase:
                     "Não existem fatos de presença para o colaborador nesta "
                     "competência.",
                     "review_attendance_import",
+                    "/imports",
+                    (("import_type", "workforce_schedule"),),
                 )
             )
         if previous_presence_fact_count == 0:
@@ -358,6 +364,8 @@ class GetMonthlyVariableCompensationClosureUseCase:
                     "Não existem fatos de presença no mês anterior, necessários "
                     "para a elegibilidade da Reincidência.",
                     "review_attendance_import",
+                    "/imports",
+                    (("import_type", "workforce_schedule"),),
                 )
             )
         if result.csat.status.value == "not_evaluable":
@@ -375,6 +383,15 @@ class GetMonthlyVariableCompensationClosureUseCase:
                     "O CSAT não possui dados suficientes para calcular o indicador "
                     "do colaborador.",
                     "review_csat_import",
+                    "/imports",
+                    (
+                        (
+                            "import_type",
+                            "csat_chat_mk"
+                            if facts.csat.channel is CsatCompetitiveChannel.CHAT
+                            else "csat_phone_npx",
+                        ),
+                    ),
                 )
             )
         if result.recurrence.status.value == "not_evaluable" and not any(
@@ -488,6 +505,7 @@ def _competence_issue(
     collaborator_ids: tuple[str, ...],
     action_type: str | None = None,
     action_target: str | None = None,
+    metadata: tuple[tuple[str, str], ...] = (),
 ) -> ClosurePendingIssue:
     return ClosurePendingIssue(
         code,
@@ -499,6 +517,7 @@ def _competence_issue(
         affected_collaborator_ids=collaborator_ids,
         action_type=action_type,
         action_target=action_target,
+        metadata=metadata,
     )
 
 
@@ -552,6 +571,8 @@ def _delay_issue(
             "relatórios NPX está incompleta.",
             collaborator_ids,
             "review_npx_import",
+            "/imports",
+            (("import_type", dataset),),
         )
     if reason.startswith(unresolved_prefix) and " on " in reason:
         identity, work_date = reason.removeprefix(unresolved_prefix).rsplit(" on ", 1)

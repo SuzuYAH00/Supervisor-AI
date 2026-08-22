@@ -13,6 +13,7 @@ import { ProcessingRunsPage } from "../features/processing-runs/pages/Processing
 import { WorkSchedulesPage } from "../features/work-schedules/pages/WorkSchedulesPage";
 import { DelaysPage } from "../features/delays/pages/DelaysPage";
 import { VariableCompensationPage } from "../features/variable-compensation/pages/VariableCompensationPage";
+import { OperationalImportsPage } from "../features/operational-imports/pages/OperationalImportsPage";
 import { NotFoundPage } from "./NotFoundPage";
 
 export const appRoutes: RouteObject[] = [
@@ -23,6 +24,7 @@ export const appRoutes: RouteObject[] = [
       { index: true, element: <Navigate to="/processing-health" replace /> },
       { path: "processing-health", element: <ProcessingHealthPage /> },
       { path: "imports/csv", element: <CsvImportPage /> },
+      { path: "imports", element: <OperationalImportsPage /> },
       { path: "financial-summary", element: <FinancialSummaryPage /> },
       { path: "commercial-events", element: <CommercialEventsPage /> },
       {

@@ -2,6 +2,10 @@
 
 > Plataforma de Inteligência Operacional para Supervisão de Atendimento.
 
+A interface interna inclui uma Central de Importações em `/imports`, que expõe
+somente adapters operacionais já confirmados e identifica fontes ainda não
+disponíveis como `NOT_READY`.
+
 ---
 
 # Visão Geral

@@ -1,5 +1,27 @@
 # Integrações do Supervisor AI
 
+## Central operacional de importações da MVP
+
+`GET /operational-imports` publica o catálogo factual dos adapters locais e
+`POST /operational-imports/{type}` recebe o XLSX original. Estão disponíveis:
+Escala, CSAT Chat/MK, CSAT Phone/NPX, Pontos NPX, Pausas NPX e Ocorrências do
+Google Forms. Todos reutilizam os parsers e casos de uso canônicos; o frontend
+não interpreta planilhas.
+
+Reincidência/MK permanece `NOT_READY`: o domínio aceita atendimentos e cobertura,
+mas ainda não existe parser XLSX confirmado para o relatório MK real. O CSV
+genérico existente não é apresentado como se fosse esse contrato.
+
+Competência informada nos fluxos de Escala/Pontos/Pausas é uma declaração
+explícita de completude da extração e registra cobertura até o fim do mês; ela
+não é inferida por `MAX(data)`. Duplicatas idempotentes são sucesso, conflitos
+não sobrescrevem fatos e aliases nunca são aproximados.
+
+`ProcessingRun` continua restrito ao pipeline comercial atual. Como não contém
+metadados suficientes para estes sete fluxos, a MVP apresenta o resultado
+detalhado imediatamente e declara o histórico operacional como indisponível,
+sem criar uma persistência paralela nesta etapa.
+
 ## 1. Objetivo
 
 Este documento descreve os sistemas externos que fornecem informações ao Supervisor AI.

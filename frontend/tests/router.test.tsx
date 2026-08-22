@@ -11,6 +11,7 @@ import { getFinancialTimeline } from "../src/features/financial-timeline/api/get
 import { getProcessingHealth } from "../src/features/processing-health/api/get-processing-health";
 import { getProcessingRuns } from "../src/features/processing-runs/api/get-processing-runs";
 import { getProcessingRunDetail } from "../src/features/processing-runs/api/get-processing-run-detail";
+import { getOperationalImportCatalog } from "../src/features/operational-imports/api/operational-imports";
 import {
   commercialEvents,
   commercialEventDetail,
@@ -20,6 +21,10 @@ import {
   processingRunDetail,
 } from "./fixtures";
 
+vi.mock(
+  "../src/features/operational-imports/api/operational-imports",
+  () => ({ getOperationalImportCatalog: vi.fn(), uploadOperationalImport: vi.fn() }),
+);
 vi.mock(
   "../src/features/csv-import/api/import-csv",
   () => ({ importCsv: vi.fn() }),
@@ -87,15 +92,16 @@ test("processing health route renders inside the operational layout", async () =
   ).toHaveAttribute("href", "/processing-health");
 });
 
-test("CSV import navigation uses React Router and renders directly", async () => {
+test("operational import navigation uses React Router and renders directly", async () => {
   const user = userEvent.setup();
   getProcessingHealthMock.mockResolvedValue(processingHealth());
+  vi.mocked(getOperationalImportCatalog).mockResolvedValue({ items: [], history_available: false });
   renderRoute("/processing-health");
-  const link = await screen.findByRole("link", { name: /Importar CSV/ });
-  expect(link).toHaveAttribute("href", "/imports/csv");
+  const link = await screen.findByRole("link", { name: /Importações/ });
+  expect(link).toHaveAttribute("href", "/imports");
   await user.click(link);
   expect(
-    screen.getByRole("heading", { name: "Importar arquivo CSV" }),
+    screen.getByRole("heading", { name: "Importações" }),
   ).toBeInTheDocument();
   expect(importCsvMock).not.toHaveBeenCalled();
 });

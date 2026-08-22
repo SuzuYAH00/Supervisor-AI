@@ -51,10 +51,10 @@ export function AppLayout() {
               className={({ isActive }) =>
                 `navigation-link${isActive ? " active" : ""}`
               }
-              to="/imports/csv"
+              to="/imports"
             >
-              <span>Importar CSV</span>
-              <small>Entrada operacional</small>
+              <span>Importações</span>
+              <small>Fontes operacionais</small>
             </NavLink>
             <NavLink
               className={({ isActive }) =>

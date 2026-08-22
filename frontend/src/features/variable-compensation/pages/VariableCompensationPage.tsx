@@ -15,6 +15,7 @@ function issueTarget(issue: ClosurePendingIssue, month: string): string | null {
   const parameters = new URLSearchParams({ competence_month: month });
   if (issue.collaborator_id) parameters.set("collaborator_id", issue.collaborator_id);
   if (issue.component === "work_schedule") parameters.set("resolution_status", "pending");
+  if (issue.metadata.import_type) parameters.set("type", issue.metadata.import_type);
   return `${issue.action_target}?${parameters}`;
 }
 

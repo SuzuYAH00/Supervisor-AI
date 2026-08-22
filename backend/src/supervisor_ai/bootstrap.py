@@ -54,6 +54,7 @@ from supervisor_ai.infrastructure.importing import (
     JsonCommercialEventImporter,
     MkCsatXlsxImportService,
     NpxCsatXlsxImportService,
+    OperationalImportService,
     WorkforceScheduleXlsxImportService,
 )
 from supervisor_ai.infrastructure.persistence.database import (
@@ -251,7 +252,25 @@ def build_http_application(database_url: str) -> FastAPI:
             variable_compensation_closure=(
                 build_monthly_variable_compensation_closure_service(database_url)
             ),
+            operational_imports=build_operational_import_service(database_url),
         )
+    )
+
+
+def build_operational_import_service(database_url: str) -> OperationalImportService:
+    session_factory = build_session_factory(database_url)
+    factory = build_unit_of_work_factory(session_factory)
+    clock = SystemClock()
+    contacts = ImportCsatContactsUseCase(factory, clock)
+    return OperationalImportService(
+        ImportDailyWorkStatusesUseCase(factory, clock),
+        ImportWorkSchedulesUseCase(factory, clock),
+        MkCsatXlsxImportService(contacts),
+        NpxCsatXlsxImportService(contacts),
+        ImportNpxFactsUseCase(factory, clock),
+        EmployeeOccurrenceXlsxImportService(
+            ImportEmployeeOccurrenceReportsUseCase(factory, clock)
+        ),
     )
 
 

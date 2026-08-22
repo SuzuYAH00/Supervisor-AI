@@ -29,6 +29,10 @@ from supervisor_ai.api.delays import (
     delays_router,
 )
 from supervisor_ai.api.errors import error_response
+from supervisor_ai.api.operational_imports import (
+    OperationalImportContract,
+    operational_imports_router,
+)
 from supervisor_ai.api.processing import (
     ProcessingHealthServiceContract,
     processing_router,
@@ -119,6 +123,7 @@ class HttpApplicationServices:
     operational_delay_query: OperationalDelayQueryContract | None = None
     delay_review: DelayReviewContract | None = None
     variable_compensation_closure: VariableCompensationClosureContract | None = None
+    operational_imports: OperationalImportContract | None = None
 
 
 def create_http_application(
@@ -368,6 +373,8 @@ def create_http_application(
         app.include_router(
             variable_compensation_router(services.variable_compensation_closure)
         )
+    if services.operational_imports is not None:
+        app.include_router(operational_imports_router(services.operational_imports))
     return app
 
 

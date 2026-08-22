@@ -32,7 +32,11 @@ EXPECTED_ROUTES = {
     ("GET", "/delays"),
     ("POST", "/delays/{delay_occurrence_id}/reviews"),
     ("GET", "/variable-compensation"),
+    ("GET", "/operational-imports"),
+    ("POST", "/operational-imports/{import_type}"),
 }
+
+
 def application(tmp_path: Path) -> tuple[FastAPI, Engine]:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'mvp-contract.sqlite3'}"
     session_factory = build_session_factory(database_url)

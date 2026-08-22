@@ -65,6 +65,9 @@ from supervisor_ai.infrastructure.importing.npx_workforce_xlsx import (
     parse_npx_pauses_xlsx,
     parse_npx_work_sessions_xlsx,
 )
+from supervisor_ai.infrastructure.importing.operational_imports import (
+    OperationalImportService,
+)
 from supervisor_ai.infrastructure.importing.reporting import (
     CorrelatedCsvRowResult,
     correlate_csv_rows,
@@ -125,6 +128,7 @@ __all__ = [
     "NPX_CSAT_SOURCE",
     "NpxCsatXlsxImportService",
     "NpxWorkbookStructureError",
+    "OperationalImportService",
     "ParsedEmployeeOccurrenceWorkbook",
     "WorkforceScheduleXlsxError",
     "WorkforceScheduleXlsxImportService",

@@ -181,6 +181,12 @@ from .calculate_monthly_variable_compensation import (
     MonthlyDelayCountFact,
     RecurrenceCompetitiveFact,
 )
+from .monthly_variable_compensation_closure import (
+    ClosureStatus,
+    GetMonthlyVariableCompensationClosureQuery,
+    GetMonthlyVariableCompensationClosureResult,
+    GetMonthlyVariableCompensationClosureUseCase,
+)
 from .register_collaborator_external_identity import (
     RegisterCollaboratorExternalIdentityCommand,
     RegisterCollaboratorExternalIdentityResult,
@@ -204,6 +210,7 @@ __all__ = [
     "CalculateMonthlyVariableCompensationCommand",
     "CalculateMonthlyVariableCompensationResult",
     "CalculateMonthlyVariableCompensationUseCase",
+    "ClosureStatus",
     "CollaboratorCurrencySummary",
     "CollaboratorFinancialSummary",
     "CollaboratorFinancialTimelineItem",
@@ -234,6 +241,9 @@ __all__ = [
     "GetMonthlyCsatFactsQuery",
     "GetMonthlyCsatFactsResult",
     "GetMonthlyCsatFactsUseCase",
+    "GetMonthlyVariableCompensationClosureQuery",
+    "GetMonthlyVariableCompensationClosureResult",
+    "GetMonthlyVariableCompensationClosureUseCase",
     "GetAttendancesResult",
     "GetAttendancesUseCase",
     "GetCollaboratorFinancialTimelineQuery",

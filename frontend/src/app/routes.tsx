@@ -12,6 +12,7 @@ import { ProcessingRunDetailPage } from "../features/processing-runs/pages/Proce
 import { ProcessingRunsPage } from "../features/processing-runs/pages/ProcessingRunsPage";
 import { WorkSchedulesPage } from "../features/work-schedules/pages/WorkSchedulesPage";
 import { DelaysPage } from "../features/delays/pages/DelaysPage";
+import { VariableCompensationPage } from "../features/variable-compensation/pages/VariableCompensationPage";
 import { NotFoundPage } from "./NotFoundPage";
 
 export const appRoutes: RouteObject[] = [
@@ -32,6 +33,7 @@ export const appRoutes: RouteObject[] = [
       { path: "processing-runs", element: <ProcessingRunsPage /> },
       { path: "work-schedules", element: <WorkSchedulesPage /> },
       { path: "delays", element: <DelaysPage /> },
+      { path: "variable-compensation", element: <VariableCompensationPage /> },
       {
         path: "processing-runs/:processingRunId",
         element: <ProcessingRunDetailPage />,

@@ -297,14 +297,30 @@ Fatos explícitos de Reincidência permanecem como override interno compatível.
 Quando ausentes, a Application consulta a cobertura, obtém o resumo canônico e
 apenas projeta numerador, denominador e taxa para a competição. Presença, média
 com peso igual, trava coletiva e faixas continuam na composição e no Rules
-Engine. A fonte factual de atrasos permanece entrada mensal explícita.
+Engine. Atrasos são derivados automaticamente dos fatos NPX e das jornadas
+cobertas; uma revisão `CORRECTED` os retira da contagem, enquanto ausência de
+review e `VALID` continuam contando.
 
 Respostas do Google Forms são persistidas separadamente como declarações do
 colaborador. Elas não corrigem atrasos nem alteram descontos ou a RV sem uma
-decisão humana explícita, que permanece fora do escopo atual.
+decisão humana explícita registrada em `DelayReview`.
+
+## Projeção operacional do fechamento
+
+O fechamento mensal é uma projeção de leitura, não um snapshot travado. Ele
+reutiliza o `CalculateMonthlyVariableCompensationUseCase` e expõe os fatos
+resolvidos que explicam cada parcela.
+
+`CALCULATED` só possui total definitivo quando todos os componentes obrigatórios
+são avaliáveis. `INCOMPLETE` preserva as pendências por componente; ausência de
+cobertura ou de população não é convertida silenciosamente em zero.
+
+Em resumo: RV mensal = CSAT + Reincidência - atrasos - ausências penalizáveis.
+Qualidade permanece descontinuada, o máximo positivo é R$ 1.600,00 e o resultado
+factual pode ser negativo.
 
 ## Fora do escopo atual
 
-Não estão implementados persistência do resultado de RV, endpoint, frontend,
-fonte de atrasos, integração com folha, postagem no Ledger, penalização de Red
+Não estão implementados persistência/trava do resultado de RV, integração com
+folha, postagem no Ledger, penalização de Red
 Flag, Qualidade, scheduler, fila, autenticação ou recomendação por IA.

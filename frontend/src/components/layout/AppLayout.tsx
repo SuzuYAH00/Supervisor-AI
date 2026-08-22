@@ -24,6 +24,15 @@ export function AppLayout() {
               className={({ isActive }) =>
                 `navigation-link${isActive ? " active" : ""}`
               }
+              to="/variable-compensation"
+            >
+              <span>Renda Variável</span>
+              <small>Fechamento mensal</small>
+            </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                `navigation-link${isActive ? " active" : ""}`
+              }
               to="/delays"
             >
               <span>Revisão de atrasos</span>

@@ -116,6 +116,11 @@ class CalculateMonthlyVariableCompensationCommand:
 class CalculateMonthlyVariableCompensationResult:
     competence_month: date
     items: tuple[MonthlyVariableCompensationResult, ...]
+    resolved_inputs: tuple[MonthlyVariableCompensationInput, ...] = ()
+    current_presence: tuple[tuple[str, MonthlyPresenceResult], ...] = ()
+    previous_presence: tuple[tuple[str, MonthlyPresenceResult], ...] = ()
+    current_presence_fact_counts: tuple[tuple[str, int], ...] = ()
+    previous_presence_fact_counts: tuple[tuple[str, int], ...] = ()
 
 
 class MonthlyCsatFactsProvider(Protocol):
@@ -202,38 +207,56 @@ class CalculateMonthlyVariableCompensationUseCase:
             recurrence_cohort_month=previous_month,
             attendance_reference_month=command.competence_month,
         )
-        results = tuple(
-            self._evaluator.evaluate(
-                MonthlyVariableCompensationInput(
-                    collaborator_id=collaborator_id,
-                    competence=competence,
-                    csat=_csat_input(
-                        collaborator_id,
-                        profile_by_id,
-                        current_by_id,
-                        csat_by_id,
-                        csat_averages,
+        resolved_inputs = tuple(
+            MonthlyVariableCompensationInput(
+                collaborator_id=collaborator_id,
+                competence=competence,
+                csat=_csat_input(
+                    collaborator_id,
+                    profile_by_id,
+                    current_by_id,
+                    csat_by_id,
+                    csat_averages,
+                ),
+                recurrence=RecurrenceVariableCompensationFacts(
+                    is_eligible=(
+                        previous_by_id[collaborator_id].meets_minimum_worked_days
                     ),
-                    recurrence=RecurrenceVariableCompensationFacts(
-                        is_eligible=(
-                            previous_by_id[collaborator_id].meets_minimum_worked_days
-                        ),
-                        operator_rate=(
-                            recurrence_by_id[collaborator_id].recurrence_rate
-                        ),
-                        population_average_rate=recurrence_average,
-                    ),
-                    delay_count=delay_by_id[collaborator_id].delay_count,
-                    absence_days=(
-                        current_by_id[collaborator_id].penalizable_absence_days
-                    ),
-                )
+                    operator_rate=(recurrence_by_id[collaborator_id].recurrence_rate),
+                    population_average_rate=recurrence_average,
+                ),
+                delay_count=delay_by_id[collaborator_id].delay_count,
+                absence_days=(current_by_id[collaborator_id].penalizable_absence_days),
             )
             for collaborator_id in command.collaborator_ids
         )
+        results = tuple(self._evaluator.evaluate(item) for item in resolved_inputs)
         return CalculateMonthlyVariableCompensationResult(
             competence_month=command.competence_month,
             items=results,
+            resolved_inputs=resolved_inputs,
+            current_presence=tuple(current_by_id.items()),
+            previous_presence=tuple(previous_by_id.items()),
+            current_presence_fact_counts=tuple(
+                (
+                    collaborator_id,
+                    sum(
+                        fact.collaborator_id == collaborator_id
+                        for fact in current_presence
+                    ),
+                )
+                for collaborator_id in command.collaborator_ids
+            ),
+            previous_presence_fact_counts=tuple(
+                (
+                    collaborator_id,
+                    sum(
+                        fact.collaborator_id == collaborator_id
+                        for fact in previous_presence
+                    ),
+                )
+                for collaborator_id in command.collaborator_ids
+            ),
         )
 
     def _resolve_csat_facts(

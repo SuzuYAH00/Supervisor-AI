@@ -23,6 +23,7 @@ from supervisor_ai.application.use_cases import (
     GetMonthlyDelayFactsFromCoverageUseCase,
     GetMonthlyPresenceUseCase,
     GetMonthlyRecurrenceFactsUseCase,
+    GetMonthlyVariableCompensationClosureUseCase,
     GetOperationalDelaysUseCase,
     GetOperationalWorkSchedulesUseCase,
     GetProcessingHealthUseCase,
@@ -247,6 +248,9 @@ def build_http_application(database_url: str) -> FastAPI:
             work_schedule_override=build_work_schedule_override_service(database_url),
             operational_delay_query=build_operational_delay_query_service(database_url),
             delay_review=build_delay_review_service(database_url),
+            variable_compensation_closure=(
+                build_monthly_variable_compensation_closure_service(database_url)
+            ),
         )
     )
 
@@ -457,4 +461,28 @@ def build_monthly_variable_compensation_service(
             )
         ),
         GetMonthlyDelayFactsFromCoverageUseCase(unit_of_work_factory, SystemClock()),
+    )
+
+
+def build_monthly_variable_compensation_closure_service(
+    database_url: str,
+) -> GetMonthlyVariableCompensationClosureUseCase:
+    session_factory = build_session_factory(database_url)
+    factory = build_unit_of_work_factory(session_factory)
+    csat = GetMonthlyCsatFactsUseCase(factory)
+    recurrence = GetMonthlyRecurrenceFactsUseCase(
+        GetRecurrenceSummaryFromCoverageUseCase(
+            factory, GetRecurrenceSummaryUseCase(factory)
+        )
+    )
+    delays = GetMonthlyDelayFactsFromCoverageUseCase(factory, SystemClock())
+    calculator = CalculateMonthlyVariableCompensationUseCase(
+        factory,
+        MonthlyVariableCompensationEvaluator(),
+        csat,
+        recurrence,
+        delays,
+    )
+    return GetMonthlyVariableCompensationClosureUseCase(
+        factory, calculator, csat, recurrence, delays
     )

@@ -927,6 +927,14 @@ penalidade aplicáveis são efeitos indicados; sua materialização pertence ao 
 posterior. Essa separação evita apresentar uma consequência financeira como dado
 de origem.
 
+### Fechamento mensal explicável da RV
+
+A consulta operacional de fechamento reside em Application. Ela resolve os
+providers canônicos, chama o `CalculateMonthlyVariableCompensationUseCase` e
+projeta os inputs e resultados avaliados. API e frontend apenas apresentam
+status, métricas, faixas e valores; nenhuma faixa monetária é recalculada fora do
+Rules Engine. A projeção não persiste nem trava a competência.
+
 ### Conclusão
 
 A arquitetura recomendada é simples para o MVP, auditável e capaz de crescer sem

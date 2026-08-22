@@ -57,6 +57,10 @@ from supervisor_ai.api.schemas import (
     FinancialSummaryResponse,
     HealthResponse,
 )
+from supervisor_ai.api.variable_compensation import (
+    VariableCompensationClosureContract,
+    variable_compensation_router,
+)
 from supervisor_ai.api.work_schedules import (
     WorkScheduleOverrideContract,
     WorkScheduleQueryContract,
@@ -114,6 +118,7 @@ class HttpApplicationServices:
     work_schedule_override: WorkScheduleOverrideContract | None = None
     operational_delay_query: OperationalDelayQueryContract | None = None
     delay_review: DelayReviewContract | None = None
+    variable_compensation_closure: VariableCompensationClosureContract | None = None
 
 
 def create_http_application(
@@ -358,6 +363,10 @@ def create_http_application(
     ):
         app.include_router(
             delays_router(services.operational_delay_query, services.delay_review)
+        )
+    if services.variable_compensation_closure is not None:
+        app.include_router(
+            variable_compensation_router(services.variable_compensation_closure)
         )
     return app
 

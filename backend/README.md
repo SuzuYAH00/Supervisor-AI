@@ -138,6 +138,33 @@ identifica factualmente qual `usr_codigo` representa `MKBOT assistant`. Até ess
 identidade ser comprovada, a regra textual já existente no importador XLSX é
 apenas um fallback legado e não é aplicada ao espelho PostgreSQL.
 
+### Sincronização de atendimentos MK
+
+`SyncMkAttendancesUseCase` lê `mk_atendimento` em páginas de até 1.000 registros
+(padrão 500), sempre por `codatendimento > cursor`, e grava somente
+`mk_attendance_mirror`. Cada lote executa os upserts e atualiza o cursor na mesma
+Unit of Work; qualquer falha reverte todo o lote e mantém o cursor anterior.
+
+O cursor crescente cobre registros novos, mas não alterações tardias. Por isso,
+cada execução também pode reconciliar em lote os atendimentos locais ainda
+abertos e uma janela recente configurável. A janela padrão é de sete dias e
+`reconcile_from` permite informar uma data explícita, inclusive para futuras
+políticas de cobertura de coorte, sem acoplar o sync à regra de Reincidência.
+Consultas de abertos usam lotes de IDs com limite de 1.000; ausência na resposta
+externa nunca provoca exclusão local.
+
+O estado `(source="mk", entity_type="attendance")` funciona como cursor e lock.
+O início marca o estado como `RUNNING`; cada transação usa bloqueio da linha e
+confere o cursor esperado. Uma segunda execução é rejeitada enquanto o estado
+estiver em andamento. Sucesso e falha são registrados em `mk_sync_runs`, com
+contadores e erros sanitizados.
+
+Datas naive do MK são interpretadas em `America/Fortaleza` pela função central e
+persistidas em UTC. Operadores desconhecidos e `cd_dialogo` são preservados como
+IDs externos; nenhum mapping de colaborador é obrigatório para capturar o fato.
+Esta etapa não cria `AttendanceFact`, não executa regras, não agenda jobs e não
+substitui os importadores atuais.
+
 ## API MVP v1
 
 | Método | Rota | Finalidade |

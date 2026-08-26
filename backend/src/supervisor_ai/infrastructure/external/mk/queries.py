@@ -41,6 +41,31 @@ _ATTENDANCE_PAGE = text(
     """
 )
 
+_ATTENDANCES_BY_ID = text(
+    """
+    SELECT
+        codatendimento AS attendance_id,
+        protocolo AS protocol,
+        cliente_cadastrado AS customer_id,
+        dt_abertura AS opened_date,
+        hr_abertura AS opened_time,
+        dh_fim AS closed_at,
+        operador_abertura AS opening_operator,
+        operador_encerramento AS closing_operator,
+        cd_processo AS process_id,
+        cd_subprocesso AS subprocess_id,
+        classificacao_atendimento AS opening_classification_id,
+        classificacao_encerramento AS closing_classification_id,
+        como_foi_contato AS origin_id,
+        situacao AS status,
+        finalizado AS finalized,
+        cd_dialogo AS dialog_session_id
+    FROM public.mk_atendimento
+    WHERE codatendimento IN :attendance_ids
+    ORDER BY codatendimento ASC
+    """
+).bindparams(bindparam("attendance_ids", expanding=True))
+
 _DIALOG_PAGE = text(
     """
     SELECT
@@ -139,6 +164,19 @@ class MkAttendanceRepository:
             ).mappings()
             return tuple(_attendance(row) for row in rows)
 
+    def get_by_ids(self, attendance_ids: tuple[int, ...]) -> tuple[MkAttendance, ...]:
+        _validate_ids(attendance_ids, "attendance_ids")
+        if len(attendance_ids) > MAX_MK_PAGE_SIZE:
+            raise ValueError(f"attendance_ids must not exceed {MAX_MK_PAGE_SIZE} items")
+        if not attendance_ids:
+            return ()
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                _ATTENDANCES_BY_ID,
+                {"attendance_ids": attendance_ids},
+            ).mappings()
+            return tuple(_attendance(row) for row in rows)
+
 
 class MkDialogSessionRepository:
     def __init__(self, engine: Engine) -> None:
@@ -202,9 +240,7 @@ class MkUserRepository:
         if not user_ids:
             return ()
         with self._engine.connect() as connection:
-            rows = connection.execute(
-                _USERS_BY_ID, {"user_ids": user_ids}
-            ).mappings()
+            rows = connection.execute(_USERS_BY_ID, {"user_ids": user_ids}).mappings()
             return tuple(_user(row) for row in rows)
 
 

@@ -67,6 +67,10 @@ class MkAttendanceQuery(Protocol):
         opened_through: date | None = None,
     ) -> tuple[MkAttendance, ...]: ...
 
+    def get_by_ids(
+        self, attendance_ids: tuple[int, ...]
+    ) -> tuple[MkAttendance, ...]: ...
+
 
 class MkDialogSessionQuery(Protocol):
     def list_page(

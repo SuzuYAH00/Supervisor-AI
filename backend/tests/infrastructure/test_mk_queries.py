@@ -149,6 +149,20 @@ def test_dialog_operator_links_are_loaded_in_one_batched_query() -> None:
     assert parameters == {"dialog_session_ids": (501, 502)}
 
 
+def test_attendances_are_reloaded_by_ids_in_one_batched_query() -> None:
+    engine = FakeEngine([ATTENDANCE_CLOSED_ROW, ATTENDANCE_OPEN_ROW])
+    repository = MkAttendanceRepository(engine)  # type: ignore[arg-type]
+
+    result = repository.get_by_ids((101, 102))
+
+    assert [item.attendance_id for item in result] == [101, 102]
+    assert engine.connect_calls == 1
+    sql, parameters = engine.connection.calls[0]
+    assert "codatendimento IN" in sql
+    assert "SELECT *" not in sql.upper()
+    assert parameters == {"attendance_ids": (101, 102)}
+
+
 def test_user_queries_support_cursor_and_batched_identity_resolution() -> None:
     engine = FakeEngine([MK_USER_ROW], [MK_USER_ROW])
     repository = MkUserRepository(engine)  # type: ignore[arg-type]
@@ -167,8 +181,10 @@ def test_user_queries_support_cursor_and_batched_identity_resolution() -> None:
 
 def test_empty_batches_do_not_open_external_connections() -> None:
     engine = FakeEngine()
+    attendances = MkAttendanceRepository(engine)  # type: ignore[arg-type]
     dialogs = MkDialogSessionRepository(engine)  # type: ignore[arg-type]
     users = MkUserRepository(engine)  # type: ignore[arg-type]
+    assert attendances.get_by_ids(()) == ()
     assert dialogs.list_operator_links(()) == ()
     assert users.get_by_ids(()) == ()
     assert engine.connect_calls == 0

@@ -94,13 +94,19 @@ class SqlAlchemyMkAttendanceMirrorRepository:
         self.session.flush()
         return MkUpsertOutcome.UPDATED if changed else MkUpsertOutcome.UNCHANGED
 
-    def list_open(self, *, limit: int = 1000) -> tuple[MkAttendanceMirror, ...]:
+    def list_open(
+        self, *, after_external_id: str | None = None, limit: int = 1000
+    ) -> tuple[MkAttendanceMirror, ...]:
         _validate_limit(limit)
+        query = select(MkAttendanceMirrorRecord).where(
+            MkAttendanceMirrorRecord.closed_at.is_(None)
+        )
+        if after_external_id is not None:
+            query = query.where(
+                MkAttendanceMirrorRecord.external_id > after_external_id
+            )
         records = self.session.scalars(
-            select(MkAttendanceMirrorRecord)
-            .where(MkAttendanceMirrorRecord.closed_at.is_(None))
-            .order_by(MkAttendanceMirrorRecord.external_id)
-            .limit(limit)
+            query.order_by(MkAttendanceMirrorRecord.external_id).limit(limit)
         )
         return tuple(_attendance_from_record(record) for record in records)
 
@@ -166,6 +172,19 @@ class SqlAlchemyMkSyncRepository:
 
     def get_state(self, *, source: str, entity_type: str) -> MkSyncState | None:
         record = self.session.get(MkSyncStateRecord, (source, entity_type))
+        return None if record is None else _state_from_record(record)
+
+    def get_state_for_update(
+        self, *, source: str, entity_type: str
+    ) -> MkSyncState | None:
+        record = self.session.scalar(
+            select(MkSyncStateRecord)
+            .where(
+                MkSyncStateRecord.source == source,
+                MkSyncStateRecord.entity_type == entity_type,
+            )
+            .with_for_update()
+        )
         return None if record is None else _state_from_record(record)
 
     def save_state(self, state: MkSyncState) -> None:

@@ -389,6 +389,25 @@ class SqlAlchemyCollaboratorExternalIdentityRepository:
             return None
         return record_to_collaborator_external_identity(record)
 
+    def get_by_source_identities(
+        self, *, source: str, external_identities: tuple[str, ...]
+    ) -> tuple[CollaboratorExternalIdentity, ...]:
+        if not external_identities:
+            return ()
+        records = self.session.scalars(
+            select(CollaboratorExternalIdentityRecord)
+            .where(
+                CollaboratorExternalIdentityRecord.source == source,
+                CollaboratorExternalIdentityRecord.external_identity.in_(
+                    external_identities
+                ),
+            )
+            .order_by(CollaboratorExternalIdentityRecord.external_identity)
+        )
+        return tuple(
+            record_to_collaborator_external_identity(record) for record in records
+        )
+
 
 class SqlAlchemyAttendanceRepository:
     def __init__(self, session: Session) -> None:

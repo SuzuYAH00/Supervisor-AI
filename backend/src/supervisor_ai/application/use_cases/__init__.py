@@ -206,6 +206,12 @@ from .resolve_collaborator_external_identity import (
     ResolveCollaboratorExternalIdentityResult,
     ResolveCollaboratorExternalIdentityUseCase,
 )
+from .resolve_mk_operator_identities import (
+    MkOperatorIdentityResolution,
+    ResolveMkOperatorIdentitiesQuery,
+    ResolveMkOperatorIdentitiesResult,
+    ResolveMkOperatorIdentitiesUseCase,
+)
 
 __all__ = [
     "AttendanceInput",
@@ -359,6 +365,10 @@ __all__ = [
     "ResolveCollaboratorExternalIdentityQuery",
     "ResolveCollaboratorExternalIdentityResult",
     "ResolveCollaboratorExternalIdentityUseCase",
+    "MkOperatorIdentityResolution",
+    "ResolveMkOperatorIdentitiesQuery",
+    "ResolveMkOperatorIdentitiesResult",
+    "ResolveMkOperatorIdentitiesUseCase",
     "TimelineCommercialEvent",
 ]
 from supervisor_ai.application.use_cases.get_financial_snapshot import (

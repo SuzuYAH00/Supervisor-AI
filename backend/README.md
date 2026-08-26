@@ -119,6 +119,25 @@ conversa e avaliação. A identidade externa nunca é alterada. A resolução do
 de operador para colaboradores e as projeções em `AttendanceFact`/`CsatContact`
 pertencem às próximas etapas.
 
+### Identidade de operadores MK
+
+A identidade canônica de um operador MK é
+`source="mk" + external_identity=str(fr_usuario.usr_codigo)`. Ela reutiliza
+`CollaboratorExternalIdentity`: o vínculo é cadastrado explicitamente para um
+colaborador existente e a chave `(source, external_identity)` impede que o
+mesmo `usr_codigo` pertença a dois colaboradores.
+
+`usr_login`, `usr_nome` e textos presentes nos relatórios não são identidades e
+não produzem associação automática. A resolução em lote faz uma única consulta,
+remove IDs repetidos e devolve separadamente correspondências exatas e IDs que
+exigem mapping manual. Operadores desconhecidos continuam preservados nos
+mirrors; sua ausência no cadastro não bloqueia a captura do fato MK.
+
+O contrato PostgreSQL atual expõe IDs de usuários ligados às sessões, mas não
+identifica factualmente qual `usr_codigo` representa `MKBOT assistant`. Até essa
+identidade ser comprovada, a regra textual já existente no importador XLSX é
+apenas um fallback legado e não é aplicada ao espelho PostgreSQL.
+
 ## API MVP v1
 
 | Método | Rota | Finalidade |

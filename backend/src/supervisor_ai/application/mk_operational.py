@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-MK_SOURCE = "mk"
+MK_EXTERNAL_IDENTITY_SOURCE = "mk"
+MK_SOURCE = MK_EXTERNAL_IDENTITY_SOURCE
 
 
 def _utc_now() -> datetime:
@@ -32,6 +33,17 @@ class MkSyncStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+
+
+class MkOperatorResolutionStatus(StrEnum):
+    EXACT_EXTERNAL_ID = "exact_external_id"
+    MANUAL_MAPPING_REQUIRED = "manual_mapping_required"
+
+
+def mk_user_external_identity(user_id: int) -> str:
+    if user_id <= 0:
+        raise ValueError("MK user_id must be positive")
+    return str(user_id)
 
 
 @dataclass(frozen=True, slots=True)

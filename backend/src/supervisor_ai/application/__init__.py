@@ -30,13 +30,16 @@ from supervisor_ai.application.financial_snapshot import (
     RemunerationPostingFacts,
 )
 from supervisor_ai.application.mk_operational import (
+    MK_EXTERNAL_IDENTITY_SOURCE,
     MK_SOURCE,
     MkAttendanceMirror,
     MkBotConversationMirror,
+    MkOperatorResolutionStatus,
     MkSyncRun,
     MkSyncState,
     MkSyncStatus,
     MkUpsertOutcome,
+    mk_user_external_identity,
 )
 from supervisor_ai.application.persistence import (
     AttendanceFact,
@@ -96,6 +99,7 @@ from supervisor_ai.application.recurrence import (
 )
 
 __all__ = [
+    "MK_EXTERNAL_IDENTITY_SOURCE",
     "MK_SOURCE",
     "AttendanceFact",
     "AttendanceFactConflict",
@@ -149,11 +153,13 @@ __all__ = [
     "MkAttendanceMirrorRepository",
     "MkBotConversationMirror",
     "MkBotConversationMirrorRepository",
+    "MkOperatorResolutionStatus",
     "MkSyncRepository",
     "MkSyncRun",
     "MkSyncState",
     "MkSyncStatus",
     "MkUpsertOutcome",
+    "mk_user_external_identity",
     "OperationalCollaboratorProfile",
     "OperationalCollaboratorProfileConflict",
     "OperationalCollaboratorProfileNotFound",

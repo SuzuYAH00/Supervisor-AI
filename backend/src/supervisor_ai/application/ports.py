@@ -298,6 +298,10 @@ class CollaboratorExternalIdentityRepository(Protocol):
         self, *, source: str, external_identity: str
     ) -> CollaboratorExternalIdentity | None: ...
 
+    def get_by_source_identities(
+        self, *, source: str, external_identities: tuple[str, ...]
+    ) -> tuple[CollaboratorExternalIdentity, ...]: ...
+
 
 class LedgerRepository(Protocol):
     def add(self, entry: LedgerEntry) -> None: ...

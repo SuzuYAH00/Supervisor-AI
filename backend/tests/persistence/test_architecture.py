@@ -26,6 +26,7 @@ from supervisor_ai.infrastructure.persistence.unit_of_work import (
 
 SOURCE_ROOT = Path(__file__).parents[2] / "src/supervisor_ai"
 MK_OPERATIONAL_IMPORTS = {
+    "resolve_mk_operator_identities",
     "supervisor_ai.application.mk_operational",
     "supervisor_ai.infrastructure.persistence.mk_operational",
 }

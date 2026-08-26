@@ -64,6 +64,21 @@ O modo TLS padrão é `require`. Ambientes com uma CA confiável devem usar
 `MK_DB_SSLMODE=verify-full` (e configurar o certificado no mecanismo seguro da
 plataforma). Não é aceito modo que desabilite TLS.
 
+### Contratos de consulta MK
+
+O conector fornece gateways tipados e exclusivamente read-only para
+`mk_atendimento`, `mk_dialogo_sessao`, `mk_dialogo_sessao_operador` e
+`fr_usuario`. As listagens usam cursor pela chave primária crescente, com
+`WHERE pk > :after_id`, `ORDER BY pk` e `LIMIT`; não usam `OFFSET` nem
+`SELECT *`. Operadores de conversas e usuários são carregados por consultas em
+lote para evitar N+1.
+
+Datas e timestamps retornados continuam representando o valor civil bruto do
+MK, sem timezone. A conversão explícita de `America/Fortaleza` para UTC pertence
+à futura camada de processamento. `nota IS NULL` permanece `None`, sem conversão
+para `-1`. Os contratos comerciais de Upgrade permanecem fora desta camada até
+a auditoria factual do respectivo schema.
+
 ## API MVP v1
 
 | Método | Rota | Finalidade |

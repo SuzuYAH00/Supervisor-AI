@@ -69,6 +69,14 @@ class MkDatabaseConnector:
     def dispose(self) -> None:
         self._engine.dispose()
 
+    def query_repositories(self):
+        """Cria os gateways de leitura sem expor o Engine externo."""
+        from supervisor_ai.infrastructure.external.mk.queries import (
+            MkQueryRepositories,
+        )
+
+        return MkQueryRepositories.from_engine(self._engine)
+
 
 def create_mk_database_connector(
     settings: MkDatabaseSettings,

@@ -342,6 +342,14 @@ class MkAttendanceMirrorRepository(Protocol):
     def list_by_dialog_session_external_id(
         self, external_id: str
     ) -> tuple[MkAttendanceMirror, ...]: ...
+    def list_projection_candidates(
+        self,
+        *,
+        opened_from: datetime,
+        opened_before: datetime,
+        after_external_id: str | None = None,
+        limit: int = 500,
+    ) -> tuple[MkAttendanceMirror, ...]: ...
 
 
 class MkBotConversationMirrorRepository(Protocol):

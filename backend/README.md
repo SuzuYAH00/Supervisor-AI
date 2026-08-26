@@ -165,6 +165,49 @@ IDs externos; nenhum mapping de colaborador é obrigatório para capturar o fato
 Esta etapa não cria `AttendanceFact`, não executa regras, não agenda jobs e não
 substitui os importadores atuais.
 
+### Projeção de atendimentos MK
+
+`ProjectMkAttendancesUseCase` mantém separadas a captura e a consolidação:
+
+```text
+PostgreSQL MK -> sync -> mk_attendance_mirror
+                             |
+                             v
+                    projeção controlada
+                             |
+                             v
+                       AttendanceFact -> regra existente de Reincidência
+```
+
+A projeção usa `source="mk_postgresql"` e
+`external_reference=str(codatendimento)`, distinguindo o caminho PostgreSQL do
+legado `source="mk"`. O protocolo textual continua no mirror e no resultado da
+projeção; ele não é identidade nem relógio. `opened_at` preserva a precisão e é
+a autoridade cronológica, inclusive para vários atendimentos do mesmo cliente
+no mesmo dia.
+
+Somente atendimentos factualmente finalizados, com encerramento, cliente,
+operador responsável configurado, origem, processo e classificações são
+candidatos. O papel do responsável (`OPENING` ou `CLOSING`) é explícito porque o
+contrato CSV legado contém apenas `operator_id` e, sozinho, não comprova qual
+coluna do MK originou o valor. O operador é resolvido exclusivamente por `usr_codigo` via
+`CollaboratorExternalIdentity`; ausência de vínculo produz
+`UNRESOLVED_OPERATOR`. Como o mirror contém IDs dos catálogos, códigos e
+descrições usados pela regra devem vir de um catálogo explícito; valores não
+resolvidos produzem `UNRESOLVED_CATALOG`, sem texto inventado.
+
+O mapa semântico adotado é: cliente e protocolo são `EXACT`; abertura é
+`BETTER_PRECISION`; responsável é `SEMANTIC_DIFFERENCE` até a validação factual
+do papel configurado contra o export; processo, classificações e origem são
+`DERIVABLE` somente após resolução factual dos catálogos. A identidade e a
+idempotência usam `codatendimento`, nunca protocolo.
+
+`compare_recurrence_paths` executa a mesma regra sobre conjuntos separados e
+classifica diferenças de precisão, data sem horário, protocolo legado
+corrompido, operador, ausência de registro e diferença semântica. Ele não muda a
+fonte oficial: importadores XLSX/CSV e consultas vigentes permanecem ativos até
+o dual-run ser aprovado.
+
 ## API MVP v1
 
 | Método | Rota | Finalidade |

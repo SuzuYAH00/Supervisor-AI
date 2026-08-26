@@ -4,6 +4,7 @@ from enum import StrEnum
 
 MK_EXTERNAL_IDENTITY_SOURCE = "mk"
 MK_SOURCE = MK_EXTERNAL_IDENTITY_SOURCE
+MK_ATTENDANCE_FACT_SOURCE = "mk_postgresql"
 
 
 def _utc_now() -> datetime:

@@ -1,5 +1,6 @@
 import re
 from dataclasses import replace
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -119,6 +120,30 @@ class SqlAlchemyMkAttendanceMirrorRepository:
                 MkAttendanceMirrorRecord.mk_dialog_session_external_id == external_id
             )
             .order_by(MkAttendanceMirrorRecord.external_id)
+        )
+        return tuple(_attendance_from_record(record) for record in records)
+
+    def list_projection_candidates(
+        self,
+        *,
+        opened_from: datetime,
+        opened_before: datetime,
+        after_external_id: str | None = None,
+        limit: int = 500,
+    ) -> tuple[MkAttendanceMirror, ...]:
+        _validate_limit(limit)
+        if opened_from >= opened_before:
+            raise ValueError("opened_from must precede opened_before")
+        query = select(MkAttendanceMirrorRecord).where(
+            MkAttendanceMirrorRecord.opened_at >= opened_from,
+            MkAttendanceMirrorRecord.opened_at < opened_before,
+        )
+        if after_external_id is not None:
+            query = query.where(
+                MkAttendanceMirrorRecord.external_id > after_external_id
+            )
+        records = self.session.scalars(
+            query.order_by(MkAttendanceMirrorRecord.external_id).limit(limit)
         )
         return tuple(_attendance_from_record(record) for record in records)
 

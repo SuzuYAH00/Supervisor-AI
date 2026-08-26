@@ -29,6 +29,15 @@ from supervisor_ai.application.financial_snapshot import (
     RemunerationFacts,
     RemunerationPostingFacts,
 )
+from supervisor_ai.application.mk_operational import (
+    MK_SOURCE,
+    MkAttendanceMirror,
+    MkBotConversationMirror,
+    MkSyncRun,
+    MkSyncState,
+    MkSyncStatus,
+    MkUpsertOutcome,
+)
 from supervisor_ai.application.persistence import (
     AttendanceFact,
     CollaboratorExternalIdentity,
@@ -70,6 +79,9 @@ from supervisor_ai.application.ports import (
     EventRepository,
     IngestionCoverageRepository,
     LedgerRepository,
+    MkAttendanceMirrorRepository,
+    MkBotConversationMirrorRepository,
+    MkSyncRepository,
     OperationalCollaboratorProfileRepository,
     PauseRepository,
     ProcessingRunIdGenerator,
@@ -84,6 +96,7 @@ from supervisor_ai.application.recurrence import (
 )
 
 __all__ = [
+    "MK_SOURCE",
     "AttendanceFact",
     "AttendanceFactConflict",
     "AttendanceFilters",
@@ -132,6 +145,15 @@ __all__ = [
     "LedgerRepository",
     "LedgerConflict",
     "NpxFactConflict",
+    "MkAttendanceMirror",
+    "MkAttendanceMirrorRepository",
+    "MkBotConversationMirror",
+    "MkBotConversationMirrorRepository",
+    "MkSyncRepository",
+    "MkSyncRun",
+    "MkSyncState",
+    "MkSyncStatus",
+    "MkUpsertOutcome",
     "OperationalCollaboratorProfile",
     "OperationalCollaboratorProfileConflict",
     "OperationalCollaboratorProfileNotFound",

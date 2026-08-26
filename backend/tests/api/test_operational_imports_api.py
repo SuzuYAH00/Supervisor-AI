@@ -1,8 +1,9 @@
+import asyncio
 from datetime import date
 
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient, Response
 
 from supervisor_ai.api.operational_imports import operational_imports_router
 from supervisor_ai.infrastructure.importing.operational_imports import (
@@ -40,14 +41,26 @@ class Service:
         )
 
 
-def client(service: Service) -> TestClient:
+def request(
+    service: Service,
+    method: str,
+    path: str,
+    **kwargs: object,
+) -> Response:
     app = FastAPI()
     app.include_router(operational_imports_router(service))
-    return TestClient(app)
+
+    async def execute() -> Response:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            return await client.request(method, path, **kwargs)
+
+    return asyncio.run(execute())
 
 
 def test_catalog_marks_only_recurrence_as_not_ready():
-    response = client(Service()).get("/operational-imports")
+    response = request(Service(), "GET", "/operational-imports")
     assert response.status_code == 200
     states = {item["type"]: item["status"] for item in response.json()["items"]}
     assert states["recurrence_mk"] == "not_ready"
@@ -69,7 +82,9 @@ def test_catalog_marks_only_recurrence_as_not_ready():
 def test_endpoint_dispatches_every_ready_type(import_type, needs_month):
     service = Service()
     data = {"competence_month": "2026-08"} if needs_month else {}
-    response = client(service).post(
+    response = request(
+        service,
+        "POST",
         f"/operational-imports/{import_type}",
         data=data,
         files={"file": ("sample.xlsx", b"xlsx", "application/vnd.ms-excel")},
@@ -82,18 +97,26 @@ def test_endpoint_dispatches_every_ready_type(import_type, needs_month):
 
 
 def test_endpoint_rejects_invalid_type_extension_and_month():
-    api = client(Service())
     file = {"file": ("sample.xlsx", b"xlsx")}
-    assert api.post("/operational-imports/unknown", files=file).status_code == 404
     assert (
-        api.post(
+        request(
+            Service(), "POST", "/operational-imports/unknown", files=file
+        ).status_code
+        == 404
+    )
+    assert (
+        request(
+            Service(),
+            "POST",
             "/operational-imports/csat_chat_mk",
             files={"file": ("sample.csv", b"csv")},
         ).status_code
         == 422
     )
     assert (
-        api.post(
+        request(
+            Service(),
+            "POST",
             "/operational-imports/npx_pauses",
             data={"competence_month": "invalid"},
             files=file,
@@ -103,7 +126,9 @@ def test_endpoint_rejects_invalid_type_extension_and_month():
 
 
 def test_not_ready_type_is_explicit():
-    response = client(Service()).post(
+    response = request(
+        Service(),
+        "POST",
         "/operational-imports/recurrence_mk",
         data={"competence_month": "2026-08"},
         files={"file": ("sample.xlsx", b"xlsx")},

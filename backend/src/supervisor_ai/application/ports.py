@@ -2,6 +2,13 @@ from datetime import date, datetime
 from types import TracebackType
 from typing import Protocol, Self
 
+from supervisor_ai.application.mk_operational import (
+    MkAttendanceMirror,
+    MkBotConversationMirror,
+    MkSyncRun,
+    MkSyncState,
+    MkUpsertOutcome,
+)
 from supervisor_ai.application.persistence import (
     AttendanceFact,
     CollaboratorExternalIdentity,
@@ -322,6 +329,33 @@ class LedgerRepository(Protocol):
     ) -> tuple[CollaboratorFinancialTimelineRecord, ...]: ...
 
 
+class MkAttendanceMirrorRepository(Protocol):
+    def get_by_external_id(self, external_id: str) -> MkAttendanceMirror | None: ...
+    def upsert(self, item: MkAttendanceMirror) -> MkUpsertOutcome: ...
+    def list_open(self, *, limit: int = 1000) -> tuple[MkAttendanceMirror, ...]: ...
+    def list_by_dialog_session_external_id(
+        self, external_id: str
+    ) -> tuple[MkAttendanceMirror, ...]: ...
+
+
+class MkBotConversationMirrorRepository(Protocol):
+    def get_by_external_id(
+        self, external_id: str
+    ) -> MkBotConversationMirror | None: ...
+    def upsert(self, item: MkBotConversationMirror) -> MkUpsertOutcome: ...
+    def list_open(
+        self, *, limit: int = 1000
+    ) -> tuple[MkBotConversationMirror, ...]: ...
+
+
+class MkSyncRepository(Protocol):
+    def get_state(self, *, source: str, entity_type: str) -> MkSyncState | None: ...
+    def save_state(self, state: MkSyncState) -> None: ...
+    def add_run(self, run: MkSyncRun) -> None: ...
+    def update_run(self, run: MkSyncRun) -> None: ...
+    def get_run(self, run_id: str) -> MkSyncRun | None: ...
+
+
 class UnitOfWork(Protocol):
     events: EventRepository
     processing_runs: ProcessingRunRepository
@@ -342,6 +376,9 @@ class UnitOfWork(Protocol):
     operational_collaborators: OperationalCollaboratorProfileRepository
     collaborator_external_identities: CollaboratorExternalIdentityRepository
     ingestion_coverages: IngestionCoverageRepository
+    mk_attendances: MkAttendanceMirrorRepository
+    mkbot_conversations: MkBotConversationMirrorRepository
+    mk_sync: MkSyncRepository
 
     def __enter__(self) -> Self: ...
 

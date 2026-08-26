@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     CheckConstraint,
     Date,
     DateTime,
@@ -635,4 +636,138 @@ class DelayReviewRecord(Base):
         Index(
             "ix_delay_review_occurrence_decided", "delay_occurrence_id", "decided_at"
         ),
+    )
+
+
+class MkAttendanceMirrorRecord(Base):
+    __tablename__ = "mk_attendance_mirror"
+
+    external_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    protocol: Mapped[str | None] = mapped_column(String(255))
+    customer_external_id: Mapped[str | None] = mapped_column(String(255))
+    opened_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    opening_operator_external_id: Mapped[str | None] = mapped_column(String(255))
+    closing_operator_external_id: Mapped[str | None] = mapped_column(String(255))
+    process_external_id: Mapped[str | None] = mapped_column(String(255))
+    subprocess_external_id: Mapped[str | None] = mapped_column(String(255))
+    opening_classification_external_id: Mapped[str | None] = mapped_column(String(255))
+    closing_classification_external_id: Mapped[str | None] = mapped_column(String(255))
+    origin_external_id: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str | None] = mapped_column(String(255))
+    is_finalized: Mapped[bool | None] = mapped_column()
+    mk_dialog_session_external_id: Mapped[str | None] = mapped_column(String(255))
+    source_first_seen_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False
+    )
+    source_last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("length(external_id) > 0", name="ck_mk_attendance_external_id"),
+        CheckConstraint(
+            "source_last_seen_at >= source_first_seen_at",
+            name="ck_mk_attendance_seen_order",
+        ),
+        Index("ix_mk_attendance_customer_opened", "customer_external_id", "opened_at"),
+        Index("ix_mk_attendance_opened_at", "opened_at"),
+        Index("ix_mk_attendance_status", "status"),
+        Index("ix_mk_attendance_dialog", "mk_dialog_session_external_id"),
+    )
+
+
+class MkBotConversationMirrorRecord(Base):
+    __tablename__ = "mkbot_conversation_mirror"
+
+    external_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    protocol: Mapped[str | None] = mapped_column(String(255))
+    person_external_id: Mapped[str | None] = mapped_column(String(255))
+    integration_external_reference: Mapped[str | None] = mapped_column(String(255))
+    conversation_type: Mapped[str | None] = mapped_column(String(100))
+    sector_external_id: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    human_service_started_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    queue_entered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    score: Mapped[int | None] = mapped_column()
+    final_operator_external_id: Mapped[str | None] = mapped_column(String(255))
+    source_first_seen_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False
+    )
+    source_last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(external_id) > 0", name="ck_mkbot_conversation_external_id"
+        ),
+        CheckConstraint(
+            "source_last_seen_at >= source_first_seen_at",
+            name="ck_mkbot_conversation_seen_order",
+        ),
+        Index("ix_mkbot_conversation_created_at", "created_at"),
+        Index("ix_mkbot_conversation_final_operator", "final_operator_external_id"),
+    )
+
+
+class MkSyncStateRecord(Base):
+    __tablename__ = "mk_sync_states"
+
+    source: Mapped[str] = mapped_column(String(100), primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String(100), primary_key=True)
+    last_pk: Mapped[int | None] = mapped_column(BigInteger())
+    last_success_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    last_attempt_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("length(source) > 0", name="ck_mk_sync_state_source"),
+        CheckConstraint("length(entity_type) > 0", name="ck_mk_sync_state_entity"),
+        CheckConstraint(
+            "last_pk IS NULL OR last_pk >= 0", name="ck_mk_sync_state_cursor"
+        ),
+        CheckConstraint(
+            "status IN ('idle', 'running', 'succeeded', 'failed')",
+            name="ck_mk_sync_state_status",
+        ),
+    )
+
+
+class MkSyncRunRecord(Base):
+    __tablename__ = "mk_sync_runs"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    initial_cursor: Mapped[int | None] = mapped_column(BigInteger())
+    final_cursor: Mapped[int | None] = mapped_column(BigInteger())
+    inserted: Mapped[int] = mapped_column(nullable=False)
+    updated: Mapped[int] = mapped_column(nullable=False)
+    unchanged: Mapped[int] = mapped_column(nullable=False)
+    rejected: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    error: Mapped[str | None] = mapped_column(Text())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "inserted >= 0 AND updated >= 0 AND unchanged >= 0 AND rejected >= 0",
+            name="ck_mk_sync_run_counts",
+        ),
+        CheckConstraint(
+            "status IN ('running', 'succeeded', 'failed')",
+            name="ck_mk_sync_run_status",
+        ),
+        CheckConstraint(
+            "finished_at IS NULL OR finished_at >= started_at",
+            name="ck_mk_sync_run_time_order",
+        ),
+        Index("ix_mk_sync_run_entity_started", "source", "entity_type", "started_at"),
     )

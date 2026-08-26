@@ -2,6 +2,11 @@ from types import TracebackType
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from supervisor_ai.infrastructure.persistence.mk_operational import (
+    SqlAlchemyMkAttendanceMirrorRepository,
+    SqlAlchemyMkBotConversationMirrorRepository,
+    SqlAlchemyMkSyncRepository,
+)
 from supervisor_ai.infrastructure.persistence.repositories import (
     SqlAlchemyAttendanceRepository,
     SqlAlchemyCollaboratorExternalIdentityRepository,
@@ -68,6 +73,9 @@ class SqlAlchemyUnitOfWork:
         self.collaborator_external_identities = (
             SqlAlchemyCollaboratorExternalIdentityRepository(session)
         )
+        self.mk_attendances = SqlAlchemyMkAttendanceMirrorRepository(session)
+        self.mkbot_conversations = SqlAlchemyMkBotConversationMirrorRepository(session)
+        self.mk_sync = SqlAlchemyMkSyncRepository(session)
         return self
 
     def __exit__(

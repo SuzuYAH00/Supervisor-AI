@@ -79,6 +79,46 @@ MK, sem timezone. A conversão explícita de `America/Fortaleza` para UTC perten
 para `-1`. Os contratos comerciais de Upgrade permanecem fora desta camada até
 a auditoria factual do respectivo schema.
 
+### Espelho operacional MK
+
+O banco interno possui um espelho operacional mutável separado dos fatos
+consolidados:
+
+```text
+PostgreSQL MK (read-only)
+  -> contratos externos MK
+  -> mk_attendance_mirror / mkbot_conversation_mirror
+  -> processamento e projeções futuras
+```
+
+`external_id` preserva, como texto, `codatendimento` ou
+`cod_dialogosessao`. Uma releitura com os mesmos fatos é `UNCHANGED`; mudanças
+factuais posteriores, como encerramento, operador final ou avaliação, atualizam
+a mesma linha. `source_first_seen_at` e `source_last_seen_at` são metadados da
+sincronização, enquanto `local_created_at` e `local_updated_at` descrevem a
+persistência local.
+
+O relacionamento atendimento/conversa usa exclusivamente
+`mk_atendimento.cd_dialogo -> mk_dialogo_sessao.cod_dialogosessao`. A referência
+externa pode existir antes da conversa local, evitando dependência da ordem de
+sincronização; protocolo não é usado como chave de relacionamento.
+
+Os timestamps naive da origem são interpretados explicitamente em
+`America/Fortaleza` e convertidos para UTC antes da persistência. `score = NULL`
+continua `NULL`; esta camada não produz o sentinela `-1` das planilhas.
+
+`mk_sync_states` mantém um único cursor de PK por fonte/entidade. O cursor e os
+upserts usam a mesma Unit of Work, permitindo que uma sincronização futura faça
+commit por lote. `mk_sync_runs` registra contagens e resultado de cada execução
+sem reutilizar `processing_runs`, cuja semântica é vinculada ao processamento de
+eventos comerciais.
+
+Campos factuais tratados como mutáveis incluem encerramento, status, operadores,
+processo, subprocesso, classificações, vínculo com diálogo, timestamps da
+conversa e avaliação. A identidade externa nunca é alterada. A resolução dos IDs
+de operador para colaboradores e as projeções em `AttendanceFact`/`CsatContact`
+pertencem às próximas etapas.
+
 ## API MVP v1
 
 | Método | Rota | Finalidade |

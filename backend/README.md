@@ -45,6 +45,25 @@ curl -X POST \
 
 A aplicação não cria tabelas ou aplica migrations durante a inicialização.
 
+## PostgreSQL externo do MK
+
+O conector MK usa uma configuração independente do banco operacional do
+Supervisor AI. Ele é opcional: sua ausência ou indisponibilidade não impede a
+inicialização normal da aplicação. As variáveis aceitas estão documentadas no
+`.env.example` com os nomes `MK_DB_*`; credenciais reais devem permanecer fora
+do repositório.
+
+A conexão é estritamente read-only, usa pool de duas conexões sem overflow,
+reciclagem após cinco minutos, timeout de conexão de cinco segundos e timeout
+de statement de quinze segundos. O health check do conector executa somente
+`SELECT 1` e `SHOW transaction_read_only`. A origem utiliza timestamps sem
+timezone interpretados como `America/Fortaleza`; mappers futuros serão
+responsáveis pela conversão explícita para UTC.
+
+O modo TLS padrão é `require`. Ambientes com uma CA confiável devem usar
+`MK_DB_SSLMODE=verify-full` (e configurar o certificado no mecanismo seguro da
+plataforma). Não é aceito modo que desabilite TLS.
+
 ## API MVP v1
 
 | Método | Rota | Finalidade |

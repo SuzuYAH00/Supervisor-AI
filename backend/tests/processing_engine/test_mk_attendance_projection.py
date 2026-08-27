@@ -9,13 +9,20 @@ from supervisor_ai.application.mk_operational import (
     MK_ATTENDANCE_FACT_SOURCE,
     MkAttendanceMirror,
 )
+from supervisor_ai.infrastructure.external.mk.contracts import (
+    MkAttendanceCatalogSnapshot,
+    MkClassificationCatalogEntry,
+    MkOriginCatalogEntry,
+    MkProcessCatalogEntry,
+    MkSubprocessCatalogEntry,
+)
 from supervisor_ai.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from supervisor_ai.processing_engine.mk_attendance_projection import (
     MkAttendanceCatalog,
     MkAttendanceProjectionStatus,
-    MkResponsibleOperatorRole,
     ProjectMkAttendancesCommand,
     ProjectMkAttendancesUseCase,
+    build_recurrence_catalog,
 )
 from supervisor_ai.processing_engine.recurrence_regression import (
     RecurrenceRegressionDifference,
@@ -38,8 +45,40 @@ CATALOG = MkAttendanceCatalog(
     opening_classifications={"81": OPENING},
     closing_classifications={"91": CLOSING},
     channels={"9": "phone"},
-    responsible_operator_role=MkResponsibleOperatorRole.CLOSING,
 )
+
+
+def test_builds_catalog_from_internal_pks_without_using_them_as_codes() -> None:
+    catalog = build_recurrence_catalog(
+        MkAttendanceCatalogSnapshot(
+            processes=(
+                MkProcessCatalogEntry(44, "01 - Atendimento Suporte", False),
+            ),
+            subprocesses=(
+                MkSubprocessCatalogEntry(71, 44, "Atendimento Inicial", False),
+            ),
+            classifications=(
+                MkClassificationCatalogEntry(
+                    19, "001 - Sem acesso a internet", False, False
+                ),
+                MkClassificationCatalogEntry(
+                    26, "012 - Entrega/Config. Roteador", False, False
+                ),
+                MkClassificationCatalogEntry(
+                    55, "001 - Dispositivo Cliente", True, False
+                ),
+            ),
+            origins=(MkOriginCatalogEntry(9, "WhatsApp"),),
+        )
+    )
+
+    assert catalog.processes["44"] == ELIGIBLE_PROCESS
+    assert catalog.processes["44"].code == "01"
+    assert catalog.opening_classifications["19"] == OPENING
+    assert catalog.opening_classifications["26"].code == "012"
+    assert catalog.opening_classifications["26"].description.startswith("Entrga")
+    assert catalog.closing_classifications["55"] == CLOSING
+    assert catalog.channels["9"] == "WhatsApp"
 
 
 def mirror(external_id: str, **changes: object) -> MkAttendanceMirror:
@@ -76,8 +115,18 @@ def seed(session_factory, *mirrors: MkAttendanceMirror, mapped=True) -> None:
                     "collaborator-1", CsatCompetitiveChannel.PHONE, NOW
                 )
             )
+            unit_of_work.operational_collaborators.add(
+                OperationalCollaboratorProfile(
+                    "collaborator-opening", CsatCompetitiveChannel.PHONE, NOW
+                )
+            )
             unit_of_work.collaborator_external_identities.add(
                 CollaboratorExternalIdentity("collaborator-1", "mk", "1788", NOW)
+            )
+            unit_of_work.collaborator_external_identities.add(
+                CollaboratorExternalIdentity(
+                    "collaborator-opening", "mk", "1491", NOW
+                )
             )
         for item in mirrors:
             unit_of_work.mk_attendances.upsert(item)
@@ -111,6 +160,29 @@ def test_projects_final_mirror_idempotently_with_provenance(session_factory) -> 
         assert fact.customer_code == "148446"
         assert fact.operator_id == "collaborator-1"
         assert fact.occurred_at == datetime(2026, 7, 13, 14, tzinfo=UTC)
+
+
+def test_projection_uses_closing_operator_when_opening_operator_differs(
+    session_factory,
+) -> None:
+    seed(
+        session_factory,
+        mirror(
+            "1505440",
+            opening_operator_external_id="1491",
+            closing_operator_external_id="1788",
+        ),
+    )
+
+    result = project(session_factory)
+
+    assert result.items[0].status is MkAttendanceProjectionStatus.PROJECTED
+    with SqlAlchemyUnitOfWork(session_factory) as unit_of_work:
+        fact = unit_of_work.attendances.get_by_source_reference(
+            source=MK_ATTENDANCE_FACT_SOURCE, external_reference="1505440"
+        )
+    assert fact is not None
+    assert fact.operator_id == "collaborator-1"
 
 
 def test_open_and_unresolved_records_are_structured_not_silently_dropped(

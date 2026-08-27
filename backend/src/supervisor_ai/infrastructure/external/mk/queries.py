@@ -8,8 +8,13 @@ from sqlalchemy import Engine, bindparam, text
 from supervisor_ai.infrastructure.external.mk.contracts import (
     MAX_MK_PAGE_SIZE,
     MkAttendance,
+    MkAttendanceCatalogSnapshot,
+    MkClassificationCatalogEntry,
     MkDialogOperatorLink,
     MkDialogSession,
+    MkOriginCatalogEntry,
+    MkProcessCatalogEntry,
+    MkSubprocessCatalogEntry,
     MkUser,
 )
 
@@ -122,12 +127,43 @@ _USERS_BY_ID = text(
     """
 ).bindparams(bindparam("user_ids", expanding=True))
 
+_PROCESS_CATALOG = text(
+    """
+    SELECT codprocesso AS external_id, nome_processo AS label, inativo
+      FROM public.mk_ate_processos
+     ORDER BY codprocesso
+    """
+)
+_SUBPROCESS_CATALOG = text(
+    """
+    SELECT codsubprocesso AS external_id, cd_processo AS process_external_id,
+           nome_subprocesso AS label, inativo
+      FROM public.mk_ate_subprocessos
+     ORDER BY codsubprocesso
+    """
+)
+_CLASSIFICATION_CATALOG = text(
+    """
+    SELECT codatclass AS external_id, descricao AS label, encerramento, inativar
+      FROM public.mk_atendimento_classificacao
+     ORDER BY codatclass
+    """
+)
+_ORIGIN_CATALOG = text(
+    """
+    SELECT cd_orig_cont AS external_id, origem_contato AS label
+      FROM public.mk_origem_contato
+     ORDER BY cd_orig_cont
+    """
+)
+
 
 @dataclass(frozen=True, slots=True)
 class MkQueryRepositories:
     attendances: MkAttendanceRepository
     dialog_sessions: MkDialogSessionRepository
     users: MkUserRepository
+    attendance_catalogs: MkAttendanceCatalogRepository
 
     @classmethod
     def from_engine(cls, engine: Engine) -> MkQueryRepositories:
@@ -135,6 +171,54 @@ class MkQueryRepositories:
             MkAttendanceRepository(engine),
             MkDialogSessionRepository(engine),
             MkUserRepository(engine),
+            MkAttendanceCatalogRepository(engine),
+        )
+
+
+class MkAttendanceCatalogRepository:
+    """Carrega os quatro catálogos pequenos sem N+1."""
+
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
+
+    def load(self) -> MkAttendanceCatalogSnapshot:
+        with self._engine.connect() as connection:
+            processes = tuple(
+                MkProcessCatalogEntry(
+                    row["external_id"],
+                    row["label"],
+                    _optional_mk_boolean(row["inativo"]),
+                )
+                for row in connection.execute(_PROCESS_CATALOG).mappings()
+                if row["label"]
+            )
+            subprocesses = tuple(
+                MkSubprocessCatalogEntry(
+                    row["external_id"],
+                    row["process_external_id"],
+                    row["label"],
+                    _optional_mk_boolean(row["inativo"]),
+                )
+                for row in connection.execute(_SUBPROCESS_CATALOG).mappings()
+                if row["label"]
+            )
+            classifications = tuple(
+                MkClassificationCatalogEntry(
+                    row["external_id"],
+                    row["label"],
+                    _optional_mk_boolean(row["encerramento"]),
+                    _optional_mk_boolean(row["inativar"]),
+                )
+                for row in connection.execute(_CLASSIFICATION_CATALOG).mappings()
+                if row["label"]
+            )
+            origins = tuple(
+                MkOriginCatalogEntry(row["external_id"], row["label"])
+                for row in connection.execute(_ORIGIN_CATALOG).mappings()
+                if row["label"]
+            )
+        return MkAttendanceCatalogSnapshot(
+            processes, subprocesses, classifications, origins
         )
 
 
@@ -322,3 +406,18 @@ def _validate_ids(values: tuple[int, ...], name: str) -> None:
         raise ValueError(f"{name} must not contain duplicates")
     if any(value <= 0 for value in values):
         raise ValueError(f"{name} must contain positive identifiers")
+
+
+def _optional_mk_boolean(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    return _mk_boolean(value)
+
+
+def _mk_boolean(value: str) -> bool:
+    normalized = value.strip().casefold()
+    if normalized in {"s", "sim", "1", "true"}:
+        return True
+    if normalized in {"n", "nao", "não", "0", "false"}:
+        return False
+    raise ValueError("unsupported MK boolean value")

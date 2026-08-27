@@ -187,19 +187,33 @@ a autoridade cronológica, inclusive para vários atendimentos do mesmo cliente
 no mesmo dia.
 
 Somente atendimentos factualmente finalizados, com encerramento, cliente,
-operador responsável configurado, origem, processo e classificações são
-candidatos. O papel do responsável (`OPENING` ou `CLOSING`) é explícito porque o
-contrato CSV legado contém apenas `operator_id` e, sozinho, não comprova qual
-coluna do MK originou o valor. O operador é resolvido exclusivamente por `usr_codigo` via
+operador de encerramento, origem, processo e classificações são candidatos. A
+documentação normativa de Reincidência registra que a planilha operacional usa
+o operador que encerrou o atendimento como responsável. O operador é resolvido
+exclusivamente por `usr_codigo` via
 `CollaboratorExternalIdentity`; ausência de vínculo produz
 `UNRESOLVED_OPERATOR`. Como o mirror contém IDs dos catálogos, códigos e
 descrições usados pela regra devem vir de um catálogo explícito; valores não
 resolvidos produzem `UNRESOLVED_CATALOG`, sem texto inventado.
 
+A auditoria read-only do PostgreSQL comprova os joins e rótulos
+`mk_ate_processos.codprocesso/nome_processo`,
+`mk_ate_subprocessos.codsubprocesso/nome_subprocesso`,
+`mk_atendimento_classificacao.codatclass/descricao` e
+`mk_origem_contato.cd_orig_cont/origem_contato`. Esses IDs internos não são os
+códigos operacionais exibidos no relatório: por exemplo, fixtures factuais usam
+PK de processo `44`, enquanto a regra consome o código `01`. As tabelas não
+possuem uma coluna separada para o código operacional: o banco persiste o rótulo
+canônico completo, como `01 - Atendimento Suporte`. O repositório lê os quatro
+catálogos uma vez por execução, sem N+1, e o processamento relaciona o rótulo
+completo às identidades normativas conhecidas, sem separar ou inferir seu
+prefixo. Divergências históricas de apresentação são aliases explícitos e
+testados; valores desconhecidos permanecem não elegíveis.
+
 O mapa semântico adotado é: cliente e protocolo são `EXACT`; abertura é
-`BETTER_PRECISION`; responsável é `SEMANTIC_DIFFERENCE` até a validação factual
-do papel configurado contra o export; processo, classificações e origem são
-`DERIVABLE` somente após resolução factual dos catálogos. A identidade e a
+`BETTER_PRECISION`; responsável usa factualmente o operador de encerramento;
+processo, classificações e origem são `DERIVABLE` por resolução factual dos
+catálogos. A identidade e a
 idempotência usam `codatendimento`, nunca protocolo.
 
 `compare_recurrence_paths` executa a mesma regra sobre conjuntos separados e

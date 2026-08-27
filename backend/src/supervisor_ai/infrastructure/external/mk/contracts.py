@@ -57,6 +57,43 @@ class MkUser:
     name: str
 
 
+@dataclass(frozen=True, slots=True)
+class MkProcessCatalogEntry:
+    external_id: int
+    label: str
+    inactive: bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class MkSubprocessCatalogEntry:
+    external_id: int
+    process_external_id: int | None
+    label: str
+    inactive: bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class MkClassificationCatalogEntry:
+    external_id: int
+    label: str
+    closing: bool | None
+    inactive: bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class MkOriginCatalogEntry:
+    external_id: int
+    label: str
+
+
+@dataclass(frozen=True, slots=True)
+class MkAttendanceCatalogSnapshot:
+    processes: tuple[MkProcessCatalogEntry, ...]
+    subprocesses: tuple[MkSubprocessCatalogEntry, ...]
+    classifications: tuple[MkClassificationCatalogEntry, ...]
+    origins: tuple[MkOriginCatalogEntry, ...]
+
+
 class MkAttendanceQuery(Protocol):
     def list_page(
         self,
@@ -93,3 +130,7 @@ class MkUserQuery(Protocol):
     ) -> tuple[MkUser, ...]: ...
 
     def get_by_ids(self, user_ids: tuple[int, ...]) -> tuple[MkUser, ...]: ...
+
+
+class MkAttendanceCatalogQuery(Protocol):
+    def load(self) -> MkAttendanceCatalogSnapshot: ...

@@ -14,7 +14,15 @@ from supervisor_ai.application.mk_operational import (
 )
 from supervisor_ai.application.persistence import AttendanceFact
 from supervisor_ai.application.ports import Clock, UnitOfWorkFactory
-from supervisor_ai.rules_engine import ClassificationIdentity
+from supervisor_ai.infrastructure.external.mk.contracts import (
+    MkAttendanceCatalogSnapshot,
+)
+from supervisor_ai.rules_engine import (
+    ELIGIBLE_CLOSING_CLASSIFICATIONS,
+    ELIGIBLE_OPENING_CLASSIFICATIONS,
+    ELIGIBLE_PROCESS,
+    ClassificationIdentity,
+)
 
 _FORTALEZA = ZoneInfo("America/Fortaleza")
 DEFAULT_PROJECTION_BATCH_SIZE = 500
@@ -30,18 +38,62 @@ class MkAttendanceProjectionStatus(StrEnum):
     REJECTED = "rejected"
 
 
-class MkResponsibleOperatorRole(StrEnum):
-    OPENING = "opening"
-    CLOSING = "closing"
-
-
 @dataclass(frozen=True, slots=True)
 class MkAttendanceCatalog:
     processes: Mapping[str, ClassificationIdentity]
     opening_classifications: Mapping[str, ClassificationIdentity]
     closing_classifications: Mapping[str, ClassificationIdentity]
     channels: Mapping[str, str]
-    responsible_operator_role: MkResponsibleOperatorRole
+
+
+_CATALOG_LABEL_ALIASES = {
+    "008 - Problemas IPTV": ClassificationIdentity("008", "Problemas no IPTV"),
+    "012 - Entrega/Config. Roteador": ClassificationIdentity(
+        "012", "Entrga/Config. Roteador"
+    ),
+    "030 - Alteração de Plano": ClassificationIdentity("030", "Alteração de plano"),
+}
+
+
+def build_recurrence_catalog(
+    snapshot: MkAttendanceCatalogSnapshot,
+) -> MkAttendanceCatalog:
+    """Relaciona PKs MK a identidades normativas sem extrair códigos do texto."""
+    process_label = _catalog_label(ELIGIBLE_PROCESS)
+    processes = {
+        str(item.external_id): (
+            ELIGIBLE_PROCESS
+            if item.label == process_label
+            else ClassificationIdentity(None, item.label)
+        )
+        for item in snapshot.processes
+    }
+    opening_by_label = {
+        _catalog_label(identity): identity
+        for identity in ELIGIBLE_OPENING_CLASSIFICATIONS
+    }
+    closing_by_label = {
+        _catalog_label(identity): identity
+        for identity in ELIGIBLE_CLOSING_CLASSIFICATIONS
+    }
+    opening: dict[str, ClassificationIdentity] = {}
+    closing: dict[str, ClassificationIdentity] = {}
+    for item in snapshot.classifications:
+        identity = ClassificationIdentity(None, item.label)
+        if item.closing is False:
+            identity = opening_by_label.get(
+                item.label, _CATALOG_LABEL_ALIASES.get(item.label, identity)
+            )
+            opening[str(item.external_id)] = identity
+        elif item.closing is True:
+            identity = closing_by_label.get(item.label, identity)
+            closing[str(item.external_id)] = identity
+    return MkAttendanceCatalog(
+        processes=processes,
+        opening_classifications=opening,
+        closing_classifications=closing,
+        channels={str(item.external_id): item.label for item in snapshot.origins},
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,9 +170,9 @@ class ProjectMkAttendancesUseCase:
                     break
                 operator_ids = tuple(
                     dict.fromkeys(
-                        self._operator_external_id(item)
+                        item.closing_operator_external_id
                         for item in mirrors
-                        if self._operator_external_id(item) is not None
+                        if item.closing_operator_external_id is not None
                     )
                 )
                 identities = (
@@ -187,7 +239,7 @@ class ProjectMkAttendancesUseCase:
                 ("closed_at", mirror.closed_at),
                 (
                     "responsible_operator_external_id",
-                    self._operator_external_id(mirror),
+                    mirror.closing_operator_external_id,
                 ),
                 ("process_external_id", mirror.process_external_id),
                 (
@@ -212,7 +264,7 @@ class ProjectMkAttendancesUseCase:
                 ),
                 None,
             )
-        operator_external_id = self._operator_external_id(mirror)
+        operator_external_id = mirror.closing_operator_external_id
         operator = collaborators.get(operator_external_id)
         if operator is None:
             return (
@@ -278,18 +330,18 @@ class ProjectMkAttendancesUseCase:
             fact,
         )
 
-    def _operator_external_id(self, mirror: MkAttendanceMirror) -> str | None:
-        if self._catalog.responsible_operator_role is MkResponsibleOperatorRole.OPENING:
-            return mirror.opening_operator_external_id
-        return mirror.closing_operator_external_id
-
-
 def _utc_period(command: ProjectMkAttendancesCommand) -> tuple[datetime, datetime]:
     start = datetime.combine(command.opened_from, time.min, tzinfo=_FORTALEZA)
     end = datetime.combine(
         command.opened_through + timedelta(days=1), time.min, tzinfo=_FORTALEZA
     )
     return start.astimezone(UTC), end.astimezone(UTC)
+
+
+def _catalog_label(identity: ClassificationIdentity) -> str:
+    if identity.code is None:
+        return identity.description
+    return f"{identity.code} - {identity.description}"
 
 
 def _same_fact(first: AttendanceFact, second: AttendanceFact) -> bool:

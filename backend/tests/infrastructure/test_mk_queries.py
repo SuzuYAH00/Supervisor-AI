@@ -10,6 +10,7 @@ from supervisor_ai.infrastructure.external.mk.contracts import (
     MkUser,
 )
 from supervisor_ai.infrastructure.external.mk.queries import (
+    MkAttendanceCatalogRepository,
     MkAttendanceRepository,
     MkDialogSessionRepository,
     MkQueryRepositories,
@@ -44,7 +45,8 @@ class FakeConnection:
     def __exit__(self, *args) -> None:
         return None
 
-    def execute(self, statement, parameters) -> FakeResult:
+    def execute(self, statement, parameters=None) -> FakeResult:
+        parameters = {} if parameters is None else parameters
         self.calls.append((str(statement), parameters))
         return FakeResult(self.pages.pop(0))
 
@@ -190,6 +192,39 @@ def test_empty_batches_do_not_open_external_connections() -> None:
     assert engine.connect_calls == 0
 
 
+def test_attendance_catalogs_are_loaded_once_without_n_plus_one() -> None:
+    engine = FakeEngine(
+        [{"external_id": 44, "label": "01 - Atendimento Suporte", "inativo": "N"}],
+        [
+            {
+                "external_id": 71,
+                "process_external_id": 44,
+                "label": "Atendimento Inicial",
+                "inativo": "N",
+            }
+        ],
+        [
+            {
+                "external_id": 19,
+                "label": "001 - Sem acesso a internet",
+                "encerramento": "N",
+                "inativar": "N",
+            }
+        ],
+        [{"external_id": 9, "label": "WhatsApp"}],
+    )
+
+    snapshot = MkAttendanceCatalogRepository(engine).load()  # type: ignore[arg-type]
+
+    assert engine.connect_calls == 1
+    assert len(engine.connection.calls) == 4
+    assert snapshot.processes[0].external_id == 44
+    assert snapshot.subprocesses[0].process_external_id == 44
+    assert snapshot.classifications[0].closing is False
+    assert snapshot.origins[0].label == "WhatsApp"
+    assert all("SELECT *" not in sql.upper() for sql, _ in engine.connection.calls)
+
+
 @pytest.mark.parametrize("page_size", (0, 1001))
 def test_page_size_is_bounded(page_size: int) -> None:
     repository = MkAttendanceRepository(FakeEngine())  # type: ignore[arg-type]
@@ -216,3 +251,4 @@ def test_repository_bundle_reuses_one_external_engine() -> None:
     assert repositories.attendances._engine is engine
     assert repositories.dialog_sessions._engine is engine
     assert repositories.users._engine is engine
+    assert repositories.attendance_catalogs._engine is engine

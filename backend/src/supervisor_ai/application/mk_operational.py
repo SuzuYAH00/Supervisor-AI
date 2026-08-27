@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 MK_EXTERNAL_IDENTITY_SOURCE = "mk"
 MK_SOURCE = MK_EXTERNAL_IDENTITY_SOURCE
 MK_ATTENDANCE_FACT_SOURCE = "mk_postgresql"
+MK_ATTENDANCE_PLAN_CHANGE_LINK_POLICY = "temporal_link_rejected"
 
 
 def _utc_now() -> datetime:
@@ -118,6 +121,90 @@ class MkBotConversationMirror:
             _require_aware(getattr(self, name), name)
         if self.source_last_seen_at < self.source_first_seen_at:
             raise ValueError("source_last_seen_at cannot precede source_first_seen_at")
+
+
+@dataclass(frozen=True, slots=True)
+class MkContractMirror:
+    external_id: str
+    customer_external_id: str
+    current_plan_external_id: str
+    cancelled: str | None
+    suspended: str | None
+    joined_on: date | None
+    activated_at: datetime | None
+    source_first_seen_at: datetime
+    source_last_seen_at: datetime
+    local_created_at: datetime = field(default_factory=_utc_now)
+    local_updated_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        for name in ("external_id", "customer_external_id", "current_plan_external_id"):
+            _require_identity(getattr(self, name), name)
+        _validate_mirror_times(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MkPlanMirror:
+    external_id: str
+    description: str
+    monthly_value: Decimal | None
+    download_speed: int | None
+    upload_speed: int | None
+    formatted_speeds: str | None
+    source_first_seen_at: datetime
+    source_last_seen_at: datetime
+    local_created_at: datetime = field(default_factory=_utc_now)
+    local_updated_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        _require_identity(self.external_id, "external_id")
+        if not self.description.strip():
+            raise ValueError("description must not be blank")
+        _validate_mirror_times(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MkContractPlanChangeMirror:
+    external_id: str
+    contract_external_id: str
+    operation_code: int
+    old_plan_external_id: str | None
+    new_plan_external_id: str | None
+    changed_at: datetime
+    changed_by_login: str
+    changed_by_operator_external_id: str | None
+    value_delta: Decimal | None
+    extra_context: str | None
+    source_first_seen_at: datetime
+    source_last_seen_at: datetime
+    local_created_at: datetime = field(default_factory=_utc_now)
+    local_updated_at: datetime = field(default_factory=_utc_now)
+
+    def __post_init__(self) -> None:
+        for name in ("external_id", "contract_external_id", "changed_by_login"):
+            _require_identity(getattr(self, name), name)
+        if self.operation_code <= 0:
+            raise ValueError("operation_code must be positive")
+        if (
+            self.old_plan_external_id is not None
+            and self.old_plan_external_id == self.new_plan_external_id
+        ):
+            raise ValueError("old and new plan identities must differ")
+        _validate_mirror_times(self, "changed_at")
+
+
+def _validate_mirror_times(item: Any, *additional: str) -> None:
+    names = (
+        *additional,
+        "source_first_seen_at",
+        "source_last_seen_at",
+        "local_created_at",
+        "local_updated_at",
+    )
+    for name in names:
+        _require_aware(getattr(item, name), name)
+    if item.source_last_seen_at < item.source_first_seen_at:
+        raise ValueError("source_last_seen_at cannot precede source_first_seen_at")
 
 
 @dataclass(frozen=True, slots=True)

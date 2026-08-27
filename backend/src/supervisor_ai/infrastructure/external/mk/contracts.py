@@ -2,9 +2,53 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Protocol
 
 MAX_MK_PAGE_SIZE = 1000
+MK_CONTRACT_OPERATION_UPGRADE = 4
+MK_CONTRACT_OPERATION_DOWNGRADE = 5
+
+
+@dataclass(frozen=True, slots=True)
+class MkContract:
+    contract_id: int
+    customer_id: int
+    current_plan_id: int
+    cancelled: str | None
+    suspended: str | None
+    joined_on: date | None
+    activated_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class MkPlan:
+    plan_id: int
+    description: str
+    monthly_value: Decimal | None
+    download_speed: int | None
+    upload_speed: int | None
+    formatted_speeds: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MkContractOperation:
+    operation_code: int
+    description: str
+
+
+@dataclass(frozen=True, slots=True)
+class MkContractPlanChange:
+    plan_change_id: int
+    contract_id: int
+    operation_code: int
+    old_plan_id: int | None
+    new_plan_id: int | None
+    changed_at: datetime
+    changed_by_login: str
+    changed_by_user_id: int | None
+    value_delta: Decimal | None
+    extra_context: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,3 +178,25 @@ class MkUserQuery(Protocol):
 
 class MkAttendanceCatalogQuery(Protocol):
     def load(self) -> MkAttendanceCatalogSnapshot: ...
+
+
+class MkContractQuery(Protocol):
+    def list_page(
+        self, *, after_id: int | None = None, page_size: int = 100
+    ) -> tuple[MkContract, ...]: ...
+
+
+class MkPlanQuery(Protocol):
+    def list_page(
+        self, *, after_id: int | None = None, page_size: int = 100
+    ) -> tuple[MkPlan, ...]: ...
+
+
+class MkContractPlanChangeQuery(Protocol):
+    def list_page(
+        self, *, after_id: int | None = None, page_size: int = 100
+    ) -> tuple[MkContractPlanChange, ...]: ...
+
+
+class MkContractOperationQuery(Protocol):
+    def load(self) -> tuple[MkContractOperation, ...]: ...

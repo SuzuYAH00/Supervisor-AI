@@ -1,6 +1,7 @@
 import re
 from dataclasses import replace
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +9,9 @@ from sqlalchemy.orm import Session
 from supervisor_ai.application.mk_operational import (
     MkAttendanceMirror,
     MkBotConversationMirror,
+    MkContractMirror,
+    MkContractPlanChangeMirror,
+    MkPlanMirror,
     MkSyncRun,
     MkSyncState,
     MkSyncStatus,
@@ -16,6 +20,9 @@ from supervisor_ai.application.mk_operational import (
 from supervisor_ai.infrastructure.persistence.models import (
     MkAttendanceMirrorRecord,
     MkBotConversationMirrorRecord,
+    MkContractMirrorRecord,
+    MkContractPlanChangeMirrorRecord,
+    MkPlanMirrorRecord,
     MkSyncRunRecord,
     MkSyncStateRecord,
 )
@@ -48,6 +55,32 @@ _CONVERSATION_FACT_FIELDS = (
     "closed_at",
     "score",
     "final_operator_external_id",
+)
+_CONTRACT_FACT_FIELDS = (
+    "customer_external_id",
+    "current_plan_external_id",
+    "cancelled",
+    "suspended",
+    "joined_on",
+    "activated_at",
+)
+_PLAN_FACT_FIELDS = (
+    "description",
+    "monthly_value",
+    "download_speed",
+    "upload_speed",
+    "formatted_speeds",
+)
+_PLAN_CHANGE_FACT_FIELDS = (
+    "contract_external_id",
+    "operation_code",
+    "old_plan_external_id",
+    "new_plan_external_id",
+    "changed_at",
+    "changed_by_login",
+    "changed_by_operator_external_id",
+    "value_delta",
+    "extra_context",
 )
 
 
@@ -191,6 +224,71 @@ class SqlAlchemyMkBotConversationMirrorRepository:
         return tuple(_conversation_from_record(record) for record in records)
 
 
+class SqlAlchemyMkContractMirrorRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_external_id(self, external_id: str) -> MkContractMirror | None:
+        record = self.session.get(MkContractMirrorRecord, external_id)
+        return None if record is None else _from_record(record, MkContractMirror)
+
+    def upsert(self, item: MkContractMirror) -> MkUpsertOutcome:
+        return _upsert_mutable(
+            self.session, item, MkContractMirrorRecord, _CONTRACT_FACT_FIELDS
+        )
+
+
+class SqlAlchemyMkPlanMirrorRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_external_id(self, external_id: str) -> MkPlanMirror | None:
+        record = self.session.get(MkPlanMirrorRecord, external_id)
+        return None if record is None else _from_record(record, MkPlanMirror)
+
+    def upsert(self, item: MkPlanMirror) -> MkUpsertOutcome:
+        return _upsert_mutable(
+            self.session, item, MkPlanMirrorRecord, _PLAN_FACT_FIELDS
+        )
+
+
+class SqlAlchemyMkContractPlanChangeMirrorRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_external_id(self, external_id: str) -> MkContractPlanChangeMirror | None:
+        record = self.session.get(MkContractPlanChangeMirrorRecord, external_id)
+        return (
+            None if record is None else _from_record(record, MkContractPlanChangeMirror)
+        )
+
+    def upsert(self, item: MkContractPlanChangeMirror) -> MkUpsertOutcome:
+        return _upsert_mutable(
+            self.session,
+            item,
+            MkContractPlanChangeMirrorRecord,
+            _PLAN_CHANGE_FACT_FIELDS,
+        )
+
+    def list_by_contract(
+        self, contract_external_id: str
+    ) -> tuple[MkContractPlanChangeMirror, ...]:
+        records = self.session.scalars(
+            select(MkContractPlanChangeMirrorRecord)
+            .where(
+                MkContractPlanChangeMirrorRecord.contract_external_id
+                == contract_external_id
+            )
+            .order_by(
+                MkContractPlanChangeMirrorRecord.changed_at,
+                MkContractPlanChangeMirrorRecord.external_id,
+            )
+        )
+        return tuple(
+            _from_record(record, MkContractPlanChangeMirror) for record in records
+        )
+
+
 class SqlAlchemyMkSyncRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -298,6 +396,39 @@ def _conversation_from_record(
             for name in MkBotConversationMirror.__dataclass_fields__
         }
     )
+
+
+def _from_record(record: object, mirror_type: type):
+    return mirror_type(
+        **{name: getattr(record, name) for name in mirror_type.__dataclass_fields__}
+    )
+
+
+def _upsert_mutable(
+    session: Session, item: Any, record_type: type, fact_fields: tuple[str, ...]
+) -> MkUpsertOutcome:
+    record = session.get(record_type, item.external_id)
+    if record is None:
+        session.add(
+            record_type(
+                **{name: getattr(item, name) for name in item.__dataclass_fields__}
+            )
+        )
+        session.flush()
+        return MkUpsertOutcome.INSERTED
+    changed = any(getattr(record, name) != getattr(item, name) for name in fact_fields)
+    for name in fact_fields:
+        setattr(record, name, getattr(item, name))
+    record.source_first_seen_at = min(
+        record.source_first_seen_at, item.source_first_seen_at
+    )
+    record.source_last_seen_at = max(
+        record.source_last_seen_at, item.source_last_seen_at
+    )
+    if changed:
+        record.local_updated_at = item.local_updated_at
+    session.flush()
+    return MkUpsertOutcome.UPDATED if changed else MkUpsertOutcome.UNCHANGED
 
 
 def _state_to_record(item: MkSyncState) -> MkSyncStateRecord:

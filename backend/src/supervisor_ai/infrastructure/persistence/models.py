@@ -712,6 +712,75 @@ class MkBotConversationMirrorRecord(Base):
     )
 
 
+class MkContractMirrorRecord(Base):
+    __tablename__ = "mk_contract_mirror"
+
+    external_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    customer_external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    current_plan_external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    cancelled: Mapped[str | None] = mapped_column(String(20))
+    suspended: Mapped[str | None] = mapped_column(String(20))
+    joined_on: Mapped[date | None] = mapped_column(Date())
+    activated_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    source_first_seen_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False
+    )
+    source_last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    __table_args__ = (
+        Index("ix_mk_contract_customer", "customer_external_id"),
+        Index("ix_mk_contract_current_plan", "current_plan_external_id"),
+    )
+
+
+class MkPlanMirrorRecord(Base):
+    __tablename__ = "mk_plan_mirror"
+
+    external_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    monthly_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    download_speed: Mapped[int | None] = mapped_column(BigInteger())
+    upload_speed: Mapped[int | None] = mapped_column(BigInteger())
+    formatted_speeds: Mapped[str | None] = mapped_column(String(500))
+    source_first_seen_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False
+    )
+    source_last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
+class MkContractPlanChangeMirrorRecord(Base):
+    __tablename__ = "mk_contract_plan_change_mirror"
+
+    external_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    contract_external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    operation_code: Mapped[int] = mapped_column(nullable=False)
+    old_plan_external_id: Mapped[str | None] = mapped_column(String(255))
+    new_plan_external_id: Mapped[str | None] = mapped_column(String(255))
+    changed_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    changed_by_login: Mapped[str] = mapped_column(String(255), nullable=False)
+    changed_by_operator_external_id: Mapped[str | None] = mapped_column(String(255))
+    value_delta: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    extra_context: Mapped[str | None] = mapped_column(Text())
+    source_first_seen_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False
+    )
+    source_last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    local_updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    __table_args__ = (
+        Index(
+            "ix_mk_plan_change_contract_changed", "contract_external_id", "changed_at"
+        ),
+        Index("ix_mk_plan_change_operation", "operation_code"),
+        Index("ix_mk_plan_change_old_plan", "old_plan_external_id"),
+        Index("ix_mk_plan_change_new_plan", "new_plan_external_id"),
+        Index("ix_mk_plan_change_operator", "changed_by_operator_external_id"),
+    )
+
+
 class MkSyncStateRecord(Base):
     __tablename__ = "mk_sync_states"
 

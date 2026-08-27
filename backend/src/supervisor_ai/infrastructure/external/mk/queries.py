@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time
+from decimal import Decimal
 
 from sqlalchemy import Engine, bindparam, text
 
@@ -10,9 +11,13 @@ from supervisor_ai.infrastructure.external.mk.contracts import (
     MkAttendance,
     MkAttendanceCatalogSnapshot,
     MkClassificationCatalogEntry,
+    MkContract,
+    MkContractOperation,
+    MkContractPlanChange,
     MkDialogOperatorLink,
     MkDialogSession,
     MkOriginCatalogEntry,
+    MkPlan,
     MkProcessCatalogEntry,
     MkSubprocessCatalogEntry,
     MkUser,
@@ -157,6 +162,65 @@ _ORIGIN_CATALOG = text(
     """
 )
 
+_CONTRACT_PAGE = text(
+    """
+    SELECT codcontrato AS contract_id, cliente AS customer_id,
+           plano_acesso AS current_plan_id, cancelado, suspenso,
+           adesao AS joined_on,
+           COALESCE(data_hora_ativacao, dt_ativacao::timestamp) AS activated_at
+      FROM public.mk_contratos
+     WHERE (:after_id IS NULL OR codcontrato > :after_id)
+     ORDER BY codcontrato ASC
+     LIMIT :page_size
+    """
+)
+_PLAN_PAGE = text(
+    """
+    SELECT codplano AS plan_id, descricao, vlr_mensalidade,
+           vlr_velocidade AS download_speed,
+           vlr_velocidade_up AS upload_speed, velocidades_formatadas
+      FROM public.mk_planos_acesso
+     WHERE (:after_id IS NULL OR codplano > :after_id)
+     ORDER BY codplano ASC
+     LIMIT :page_size
+    """
+)
+_CONTRACT_OPERATION_CATALOG = text(
+    """
+    SELECT codcontratooperacao AS operation_code,
+           descricao_operacao AS description
+      FROM public.mk_contratos_operacoes
+     ORDER BY codcontratooperacao
+    """
+)
+_PLAN_CHANGE_PAGE = text(
+    """
+    WITH unique_users AS (
+        SELECT lower(trim(usr_login)) AS normalized_login,
+               min(usr_codigo) AS user_id
+          FROM public.fr_usuario
+         GROUP BY lower(trim(usr_login))
+        HAVING count(*) = 1
+    )
+    SELECT h.codcontratohist AS plan_change_id,
+           h.cd_contrato AS contract_id,
+           h.cd_operacao AS operation_code,
+           h.cd_plano_velho AS old_plan_id,
+           h.cd_plano_novo AS new_plan_id,
+           h.dt_hr AS changed_at,
+           h.operador AS changed_by_login,
+           u.user_id AS changed_by_user_id,
+           h.vlr AS value_delta,
+           h.tx_extra AS extra_context
+      FROM public.mk_contratos_historicos h
+      LEFT JOIN unique_users u
+        ON u.normalized_login = lower(trim(h.operador))
+     WHERE (:after_id IS NULL OR h.codcontratohist > :after_id)
+     ORDER BY h.codcontratohist ASC
+     LIMIT :page_size
+    """
+)
+
 
 @dataclass(frozen=True, slots=True)
 class MkQueryRepositories:
@@ -164,6 +228,10 @@ class MkQueryRepositories:
     dialog_sessions: MkDialogSessionRepository
     users: MkUserRepository
     attendance_catalogs: MkAttendanceCatalogRepository
+    contracts: MkContractRepository
+    plans: MkPlanRepository
+    contract_plan_changes: MkContractPlanChangeRepository
+    contract_operations: MkContractOperationRepository
 
     @classmethod
     def from_engine(cls, engine: Engine) -> MkQueryRepositories:
@@ -172,7 +240,69 @@ class MkQueryRepositories:
             MkDialogSessionRepository(engine),
             MkUserRepository(engine),
             MkAttendanceCatalogRepository(engine),
+            MkContractRepository(engine),
+            MkPlanRepository(engine),
+            MkContractPlanChangeRepository(engine),
+            MkContractOperationRepository(engine),
         )
+
+
+class MkContractRepository:
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
+
+    def list_page(
+        self, *, after_id: int | None = None, page_size: int = 100
+    ) -> tuple[MkContract, ...]:
+        _validate_page(after_id, page_size)
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                _CONTRACT_PAGE, {"after_id": after_id, "page_size": page_size}
+            ).mappings()
+            return tuple(_contract(row) for row in rows)
+
+
+class MkPlanRepository:
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
+
+    def list_page(
+        self, *, after_id: int | None = None, page_size: int = 100
+    ) -> tuple[MkPlan, ...]:
+        _validate_page(after_id, page_size)
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                _PLAN_PAGE, {"after_id": after_id, "page_size": page_size}
+            ).mappings()
+            return tuple(_plan(row) for row in rows)
+
+
+class MkContractPlanChangeRepository:
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
+
+    def list_page(
+        self, *, after_id: int | None = None, page_size: int = 100
+    ) -> tuple[MkContractPlanChange, ...]:
+        _validate_page(after_id, page_size)
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                _PLAN_CHANGE_PAGE,
+                {"after_id": after_id, "page_size": page_size},
+            ).mappings()
+            return tuple(_plan_change(row) for row in rows)
+
+
+class MkContractOperationRepository:
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
+
+    def load(self) -> tuple[MkContractOperation, ...]:
+        with self._engine.connect() as connection:
+            return tuple(
+                MkContractOperation(row["operation_code"], row["description"])
+                for row in connection.execute(_CONTRACT_OPERATION_CATALOG).mappings()
+            )
 
 
 class MkAttendanceCatalogRepository:
@@ -348,6 +478,44 @@ def _attendance(row) -> MkAttendance:
     )
 
 
+def _contract(row) -> MkContract:
+    return MkContract(
+        contract_id=row["contract_id"],
+        customer_id=row["customer_id"],
+        current_plan_id=row["current_plan_id"],
+        cancelled=_optional_text(row["cancelado"]),
+        suspended=_optional_text(row["suspenso"]),
+        joined_on=row["joined_on"],
+        activated_at=row["activated_at"],
+    )
+
+
+def _plan(row) -> MkPlan:
+    return MkPlan(
+        plan_id=row["plan_id"],
+        description=row["descricao"],
+        monthly_value=_optional_decimal(row["vlr_mensalidade"]),
+        download_speed=row["download_speed"],
+        upload_speed=row["upload_speed"],
+        formatted_speeds=row["velocidades_formatadas"],
+    )
+
+
+def _plan_change(row) -> MkContractPlanChange:
+    return MkContractPlanChange(
+        plan_change_id=row["plan_change_id"],
+        contract_id=row["contract_id"],
+        operation_code=row["operation_code"],
+        old_plan_id=row["old_plan_id"],
+        new_plan_id=row["new_plan_id"],
+        changed_at=row["changed_at"],
+        changed_by_login=row["changed_by_login"],
+        changed_by_user_id=row["changed_by_user_id"],
+        value_delta=_optional_decimal(row["value_delta"]),
+        extra_context=row["extra_context"],
+    )
+
+
 def _dialog(row) -> MkDialogSession:
     return MkDialogSession(
         dialog_session_id=row["dialog_session_id"],
@@ -412,6 +580,14 @@ def _optional_mk_boolean(value: str | None) -> bool | None:
     if value is None:
         return None
     return _mk_boolean(value)
+
+
+def _optional_text(value: str | None) -> str | None:
+    return None if value is None else value.strip()
+
+
+def _optional_decimal(value: object | None) -> Decimal | None:
+    return None if value is None else Decimal(str(value))
 
 
 def _mk_boolean(value: str) -> bool:

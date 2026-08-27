@@ -297,3 +297,82 @@ adicionais ou revisão manual.
 5. tratamento explícito dos gaps como `NOT_EVALUABLE` ou revisão manual;
 6. investigação dirigida de uma chave determinística ticket ↔ mudança antes de
    qualquer atribuição automática ao autor do atendimento.
+
+## MK-UPGRADE-DB-02 — contratos tipados e mirror comercial
+
+Esta etapa implementa somente contratos de leitura e persistência operacional;
+não executa sincronização nem cria `CommercialEvent`.
+
+| DTO externo | SOURCE_PK / BUSINESS_KEY | Mutabilidade | Origem |
+|---|---|---|---|
+| `MkContract` | `codcontrato` | mutável | `mk_contratos` |
+| `MkPlan` | `codplano` | mutável | `mk_planos_acesso` |
+| `MkContractPlanChange` | `codcontratohist` | mutável/corrigível | `mk_contratos_historicos` |
+| `MkContractOperation` | `codcontratooperacao` | catálogo | `mk_contratos_operacoes` |
+
+O nome do plano, o login do operador e o timestamp são atributos, nunca
+identidades. Os códigos 4 (Upgrade) e 5 (Downgrade) são constantes nomeadas,
+mas o código bruto desconhecido continua preservado.
+
+### Mirrors locais
+
+| Tabela | Chave | Relações factuais por ID externo |
+|---|---|---|
+| `mk_contract_mirror` | `external_id = codcontrato` | cliente e plano atual |
+| `mk_plan_mirror` | `external_id = codplano` | atributos do catálogo |
+| `mk_contract_plan_change_mirror` | `external_id = codcontratohist` | contrato, plano anterior, plano novo e operador |
+
+Não há FKs entre esses mirrors. Isso permite carga fora de ordem, preserva IDs
+de planos removidos e aceita operadores ainda não resolvidos. A unicidade da PK
+externa impede duplicação. Upserts comparam somente fatos: uma mudança isolada
+de `source_last_seen_at` é `UNCHANGED`; correção factual da origem é `UPDATED`.
+
+O `changed_by_operator_external_id`, quando resolvido univocamente em
+`fr_usuario`, contém `str(usr_codigo)` e pode ser procurado em
+`CollaboratorExternalIdentity(source="mk")`. Login não único ou ausente mantém
+o ID nulo e exige resolução explícita; nenhum colaborador é criado aqui.
+
+Timestamps PostgreSQL sem timezone são interpretados como `America/Fortaleza`
+e persistidos em UTC, sem truncamento.
+
+### Política de atendimento e financeiro
+
+`ATTENDANCE_PLAN_CHANGE_LINK = TEMPORAL_ONLY` permanece uma barreira
+arquitetural: nenhum campo ou repositório associa atendimento a alteração por
+proximidade de horário, cliente, dia ou operador. A política codificada é
+`temporal_link_rejected`.
+
+Mirrors financeiros foram adiados. Contrato, plano e transição não precisam de
+uma referência financeira para preservar seus fatos, e a auditoria classificou
+valor histórico e pagamento como parciais. Modelá-los agora anteciparia a regra
+de primeira fatura, expressamente fora desta etapa.
+
+### Matriz MK → CommercialEvent atual
+
+| Fato MK | Campo atual | Disponibilidade |
+|---|---|---|
+| `codcontratohist` | `external_reference` | DIRECT |
+| `dt_hr` convertido para UTC | `occurred_at` | DIRECT |
+| origem MK | `source` | DIRECT |
+| planos anterior/novo e contrato | `raw_payload` | DIRECT |
+| `usr_codigo` resolvido | colaborador | DERIVABLE; não há campo tipado atual |
+| cliente do contrato | referência de cliente | NOT YET AVAILABLE como campo tipado |
+| atendimento/ticket | ticket | NOT YET AVAILABLE; vínculo temporal rejeitado |
+| valor recorrente anterior/novo | valor financeiro | NOT YET AVAILABLE |
+| fatura/pagamento | evidência financeira | NOT YET AVAILABLE |
+
+O `CommercialEvent` não foi alterado. A futura projeção pertence ao Motor de
+Processamento e a interpretação 4/5 pertence ao Motor de Regras.
+
+### Plano de sync futuro
+
+Reutilizar `mk_sync_states` e `mk_sync_runs`, sem cursor novo:
+
+- contratos: keyset `codcontrato > last_pk`, `ORDER BY codcontrato`, `LIMIT`;
+- planos: keyset `codplano > last_pk`, `ORDER BY codplano`, `LIMIT`;
+- alterações: keyset `codcontratohist > last_pk`, `ORDER BY codcontratohist`,
+  `LIMIT`.
+
+Como as três fontes são mutáveis, o sync incremental precisará também de uma
+estratégia explícita de revisita/reconciliação. Esta missão prepara os upserts,
+mas deliberadamente não escolhe nem executa essa estratégia.

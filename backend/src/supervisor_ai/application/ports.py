@@ -5,6 +5,9 @@ from typing import Protocol, Self
 from supervisor_ai.application.mk_operational import (
     MkAttendanceMirror,
     MkBotConversationMirror,
+    MkContractMirror,
+    MkContractPlanChangeMirror,
+    MkPlanMirror,
     MkSyncRun,
     MkSyncState,
     MkUpsertOutcome,
@@ -362,6 +365,26 @@ class MkBotConversationMirrorRepository(Protocol):
     ) -> tuple[MkBotConversationMirror, ...]: ...
 
 
+class MkContractMirrorRepository(Protocol):
+    def get_by_external_id(self, external_id: str) -> MkContractMirror | None: ...
+    def upsert(self, item: MkContractMirror) -> MkUpsertOutcome: ...
+
+
+class MkPlanMirrorRepository(Protocol):
+    def get_by_external_id(self, external_id: str) -> MkPlanMirror | None: ...
+    def upsert(self, item: MkPlanMirror) -> MkUpsertOutcome: ...
+
+
+class MkContractPlanChangeMirrorRepository(Protocol):
+    def get_by_external_id(
+        self, external_id: str
+    ) -> MkContractPlanChangeMirror | None: ...
+    def upsert(self, item: MkContractPlanChangeMirror) -> MkUpsertOutcome: ...
+    def list_by_contract(
+        self, contract_external_id: str
+    ) -> tuple[MkContractPlanChangeMirror, ...]: ...
+
+
 class MkSyncRepository(Protocol):
     def get_state(self, *, source: str, entity_type: str) -> MkSyncState | None: ...
     def get_state_for_update(
@@ -395,6 +418,9 @@ class UnitOfWork(Protocol):
     ingestion_coverages: IngestionCoverageRepository
     mk_attendances: MkAttendanceMirrorRepository
     mkbot_conversations: MkBotConversationMirrorRepository
+    mk_contracts: MkContractMirrorRepository
+    mk_plans: MkPlanMirrorRepository
+    mk_contract_plan_changes: MkContractPlanChangeMirrorRepository
     mk_sync: MkSyncRepository
 
     def __enter__(self) -> Self: ...

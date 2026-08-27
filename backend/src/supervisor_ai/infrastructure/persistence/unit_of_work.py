@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from supervisor_ai.infrastructure.persistence.mk_operational import (
     SqlAlchemyMkAttendanceMirrorRepository,
     SqlAlchemyMkBotConversationMirrorRepository,
+    SqlAlchemyMkContractMirrorRepository,
+    SqlAlchemyMkContractPlanChangeMirrorRepository,
+    SqlAlchemyMkPlanMirrorRepository,
     SqlAlchemyMkSyncRepository,
 )
 from supervisor_ai.infrastructure.persistence.repositories import (
@@ -75,6 +78,11 @@ class SqlAlchemyUnitOfWork:
         )
         self.mk_attendances = SqlAlchemyMkAttendanceMirrorRepository(session)
         self.mkbot_conversations = SqlAlchemyMkBotConversationMirrorRepository(session)
+        self.mk_contracts = SqlAlchemyMkContractMirrorRepository(session)
+        self.mk_plans = SqlAlchemyMkPlanMirrorRepository(session)
+        self.mk_contract_plan_changes = SqlAlchemyMkContractPlanChangeMirrorRepository(
+            session
+        )
         self.mk_sync = SqlAlchemyMkSyncRepository(session)
         return self
 

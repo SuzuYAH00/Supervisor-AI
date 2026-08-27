@@ -69,9 +69,18 @@ def settings(**overrides) -> MkDatabaseSettings:
         "mk_db_name": "mk",
         "mk_db_user": "reader",
         "mk_db_password": SecretStr("not-a-real-password"),
+        "mk_db_sslmode": "require",
     }
     values.update(overrides)
     return MkDatabaseSettings(**values)
+
+
+def test_tls_is_required_by_default_and_non_tls_requires_explicit_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MK_DB_SSLMODE", raising=False)
+    assert MkDatabaseSettings().mk_db_sslmode == "require"
+    assert MkDatabaseSettings(mk_db_sslmode="disable").mk_db_sslmode == "disable"
 
 
 def test_missing_configuration_is_optional_and_partial_configuration_is_safe() -> None:
@@ -168,6 +177,7 @@ def test_health_error_is_sanitized() -> None:
     )
     result = MkDatabaseConnector(FakeEngine(error=error)).check_health()  # type: ignore[arg-type]
     assert result.status is MkDatabaseStatus.UNAVAILABLE
+    assert result.read_only is None
     assert result.error_kind is MkDatabaseErrorKind.TIMEOUT
     assert secret not in repr(result)
 

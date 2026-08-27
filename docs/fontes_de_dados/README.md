@@ -29,6 +29,10 @@ Para cada sistema deverão ser registrados:
 
 Outras integrações poderão ser adicionadas futuramente.
 
+Descobertas técnicas do MK:
+
+- [Auditoria PostgreSQL do domínio de Upgrade](mk_upgrade_postgresql.md)
+
 ---
 
 # Princípio

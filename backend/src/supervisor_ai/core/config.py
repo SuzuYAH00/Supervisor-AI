@@ -24,7 +24,9 @@ class MkDatabaseSettings(BaseSettings):
     mk_db_name: str | None = None
     mk_db_user: str | None = None
     mk_db_password: SecretStr | None = None
-    mk_db_sslmode: Literal["require", "verify-ca", "verify-full"] = "require"
+    mk_db_sslmode: Literal["disable", "require", "verify-ca", "verify-full"] = (
+        "require"
+    )
     mk_db_connect_timeout_seconds: int = 5
     mk_db_statement_timeout_ms: int = 15_000
 

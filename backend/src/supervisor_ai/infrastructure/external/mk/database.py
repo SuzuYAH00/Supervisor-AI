@@ -35,7 +35,7 @@ class MkDatabaseErrorKind(StrEnum):
 @dataclass(frozen=True, slots=True)
 class MkDatabaseHealth:
     status: MkDatabaseStatus
-    read_only: bool
+    read_only: bool | None
     error_kind: MkDatabaseErrorKind | None = None
 
 
@@ -62,7 +62,7 @@ class MkDatabaseConnector:
         except (OperationalError, DBAPIError) as error:
             return MkDatabaseHealth(
                 MkDatabaseStatus.UNAVAILABLE,
-                False,
+                None,
                 _safe_error_kind(error),
             )
 
